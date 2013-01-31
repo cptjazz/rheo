@@ -1,0 +1,4 @@
+# Bulid products
+*.a
+*.o
+*.so
