@@ -3,3 +3,5 @@
 *.o
 *.so
 *.swp
+Release+Asserts
+autoconf/autom4te.cache
