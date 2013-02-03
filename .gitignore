@@ -5,3 +5,7 @@
 *.swp
 Release+Asserts
 autoconf/autom4te.cache
+config.log
+config.status
+Debug+Asserts
+configure.out
