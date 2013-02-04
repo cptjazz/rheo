@@ -22,9 +22,23 @@ namespace {
       errs() << "========================================\n";
 
 
+F.viewCFG();
+
+      errs() << "Arg infos: \n";
+      Function::arg_iterator a_i = F.arg_begin();
+      Function::arg_iterator a_e = F.arg_end();
+      for (; a_i != a_e; ++a_i) {
+        Argument& arg = *a_i;
+        Value& v = cast<Value>(arg);
+        errs() << v.getName() << ": ";
+        printUsages(v, 0);
+        errs() << "\n";
+      }
+
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-        errs() << (i->getParent()) << " " << *i << "\n";
-        
+        errs() << (i->getParent()) << " " << *i << " || ";
+        printUsages(*i, 0);
+        errs() << "\n";
         handleInstructions(*i);
       }
 
@@ -34,6 +48,8 @@ namespace {
     private:
     void handleInstructions(Instruction &I) {
       handleBinaryOperator(I);
+
+      Value& val = cast<Value>(I);
     }
 
     void handleBinaryOperator(Instruction &I) {
@@ -44,40 +60,33 @@ namespace {
       errs() << "     prev opcode: " << bin_op.getOpcode() << "\n";
       User& user = cast<User>(I);
       errs() << " num of operands: " << user.getNumOperands() << "\n";
-      
+      /*
       for (size_t i = 0; i < user.getNumOperands(); i++) {
         Value& v = *user.getOperand(i);
         printValueInfo(v);
         printUsages(v, 0);
-      }
+      }*/
 
     }
 
     void printUsages(Value &V, int level) {
       Value::use_iterator i = V.use_begin();
       Value::use_iterator e = V.use_end();
+      
+      for (int j = 0; j < level; j++)
+        errs() << "`";
+
       for (; i != e; ++i) {
-        //Value& v = cast<Value>(*i);
-        errs() << "L" << level << "\n";
         Value& v = *cast<Value>(*i);
-        errs() << "  * used by: "; 
+
         printValueInfo(v);
         printUsages(v, level + 1);
       }
     }
 
     void printValueInfo(Value &V) {
-      errs() << "  Value/Uses/Type: " << V.getValueName() << "(" << V.getValueID() << ")" << "/" 
-                                      << V.getNumUses() << "/"
-                                      << V.getType()->getTypeID() << "\n";
-
-//      errs() << "          values: " << op0->getValueName() << ", " << op1->getValueName() << "\n";
-//      errs() << "            uses: " << op0->getNumUses() << ", " << op1->getNumUses() << "\n";
-      
-//      Type* t0 = op0->getType();
-//      Type* t1 = op1->getType();
-//      errs() << "           types: " << t0->getTypeID() << ", " << t1->getTypeID() << "\n";
-
+      errs() << "(" << V.getName() << "," << V << ")" << "/" 
+                                      << V.getNumUses();
     }
   };
 }
