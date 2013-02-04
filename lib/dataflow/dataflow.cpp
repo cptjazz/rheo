@@ -22,71 +22,40 @@ namespace {
       errs() << "========================================\n";
 
 
-F.viewCFG();
-
       errs() << "Arg infos: \n";
       Function::arg_iterator a_i = F.arg_begin();
       Function::arg_iterator a_e = F.arg_end();
       for (; a_i != a_e; ++a_i) {
         Argument& arg = *a_i;
-        Value& v = cast<Value>(arg);
-        errs() << v.getName() << ": ";
-        printUsages(v, 0);
-        errs() << "\n";
-      }
-
-      for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-        errs() << (i->getParent()) << " " << *i << " || ";
-        printUsages(*i, 0);
-        errs() << "\n";
-        handleInstructions(*i);
+        errs() << arg.getName() << ":\n";
+        Value& arg_tree_start = getBaseUserForArgument(arg);
+        printUsages(arg_tree_start, 0);
       }
 
       return false;
     }
 
     private:
-    void handleInstructions(Instruction &I) {
-      handleBinaryOperator(I);
-
-      Value& val = cast<Value>(I);
-    }
-
-    void handleBinaryOperator(Instruction &I) {
-      if (!isa<BinaryOperator>(I))
-        return;
-
-      BinaryOperator& bin_op = cast<BinaryOperator>(I);
-      errs() << "     prev opcode: " << bin_op.getOpcode() << "\n";
-      User& user = cast<User>(I);
-      errs() << " num of operands: " << user.getNumOperands() << "\n";
-      /*
-      for (size_t i = 0; i < user.getNumOperands(); i++) {
-        Value& v = *user.getOperand(i);
-        printValueInfo(v);
-        printUsages(v, 0);
-      }*/
-
+    Value& getBaseUserForArgument(Value& val) {
+      // assume val is an argument and always has one user.
+      User* user = cast<User>(*(val.use_begin()));
+      Instruction* inst = cast<Instruction>(user);
+      return *(inst->getOperand(1)); 
     }
 
     void printUsages(Value &V, int level) {
+      for (int j = 0; j < level; j++)
+        errs() << " ";
+
+      errs() << V << "\n";
+
       Value::use_iterator i = V.use_begin();
       Value::use_iterator e = V.use_end();
       
-      for (int j = 0; j < level; j++)
-        errs() << "`";
-
       for (; i != e; ++i) {
         Value& v = *cast<Value>(*i);
-
-        printValueInfo(v);
         printUsages(v, level + 1);
       }
-    }
-
-    void printValueInfo(Value &V) {
-      errs() << "(" << V.getName() << "," << V << ")" << "/" 
-                                      << V.getNumUses();
     }
   };
 }
