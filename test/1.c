@@ -15,7 +15,7 @@ int foo(int a, int b, int* c) {
     *c = b;
 
   while(x)
-    b = a + c;
+    b = a + *c;
 
   *c = add(y, 3);
 
