@@ -7,6 +7,8 @@
 #include "llvm/InstrTypes.h"
 #include <map>
 #include <set>
+#include <stdio.h>
+
 
 using namespace llvm;
 using namespace std;
@@ -18,7 +20,8 @@ namespace {
   struct Dataflow : public FunctionPass {
     static char ID;
 
-    map<Argument*, Value*> argumentTreeHeads;
+    set<Instruction*> returnStatements;
+    map<Argument*, Value*> arguments;
 
     Dataflow() : FunctionPass(ID) { }
 
@@ -27,17 +30,59 @@ namespace {
       errs().write_escaped(F.getName()) << "\n";
       errs() << "========================================\n";
 
-      printInstructions(F);
-      printDefUseForArguments(F);
+      arguments.clear();
+      returnStatements.clear();
 
-      set<Instruction*> returnStatements;
+      //printInstructions(F);
+
       findReturnStatements(F, returnStatements);
-      printUseDefForReturnStatements(returnStatements);
+      //printUseDefForReturnStatements(returnStatements);
+
+      findArguments(F, arguments);
+      //printDefUseForArguments(arguments);
+
+      for (set<Instruction*>::iterator ret_i = returnStatements.begin(), ret_e = returnStatements.end(); ret_i != ret_e; ret_i++) {
+        User& returnStmt = *cast<User>(*ret_i);
+        iterateOverUseDefChain(returnStmt);
+      }
 
       return false;
     }
 
     private:
+    bool iterateOverUseDefChain(User& chainHead) {
+      if (searchInArgumentChain(chainHead, arguments))
+        return true;
+
+      for (User::op_iterator i = chainHead.op_begin(), e = chainHead.op_end(); i != e; ++i) {
+        User& u = *cast<User>(*i);
+        if (iterateOverUseDefChain(u))
+          return true;
+      }
+
+      return false;
+    }
+
+    bool searchInArgumentChain(Value& ret_val, map<Argument*, Value*>& arguments) {
+      for (map<Argument*, Value*>::iterator arg_i = arguments.begin(), arg_e = arguments.end(); arg_i != arg_e; arg_i++) {
+        Value& head = *arg_i->first;
+        if (isValueInDefUseChain(ret_val, head)) {
+          errs() << "Argument `" << head.getName() << "` taints return value `" << ret_val << "`";
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    void findArguments(Function& F, map<Argument*, Value*>& args) {
+      for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
+        Argument& arg = *i;
+        Value& arg_tree_start = getBaseUserForArgument(arg);
+        args.insert(pair<Argument*, Value*>(&arg, &arg_tree_start));
+      }
+    }
+
     void printUseDefForReturnStatements(set<Instruction*>& retStmts) {
       for (set<Instruction*>::iterator i = retStmts.begin(), e = retStmts.end(); i != e; ++i) {
         User& u = cast<User>(**i);
@@ -62,17 +107,26 @@ namespace {
       }
     }
 
-    void printDefUseForArguments(Function &F) {
-      errs() << "Arg infos: \n";
-      Function::arg_iterator a_i = F.arg_begin();
-      Function::arg_iterator a_e = F.arg_end();
-      for (; a_i != a_e; ++a_i) {
-        Argument& arg = *a_i;
-        errs() << arg.getName() << ":\n";
-        Value& arg_tree_start = getBaseUserForArgument(arg);
-        argumentTreeHeads.insert(pair<Argument*, Value*>(&arg, &arg_tree_start));
-        printUsages(arg_tree_start, 0);
+    void printDefUseForArguments(map<Argument*, Value*>& args) {
+      for (map<Argument*, Value*>::iterator i = args.begin(), e = args.end(); i != e; ++i) {
+        Value& storeLoc = *i->second;
+        Argument& arg = *i->first;
+        errs() << "Found argument: " << arg.getName() << "\n";
+        printUsages(storeLoc, 0);
       }
+    }
+
+    bool isValueInDefUseChain(Value& v, Value& chainHead) {
+      this seems not to work: also, valueID does not work... if (&chainHead == &v)
+        return true;
+      
+      for (Value::use_iterator i = chainHead.use_begin(), e = chainHead.use_end(); i != e; ++i) {
+        Value& next = *cast<Value>(*i);
+        if (isValueInDefUseChain(v, next))
+          return true;
+      }
+
+      return false;
     }
 
     Value& getBaseUserForArgument(Value& val) {
