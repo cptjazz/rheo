@@ -117,7 +117,9 @@ namespace {
     }
 
     bool isValueInDefUseChain(Value& v, Value& chainHead) {
-      this seems not to work: also, valueID does not work... if (&chainHead == &v)
+      errs() << "head: " << &chainHead << "  v: " << &v << "\n";
+      errs() << "head: " << chainHead << "  v: " << v << "\n";
+      if (chainHead.compare(v))
         return true;
       
       for (Value::use_iterator i = chainHead.use_begin(), e = chainHead.use_end(); i != e; ++i) {
