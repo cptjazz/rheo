@@ -7,6 +7,7 @@
 #include "llvm/InstrTypes.h"
 #include <map>
 #include <set>
+#include <algorithm>
 #include <stdio.h>
 
 
@@ -20,8 +21,8 @@ namespace {
   struct Dataflow : public FunctionPass {
     static char ID;
 
-    set<Instruction*> returnStatements;
-    map<Argument*, Value*> arguments;
+    set<Value*> returnStatements;
+    map<Argument*, set<Value*> > arguments;
 
     Dataflow() : FunctionPass(ID) { }
 
@@ -36,21 +37,57 @@ namespace {
       printInstructions(F);
 
       findReturnStatements(F, returnStatements);
-      printUseDefForReturnStatements(returnStatements);
+      //printUseDefForReturnStatements(returnStatements);
 
       findArguments(F, arguments);
-      printDefUseForArguments(arguments);
+      //printDefUseForArguments(arguments);
 
-      for (set<Instruction*>::iterator ret_i = returnStatements.begin(), ret_e = returnStatements.end(); ret_i != ret_e; ret_i++) {
+      map<Argument*, set<Value*> >::iterator arg_i = arguments.begin();
+      map<Argument*, set<Value*> >::iterator arg_e = arguments.end();
+      
+      for(; arg_i != arg_e; ++arg_i) {
+        Argument& arg = *arg_i->first;
+        set<Value*> l = arg_i->second;
+
+        for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
+          //errs() << "Inspecting instruction: " << *inst_i << "\n";
+      	  for (int o_i = 0; o_i < inst_i->getNumOperands(); o_i++) {
+            //errs() << "  Inspecting operand #" << o_i << "\n";
+            Value& operand = *inst_i->getOperand(o_i);
+            if (l.find(&operand) != l.end()) {
+              addInstructionToSet(l, *inst_i);
+              //errs() << "    Added " << *&*inst_i << "\n";
+            }
+          }
+        }
+
+        set<Value*> intersect;
+        set_intersection(l.begin(), l.end(), returnStatements.begin(), returnStatements.end(), 
+          inserter(intersect, intersect.end()));
+
+        if (intersect.begin() != intersect.end())
+          errs() << arg.getName() << " taints return value!\n";
+      }
+
+
+
+      /*for (set<Instruction*>::iterator ret_i = returnStatements.begin(), ret_e = returnStatements.end(); ret_i != ret_e; ret_i++) {
         User& returnStmt = *cast<User>(*ret_i);
         iterateOverUseDefChain(returnStmt);
-      }
+      }*/
 
       return false;
     }
 
     private:
-    bool iterateOverUseDefChain(User& chainHead) {
+    void addInstructionToSet(set<Value*>& l, Instruction& I) {
+      if (I.getOpcode() == Instruction::Store)
+        l.insert(I.getOperand(1));
+      else
+        l.insert(&I);
+    }
+
+    /*bool iterateOverUseDefChain(User& chainHead) {
       if (searchInArgumentChain(chainHead, arguments))
         return true;
 
@@ -73,13 +110,14 @@ namespace {
       }
 
       return false;
-    }
+    }*/
 
-    void findArguments(Function& F, map<Argument*, Value*>& args) {
+    void findArguments(Function& F, map<Argument*, set<Value*> >& args) {
       for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
         Argument& arg = *i;
-        Value& arg_tree_start = getBaseUserForArgument(arg);
-        args.insert(pair<Argument*, Value*>(&arg, &arg_tree_start));
+        set<Value*> l;
+        l.insert(&arg);
+        args.insert(pair<Argument*, set<Value*> >(&arg, l));
       }
     }
 
@@ -90,10 +128,10 @@ namespace {
       }
     }
 
-    void findReturnStatements(Function& F, set<Instruction*>& retStmts) {
+    void findReturnStatements(Function& F, set<Value*>& retStmts) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if ((*i).getOpcode() == 1) {
-            retStmts.insert(&*i);
+            retStmts.insert(cast<Value>(&*i));
             errs() << "Fount ret-stmt: " << *i << "\n";
           }
       }

@@ -2,6 +2,22 @@ int add(int x, int y) {
   return x + y;
 }
 
+int indirect(int a, int b) {
+  int c = a;
+  int d = b;
+
+  int e = c;
+  int f = d;
+
+  int g = e;
+  int h = f;
+
+  int i = g;
+  int j = h;
+
+  return i + j;
+}
+
 int foo(int a, int b, int* c) {
   int d = a;
   int x = a + b;
