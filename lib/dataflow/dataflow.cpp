@@ -33,13 +33,13 @@ namespace {
       arguments.clear();
       returnStatements.clear();
 
-      //printInstructions(F);
+      printInstructions(F);
 
       findReturnStatements(F, returnStatements);
-      //printUseDefForReturnStatements(returnStatements);
+      printUseDefForReturnStatements(returnStatements);
 
       findArguments(F, arguments);
-      //printDefUseForArguments(arguments);
+      printDefUseForArguments(arguments);
 
       for (set<Instruction*>::iterator ret_i = returnStatements.begin(), ret_e = returnStatements.end(); ret_i != ret_e; ret_i++) {
         User& returnStmt = *cast<User>(*ret_i);
@@ -66,7 +66,7 @@ namespace {
     bool searchInArgumentChain(Value& ret_val, map<Argument*, Value*>& arguments) {
       for (map<Argument*, Value*>::iterator arg_i = arguments.begin(), arg_e = arguments.end(); arg_i != arg_e; arg_i++) {
         Value& head = *arg_i->first;
-        if (isValueInDefUseChain(ret_val, head)) {
+        if (isValueInDefUseChain(ret_val, *arg_i->second)) {
           errs() << "Argument `" << head.getName() << "` taints return value `" << ret_val << "`";
           return true;
         }
@@ -117,14 +117,16 @@ namespace {
     }
 
     bool isValueInDefUseChain(Value& v, Value& chainHead) {
-      errs() << "head: " << &chainHead << "  v: " << &v << "\n";
       errs() << "head: " << chainHead << "  v: " << v << "\n";
-      if (chainHead.compare(v))
+      if (&chainHead == &v) {
+	errs() << "match: " << chainHead << " -> " << v << "\n";
         return true;
+	}
       
       for (Value::use_iterator i = chainHead.use_begin(), e = chainHead.use_end(); i != e; ++i) {
-        Value& next = *cast<Value>(*i);
-        if (isValueInDefUseChain(v, next))
+        User *u = *i;
+        Value* next = cast<Value>(u);
+        if (isValueInDefUseChain(v, *next))
           return true;
       }
 

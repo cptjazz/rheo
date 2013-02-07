@@ -17,6 +17,26 @@ int foo(int a, int b, int* c) {
   while(x)
     b = a + *c;
 
+  do
+    b = a + *c;
+  while(x);
+
+l1:
+    b = a + *c;
+l2:
+    b++;
+
+  if (x) {
+      if (!b) {
+        goto l3;
+      }
+     goto l1;
+  } else {
+     goto l2;
+  }
+
+l3:
+
   *c = add(y, 3);
 
   return d - b;
