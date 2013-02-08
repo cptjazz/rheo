@@ -58,6 +58,9 @@ namespace {
           }
         }
 
+        errs() << "Taint set for arg `" << arg.getName() << "`:\n";
+        printSet(l);
+        errs() << "\n";
         set<Value*> intersect;
         set_intersection(l.begin(), l.end(), returnStatements.begin(), returnStatements.end(), 
           inserter(intersect, intersect.end()));
@@ -87,12 +90,39 @@ namespace {
           args.insert(pair<Argument*, set<Value*> >(&arg, l));
 errs() << "added arg `" << arg.getName() << "` to arg-list\n";
         } else {
-          retStmts.insert(cast<Value>(&arg));
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retStmts, F);
 errs() << "added arg `" << arg.getName() << "` to out-list\n";
         }
       }
     }
 
+    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, set<Value*>& retStmts, Function& F) {
+      for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+        Instruction& I = cast<Instruction>(*i);
+errs() << "inspecting: " << I << "\n";
+        if (I.getOpcode() == Instruction::Store && I.getOperand(0) == &arg) {
+          Value& op = cast<Value>(*I.getOperand(1));
+          retStmts.insert(&op);
+          errs() << "Found store for `" << arg.getName() << "` @ " << op << "\n";
+
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retStmts, F);
+        }
+        
+        if (I.getOpcode() == Instruction::Load && I.getOperand(0) == &arg) {
+          Value& op = cast<Value>(I);
+          retStmts.insert(&op);
+          errs() << "Found load for `" << arg.getName() << "` @ " << op << "\n";
+          
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retStmts, F);
+        }
+      }
+    }
+
+    void printSet(set<Value*>& s) {
+      for (set<Value*>::iterator i = s.begin(), e = s.end(); i != e; ++i) {
+        errs() << **i << " | ";
+      }
+    } 
     void findReturnStatements(Function& F, set<Value*>& retStmts) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if ((*i).getOpcode() == 1) {
