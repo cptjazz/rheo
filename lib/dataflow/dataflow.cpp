@@ -17,14 +17,13 @@ using namespace std;
 
 namespace {
 
-  const unsigned int OUTPUT_RELEASE = 0;
+  const unsigned int OUTPUT_RELEASE = 1;
 
   struct Dataflow : public FunctionPass {
     static char ID;
 
     map<Value*, set<Value*> > returnStatements;
     map<Argument*, set<Value*> > arguments;
-    raw_null_ostream null_stream;
 
     Dataflow() : FunctionPass(ID) { }
 
@@ -71,11 +70,15 @@ namespace {
         for (; ret_i != ret_e; ++ret_i) {
           Value& retval = *ret_i->first;
           set<Value*> rets = ret_i->second;
+          debug() << "Ret-set for `" << retval << "`:\n",
+          printSet(rets);
+          debug() << "\n";
           set<Value*> intersect;
           set_intersection(l.begin(), l.end(), rets.begin(), rets.end(), inserter(intersect, intersect.end()));
 
           if (intersect.begin() != intersect.end()) {
             release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
+            debug() << arg.getName() << " => " << getValueNameOrDefault(retval) << "\n";
             isFirstTime = false;
           }
         }
@@ -88,14 +91,14 @@ namespace {
     private:
     raw_ostream& release() {
       if (!OUTPUT_RELEASE)
-        return null_stream;
+        return nulls();
 
       return errs();
     }
 
     raw_ostream& debug() {
       if (OUTPUT_RELEASE)
-        return null_stream;
+        return nulls();
 
       return errs();
     }
@@ -120,34 +123,33 @@ namespace {
           args.insert(pair<Argument*, set<Value*> >(&arg, l));
           debug() << "added arg `" << arg.getName() << "` to arg-list\n";
         } else {
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retStmts);
+          set<Value*> retlist;
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retlist);
+          retStmts.insert(pair<Value*, set<Value*> >(&arg, retlist));
           debug() << "added arg `" << arg.getName() << "` to out-list\n";
         }
       }
     }
 
-    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, map<Value*, set<Value*> >& retStmts) {
+    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, set<Value*>& retlist) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
         Instruction& I = cast<Instruction>(*i);
+        
         debug() << "inspecting: " << I << "\n";
         if (I.getOpcode() == Instruction::Store && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(*I.getOperand(1));
-          set<Value*> l;
-          l.insert(&op);
-          retStmts.insert(pair<Value*, set<Value*> >(&arg, l));
+          retlist.insert(&op);
           debug() << "Found store for `" << arg.getName() << "` @ " << op << "\n";
 
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retStmts);
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist);
         }
         
         if (I.getOpcode() == Instruction::Load && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(I);
-          set<Value*> l;
-          l.insert(&op);
-          retStmts.insert(pair<Value*, set<Value*> >(&arg, l));
+          retlist.insert(&op);
           debug() << "Found load for `" << arg.getName() << "` @ " << op << "\n";
           
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retStmts);
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist);
         }
       }
     }
