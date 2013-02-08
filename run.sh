@@ -1,6 +1,6 @@
 #!/bin/bash
 make
 cd test/
-./compile.sh
+./compile.rb
 cd ..
-./run_opt.sh
+./exec_opt.rb
