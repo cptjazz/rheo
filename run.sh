@@ -3,4 +3,4 @@ make
 cd test/
 ./compile.rb
 cd ..
-./exec_opt.rb
+./exec_opt.rb $1
