@@ -34,10 +34,10 @@ namespace {
       arguments.clear();
       returnStatements.clear();
 
-      //printInstructions(F);
+      printInstructions(F);
 
       findReturnStatements(F, returnStatements);
-      findArguments(F, arguments);
+      findArguments(F, arguments, returnStatements);
 
       map<Argument*, set<Value*> >::iterator arg_i = arguments.begin();
       map<Argument*, set<Value*> >::iterator arg_e = arguments.end();
@@ -78,20 +78,28 @@ namespace {
         l.insert(&I);
     }
 
-    void findArguments(Function& F, map<Argument*, set<Value*> >& args) {
+    void findArguments(Function& F, map<Argument*, set<Value*> >& args, set<Value*>& retStmts) {
       for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
         Argument& arg = *i;
         set<Value*> l;
-        l.insert(&arg);
-        args.insert(pair<Argument*, set<Value*> >(&arg, l));
+        if (! arg.getType()->isPointerTy()) {
+          l.insert(&arg);
+          args.insert(pair<Argument*, set<Value*> >(&arg, l));
+errs() << "added arg `" << arg.getName() << "` to arg-list\n";
+        } else {
+          retStmts.insert(cast<Value>(&arg));
+errs() << "added arg `" << arg.getName() << "` to out-list\n";
+        }
       }
     }
 
     void findReturnStatements(Function& F, set<Value*>& retStmts) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if ((*i).getOpcode() == 1) {
-            retStmts.insert(cast<Value>(&*i));
-            errs() << "Fount ret-stmt: " << *i << "\n";
+            Value& r = cast<Value>(*i);
+            //r.setName("ret_val");
+            retStmts.insert(cast<Value>(&r));
+            errs() << "Found ret-stmt: " << r << "\n";
           }
       }
     }
