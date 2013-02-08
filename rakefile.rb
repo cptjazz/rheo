@@ -20,7 +20,7 @@ task :test do
       opt_out.scan(/__taints:(.+)\((.+)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
       test_result = test(exp_map, out_map)
-      puts " * " + file + " -- " + (test_result  ? "PASSED".color(:green) : "FAILED".color(:red) )
+      puts " * " + (test_result  ? "PASSED".color(:green) : "FAILED".color(:red) ) + " : " + file
       if (!test_result)
         puts " --- Expected: ---"
         puts exp_map
