@@ -70,6 +70,12 @@ namespace {
         for (; ret_i != ret_e; ++ret_i) {
           Value& retval = *ret_i->first;
           set<Value*> rets = ret_i->second;
+
+          if (&retval == &arg) {
+            debug() << "Skipping detected self-taint\n";
+            continue;
+          }
+
           debug() << "Ret-set for `" << retval << "`:\n",
           printSet(rets);
           debug() << "\n";
@@ -117,17 +123,17 @@ namespace {
     void findArguments(Function& F, map<Argument*, set<Value*> >& args, map<Value*, set<Value*> >& retStmts) {
       for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
         Argument& arg = *i;
-        set<Value*> l;
-        if (! arg.getType()->isPointerTy()) {
-          l.insert(&arg);
-          args.insert(pair<Argument*, set<Value*> >(&arg, l));
-          debug() << "added arg `" << arg.getName() << "` to arg-list\n";
-        } else {
+        if (arg.getType()->isPointerTy()) {
           set<Value*> retlist;
           findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retlist);
           retStmts.insert(pair<Value*, set<Value*> >(&arg, retlist));
           debug() << "added arg `" << arg.getName() << "` to out-list\n";
         }
+
+        set<Value*> l;
+        l.insert(&arg);
+        args.insert(pair<Argument*, set<Value*> >(&arg, l));
+        debug() << "added arg `" << arg.getName() << "` to arg-list\n";
       }
     }
 
