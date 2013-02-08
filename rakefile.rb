@@ -45,6 +45,7 @@ def test(exp_map, out_map)
   exp_map.each do |function, taints|
     return false unless out_map.has_key? function
     out_taints = out_map[function]
+    return false unless taints.length == out_taints.length
 
     taints.each do |taint|
       return false unless out_taints.include? taint
