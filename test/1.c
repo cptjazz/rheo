@@ -1,7 +1,9 @@
+// __expected:add(x => $_retval, y => $_retval)
 int add(int x, int y) {
   return x + y;
 }
 
+// __expected:indirect(a => $_retval, b => $_retval)
 int indirect(int a, int b) {
   int c = a;
   int d = b;
@@ -18,6 +20,7 @@ int indirect(int a, int b) {
   return i + j;
 }
 
+// __expected:foo(a => $_retval, b => $_retval) 
 int foo(int a, int b, int* c) {
   int d = a;
   int x = a + b;
