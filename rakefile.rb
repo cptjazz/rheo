@@ -22,10 +22,10 @@ task :test do
       test_result = test(exp_map, out_map)
       puts " * " + (test_result  ? "PASSED".color(:green) : "FAILED".color(:red) ) + " : " + file
       if (!test_result)
-        puts " --- Expected: ---"
+        puts " --- Expected: ---".color(:yellow)
         puts exp_map
         puts
-        puts " --- But Was: ---"
+        puts " --- But Was: ---".color(:yellow)
         puts out_map
         puts
       end
