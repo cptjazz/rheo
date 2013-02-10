@@ -18,8 +18,8 @@ task :test do
       exp_map = {}
       out_map = {}
 
-      exp_file.scan(/__expected:(.+)\((.+)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
-      opt_out.scan(/__taints:(.+)\((.+)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
+      exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
+      opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
       test_result = test(file, exp_map, out_map)
 
@@ -37,12 +37,19 @@ def test(file, exp_map, out_map)
   test_result = true
   unless exp_map.length == out_map.length
     print_failed(file, "", "Function count mismatch. Expected #{exp_map.length} but was #{out_map.length}")
+    puts exp_map
+    puts " ----- but was"
+    puts out_map
     test_result &&= false
   end
   
   exp_map.each do |function, taints|
     unless out_map.has_key? function
       print_failed(file, function, "function `#{function}` not found")
+      puts " --- Expected ---".color(:yellow)
+      puts exp_map
+      puts " --- But was ---".color(:yellow)
+      puts out_map
       test_result &&= false
       next
     end
@@ -50,8 +57,11 @@ def test(file, exp_map, out_map)
     out_taints = out_map[function]
     unless taints.length == out_taints.length
       print_failed(file, function, "Taint count mismatch. Expected #{taints.length} but was #{out_taints.length}")
+      puts " --- Expected ---".color(:yellow)
+      puts taints
+      puts " --- But was ---".color(:yellow)
+      puts out_taints
       test_result &&= false
-      next
     end
 
     taints.each do |taint|
