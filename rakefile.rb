@@ -6,6 +6,8 @@ task :test do
 
   FileUtils.cd("test") do
     overall_result = true
+    overall_passed = 0
+    overall_failed = 0
 
     Dir.glob("*.c") do |file|
       file = File.basename(file, ".*")
@@ -23,12 +25,16 @@ task :test do
 
       test_result = test(file, exp_map, out_map)
 
+      overall_passed += 1 if test_result
+      overall_failed += 1 unless test_result
       overall_result &&= test_result
     end
 
     puts
     puts "------------------------"
-    puts (" Overall result: " + (overall_result ? "PASSED".color(:green) : "FAILED".color(:red))).bright
+    print " Overall result:  ".bright
+    print "#{overall_passed} PASSED  ".color(:green).bright
+    print "#{overall_failed} FAILED".color(:red).bright
     puts
   end
 end
