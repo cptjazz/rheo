@@ -4,8 +4,6 @@ void out_pointer_if_1(int a, int* b) {
     *b = a;
   else
     *b = 5;
-
-  return b;
 }
 
 // __expected:out_pointer_if_2(a => b)
