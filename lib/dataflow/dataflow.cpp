@@ -23,7 +23,7 @@ typedef map<Argument*, TaintSet> ArgMap;
 
 namespace {
 
-  const unsigned int OUTPUT_RELEASE = 0;
+  const unsigned int OUTPUT_RELEASE = 1;
 
   struct Dataflow : public FunctionPass {
     static char ID;
@@ -101,7 +101,7 @@ namespace {
         //debug() << "Inspecting instruction: " << inst << "\n";
 
         if (isa<BranchInst>(inst))
-          handleBranchInstruction(cast<BranchInst>(inst), taintSet);
+          handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT);
         else
           handleInstruction(inst, taintSet, DT);
       }
@@ -111,7 +111,7 @@ namespace {
       debug() << "\n";
     }
 
-    void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet) {
+    void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT) {
       debug() << "  Inspecting branch instruction:\n";
       if (inst.isConditional()) {
         debug() << "    Cmp is: " << *inst.getCondition() << "\n";
@@ -120,16 +120,36 @@ namespace {
           debug() << "    Condition seems tainted.\n";
         } 
       
-        for (size_t j = 0; j < inst.getNumSuccessors(); ++j) {
-          debug() << "successor #" << j << ": " << *inst.getSuccessor(j) << "\n";
-          //if (DT.dominates(inst.getParent(), inst.getSuccessor(j))) {
+         
+        BasicBlock* brTrue = inst.getSuccessor(0);
+        // true branch is always taints
+        taintSet.insert(brTrue);
+        debug() << "added true branch to taint set\n";
 
-          //}
-
-        //debug() << "    true-block: " << brTrue << "\n";
-        //debug() << "    false-block: " << brFalse << "\n";
+        if (inst.getNumSuccessors() == 2) {
+          BasicBlock* brFalse = inst.getSuccessor(1);
+          // false branch is only tainted if successor 
+          // is not the same as jump target after true branch
+          if (getFirstUnconditionalJumpTargetIn(*brTrue) != brFalse) {
+            taintSet.insert(brFalse);
+            debug() << "added false branch to taint set\n";
+          }
         }
       }
+    }
+
+    BasicBlock* getFirstUnconditionalJumpTargetIn(BasicBlock& block) {
+      for (BasicBlock::iterator i = block.begin(), e = block.end(); i != e; ++i) {
+        if (isa<BranchInst>(*i)) {
+          BranchInst& bi = cast<BranchInst>(*i);
+          if (bi.getNumSuccessors() == 1) {
+            debug() << " jump-target after true branch: " << *bi.getSuccessor(0) << "\n";
+            return bi.getSuccessor(0);
+          }
+        }
+      }
+
+       return NULL;
     }
 
     void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT) {
@@ -139,7 +159,7 @@ namespace {
 
         BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
 
-        if (false) { //DT.dominates(&taintedBlock, inst.getParent())) {
+        if (DT.dominates(&taintedBlock, inst.getParent())) {
           addValueToSet(taintSet, inst);
           debug() << "instruction tainted by dirty block\n";
           // Don't care for operand interactions anymore.
