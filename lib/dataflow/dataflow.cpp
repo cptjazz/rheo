@@ -1,8 +1,10 @@
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Instruction.h"
+#include "llvm/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/InstrTypes.h"
 #include <map>
@@ -26,10 +28,11 @@ namespace {
   struct Dataflow : public FunctionPass {
     static char ID;
 
-    RetMap returnStatements;
-    ArgMap arguments;
-
     Dataflow() : FunctionPass(ID) { }
+
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<DominatorTree>();
+    }
 
     virtual bool runOnFunction(Function &F) {
       bool isFirstTime = true;
@@ -37,6 +40,14 @@ namespace {
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
 
+      DominatorTree& DT = getAnalysis<DominatorTree>(F);
+
+      DominatorTree* dt = NULL;
+      DominatorTree& DT = *dt;
+      RetMap returnStatements;
+      ArgMap arguments;
+
+return false;
       arguments.clear();
       returnStatements.clear();
 
@@ -52,7 +63,7 @@ namespace {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
 
-        buildTaintSetFor(F, arg, l);
+        buildTaintSetFor(F, arg, l, DT);
        
         RetMap::iterator ret_i = returnStatements.begin();
         RetMap::iterator ret_e = returnStatements.end();
@@ -85,15 +96,15 @@ namespace {
     }
 
     private:
-    void buildTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet) {
+    void buildTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet, DominatorTree& DT) {
       for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
         Instruction& inst = cast<Instruction>(*inst_i);
-        debug() << "Inspecting instruction: " << inst << "\n";
+        //debug() << "Inspecting instruction: " << inst << "\n";
 
-        if (inst.getOpcode() == 2 && inst.getNumOperands() == 3)
-          handleBranchInstruction(inst, taintSet);
+        if (isa<BranchInst>(inst))
+          handleBranchInstruction(cast<BranchInst>(inst), taintSet);
         else
-          handleInstruction(inst, taintSet);
+          handleInstruction(inst, taintSet, DT);
       }
 
       debug() << "Taint set for arg `" << arg.getName() << "`:\n";
@@ -101,25 +112,44 @@ namespace {
       debug() << "\n";
     }
 
-    void handleBranchInstruction(Instruction& inst, TaintSet& taintSet) {
-      Instruction& cmp_inst = cast<Instruction>(*inst.getOperand(0));
-      BasicBlock& brTrue = cast<BasicBlock>(*inst.getOperand(1));
-      BasicBlock& brFalse = cast<BasicBlock>(*inst.getOperand(2));
-      
+    void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet) {
       debug() << "  Inspecting branch instruction:\n";
-      debug() << "    Cmp is: " << cmp_inst << "\n";
-      debug() << "    true-block: " << brTrue << "\n";
-      debug() << "    false-block: " << brFalse << "\n";
+      if (inst.isConditional()) {
+        debug() << "    Cmp is: " << *inst.getCondition() << "\n";
+   
+        if (taintSet.find(inst.getCondition()) != taintSet.end()) {
+          debug() << "    Condition seems tainted.\n";
+        } 
+      
+        for (size_t j = 0; j < inst.getNumSuccessors(); ++j) {
+          debug() << "successor #" << j << ": " << *inst.getSuccessor(j) << "\n";
+          //if (DT.dominates(inst.getParent(), inst.getSuccessor(j))) {
 
-      if (taintSet.find(&cmp_inst) != taintSet.end()) {
-        debug() << "    Condition seems tainted!\n";
-        
+          //}
+
+        //debug() << "    true-block: " << brTrue << "\n";
+        //debug() << "    false-block: " << brFalse << "\n";
+        }
       }
     }
 
-    void handleInstruction(Instruction& inst, TaintSet& taintSet) {
+    void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT) {
+      for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
+        if (! isa<BasicBlock>(*s_i))
+          continue;
+
+        BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
+
+        if (false) { //DT.dominates(&taintedBlock, inst.getParent())) {
+          addValueToSet(taintSet, inst);
+          debug() << "instruction tainted by dirty block\n";
+          // Don't care for operand interactions anymore.
+          return;
+        }
+      }
+
       for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
-          debug() << "  Inspecting operand #" << o_i << "\n";
+         // debug() << "  Inspecting operand #" << o_i << "\n";
           Value& operand = *inst.getOperand(o_i);
           if (taintSet.find(&operand) != taintSet.end()) {
             addValueToSet(taintSet, inst);
@@ -217,11 +247,11 @@ namespace {
       debug() << "Instructions: \n";
 
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-        debug() << (*i) << "\n";
+        debug() << i->getParent() << " | " << (*i) << "\n";
       }
     }
   };
 }
 
 char Dataflow::ID = 0;
-static RegisterPass<Dataflow> X("dataflow", "Data-flow analysis", false, true);
+static RegisterPass<Dataflow> X("dataflow", "Data-flow analysis", true, true);
