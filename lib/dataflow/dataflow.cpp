@@ -40,14 +40,13 @@ namespace {
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
 
-      DominatorTree& DT = getAnalysis<DominatorTree>(F);
+      DominatorTree* dt = getAnalysisIfAvailable<DominatorTree>();
 
-      DominatorTree* dt = NULL;
-      DominatorTree& DT = *dt;
       RetMap returnStatements;
       ArgMap arguments;
 
-return false;
+      DominatorTree& DT = *dt;
+
       arguments.clear();
       returnStatements.clear();
 
