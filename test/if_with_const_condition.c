@@ -1,4 +1,4 @@
-// __expected:const_expr()
+// __expected:const_expr(x => $_retval)
 int const_expr(int x) {
   char false = 0;
 
@@ -8,8 +8,8 @@ int const_expr(int x) {
     return 5;
 }
 
-/*
-// __expected:const_expr2()
+
+// __expected:const_expr2(x => $_retval)
 int const_expr2(int x) {
   int a = 1;
   int b = -1;
@@ -19,8 +19,8 @@ int const_expr2(int x) {
   else
     return 5;
 }
-*/
-/*
+
+
 // __expected:const_arith()
 int const_arith(int x) {
   if (5 - 5)
@@ -36,4 +36,11 @@ int const_arith2(int x) {
   else
     return 5;
 }
-*/
+
+// __expected:const_arith3()
+int const_arith3(int x) {
+  if (5 - 5 * 6 + 100 / 4)
+    return x;
+  else
+    return 5;
+}
