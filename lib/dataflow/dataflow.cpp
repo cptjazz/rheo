@@ -15,15 +15,19 @@
 using namespace llvm;
 using namespace std;
 
+typedef set<Value*> TaintSet;
+typedef map<Value*, TaintSet> RetMap;
+typedef map<Argument*, TaintSet> ArgMap;
+
 namespace {
 
-  const unsigned int OUTPUT_RELEASE = 1;
+  const unsigned int OUTPUT_RELEASE = 0;
 
   struct Dataflow : public FunctionPass {
     static char ID;
 
-    map<Value*, set<Value*> > returnStatements;
-    map<Argument*, set<Value*> > arguments;
+    RetMap returnStatements;
+    ArgMap arguments;
 
     Dataflow() : FunctionPass(ID) { }
 
@@ -41,35 +45,21 @@ namespace {
       findReturnStatements(F, returnStatements);
       findArguments(F, arguments, returnStatements);
 
-      map<Argument*, set<Value*> >::iterator arg_i = arguments.begin();
-      map<Argument*, set<Value*> >::iterator arg_e = arguments.end();
+      ArgMap::iterator arg_i = arguments.begin();
+      ArgMap::iterator arg_e = arguments.end();
       
       for(; arg_i != arg_e; ++arg_i) {
         Argument& arg = *arg_i->first;
-        set<Value*> l = arg_i->second;
+        TaintSet l = arg_i->second;
 
-        for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
-          debug() << "Inspecting instruction: " << *inst_i << "\n";
-      	  for (size_t o_i = 0; o_i < inst_i->getNumOperands(); o_i++) {
-            debug() << "  Inspecting operand #" << o_i << "\n";
-            Value& operand = *inst_i->getOperand(o_i);
-            if (l.find(&operand) != l.end()) {
-              addValueToSet(l, *inst_i);
-              debug() << "    Added " << *&*inst_i << "\n";
-            }
-          }
-        }
-
-        debug() << "Taint set for arg `" << arg.getName() << "`:\n";
-        printSet(l);
-        debug() << "\n";
-        
-        map<Value*, set<Value*> >::iterator ret_i = returnStatements.begin();
-        map<Value*, set<Value*> >::iterator ret_e = returnStatements.end();
+        buildTaintSetFor(F, arg, l);
+       
+        RetMap::iterator ret_i = returnStatements.begin();
+        RetMap::iterator ret_e = returnStatements.end();
 
         for (; ret_i != ret_e; ++ret_i) {
           Value& retval = *ret_i->first;
-          set<Value*> rets = ret_i->second;
+          TaintSet rets = ret_i->second;
 
           if (&retval == &arg) {
             debug() << "Skipping detected self-taint\n";
@@ -79,7 +69,7 @@ namespace {
           debug() << "Ret-set for `" << retval << "`:\n",
           printSet(rets);
           debug() << "\n";
-          set<Value*> intersect;
+          TaintSet intersect;
           set_intersection(l.begin(), l.end(), rets.begin(), rets.end(), inserter(intersect, intersect.end()));
 
           if (intersect.begin() != intersect.end()) {
@@ -95,6 +85,51 @@ namespace {
     }
 
     private:
+    void buildTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet) {
+      for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
+        Instruction& inst = cast<Instruction>(*inst_i);
+        debug() << "Inspecting instruction: " << inst << "\n";
+
+        if (inst.getOpcode() == 2 && inst.getNumOperands() == 3)
+          handleBranchInstruction(inst, taintSet);
+        else
+          handleInstruction(inst, taintSet);
+      }
+
+      debug() << "Taint set for arg `" << arg.getName() << "`:\n";
+      printSet(taintSet);
+      debug() << "\n";
+    }
+
+    void handleBranchInstruction(Instruction& inst, TaintSet& taintSet) {
+      Instruction& cmp_inst = cast<Instruction>(*inst.getOperand(0));
+      BasicBlock& brTrue = cast<BasicBlock>(*inst.getOperand(1));
+      BasicBlock& brFalse = cast<BasicBlock>(*inst.getOperand(2));
+      
+      debug() << "  Inspecting branch instruction:\n";
+      debug() << "    Cmp is: " << cmp_inst << "\n";
+      debug() << "    true-block: " << brTrue << "\n";
+      debug() << "    false-block: " << brFalse << "\n";
+
+      if (taintSet.find(&cmp_inst) != taintSet.end()) {
+        debug() << "    Condition seems tainted!\n";
+        
+      }
+    }
+
+    void handleInstruction(Instruction& inst, TaintSet& taintSet) {
+      for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
+          debug() << "  Inspecting operand #" << o_i << "\n";
+          Value& operand = *inst.getOperand(o_i);
+          if (taintSet.find(&operand) != taintSet.end()) {
+            addValueToSet(taintSet, inst);
+            debug() << "    Added " << inst << "\n";
+            // Don't care for other operands. Instruction is already tainted.
+            break;
+          }
+        }
+    }
+
     raw_ostream& release() {
       if (!OUTPUT_RELEASE)
         return nulls();
@@ -120,24 +155,24 @@ namespace {
         l.insert(&I);
     }
 
-    void findArguments(Function& F, map<Argument*, set<Value*> >& args, map<Value*, set<Value*> >& retStmts) {
+    void findArguments(Function& F, ArgMap& args, RetMap& retStmts) {
       for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
         Argument& arg = *i;
         if (arg.getType()->isPointerTy()) {
-          set<Value*> retlist;
+          TaintSet retlist;
           findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retlist);
-          retStmts.insert(pair<Value*, set<Value*> >(&arg, retlist));
+          retStmts.insert(pair<Value*, TaintSet>(&arg, retlist));
           debug() << "added arg `" << arg.getName() << "` to out-list\n";
         }
 
-        set<Value*> l;
+        TaintSet l;
         l.insert(&arg);
-        args.insert(pair<Argument*, set<Value*> >(&arg, l));
+        args.insert(pair<Argument*, TaintSet>(&arg, l));
         debug() << "added arg `" << arg.getName() << "` to arg-list\n";
       }
     }
 
-    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, set<Value*>& retlist) {
+    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, TaintSet& retlist) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
         Instruction& I = cast<Instruction>(*i);
         
@@ -161,16 +196,16 @@ namespace {
     }
 
     void printSet(set<Value*>& s) {
-      for (set<Value*>::iterator i = s.begin(), e = s.end(); i != e; ++i) {
+      for (TaintSet::iterator i = s.begin(), e = s.end(); i != e; ++i) {
         debug() << **i << " | ";
       }
     } 
-    void findReturnStatements(Function& F, map<Value*, set<Value*> >& retStmts) {
+    void findReturnStatements(Function& F, RetMap& retStmts) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if ((*i).getOpcode() == 1) {
             Value& r = cast<Value>(*i);
             //r.setName("ret_val");
-            set<Value*> l;
+            TaintSet l;
             l.insert(&r);
             retStmts.insert(pair<Value*, set<Value*> >(&r, l));
             debug() << "Found ret-stmt: " << r << "\n";
