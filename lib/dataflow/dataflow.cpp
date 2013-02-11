@@ -251,13 +251,16 @@ namespace {
     } 
     void findReturnStatements(Function& F, RetMap& retStmts) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-          if ((*i).getOpcode() == 1) {
-            Value& r = cast<Value>(*i);
-            //r.setName("ret_val");
+          if (isa<ReturnInst>(*i)) {
+            ReturnInst& r = cast<ReturnInst>(*i);
             TaintSet l;
-            l.insert(&r);
-            retStmts.insert(pair<Value*, set<Value*> >(&r, l));
-            debug() << "Found ret-stmt: " << r << "\n";
+            
+            // skip 'return void'
+            if (r.getReturnValue()) {
+              l.insert(r.getReturnValue());
+              retStmts.insert(pair<Value*, set<Value*> >(r.getReturnValue(), l));
+              debug() << "Found ret-stmt: " << r << "\n";
+            }
           }
       }
     }
