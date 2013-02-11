@@ -1,4 +1,5 @@
 #!/usr/bin/ruby
+raise "No input file specified" if ARGV[0] == nil
 file = ARGV[0][0..-2] + "bc"
 puts "\n"
 puts file
