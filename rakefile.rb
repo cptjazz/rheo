@@ -68,6 +68,7 @@ def test(file, exp_map, out_map)
       puts " --- But was ---".color(:yellow)
       puts out_taints
       test_result &&= false
+      next
     end
 
     taints.each do |taint|
