@@ -23,10 +23,10 @@ task :test do
       exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
       opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
-      test_result = test(file, exp_map, out_map)
+      (test_result, passed_count, failed_count) = test(file, exp_map, out_map)
 
-      overall_passed += 1 if test_result
-      overall_failed += 1 unless test_result
+      overall_passed += passed_count
+      overall_failed += failed_count
       overall_result &&= test_result
     end
 
@@ -41,12 +41,16 @@ end
 
 def test(file, exp_map, out_map)
   test_result = true
+  failed_count = 0
+  passed_count = 0
+
   unless exp_map.length == out_map.length
     print_failed(file, "", "Function count mismatch. Expected #{exp_map.length} but was #{out_map.length}")
     puts exp_map
     puts " ----- but was"
     puts out_map
     test_result &&= false
+    failed_count += 1
   end
   
   exp_map.each do |function, taints|
@@ -57,6 +61,7 @@ def test(file, exp_map, out_map)
       puts " --- But was ---".color(:yellow)
       puts out_map
       test_result &&= false
+      failed_count += 1
       next
     end
 
@@ -68,6 +73,7 @@ def test(file, exp_map, out_map)
       puts " --- But was ---".color(:yellow)
       puts out_taints
       test_result &&= false
+      failed_count += 1
       next
     end
 
@@ -75,14 +81,16 @@ def test(file, exp_map, out_map)
       unless out_taints.include? taint
         print_failed(file, function, "Expected taint missing: " + taint.color(:cyan))
         test_result &&= false
+        failed_count += 1
         next
       end
     end
   
     print_passed(file, function)
+    passed_count += 1
   end
 
-  test_result
+  [test_result, passed_count, failed_count]
 end
 
 def print_failed(file, function, reason)
