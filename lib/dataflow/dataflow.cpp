@@ -35,8 +35,6 @@ namespace {
     }
 
     virtual bool runOnFunction(Function &F) {
-      bool isFirstTime = true;
-
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
 
@@ -50,7 +48,7 @@ namespace {
       arguments.clear();
       returnStatements.clear();
 
-      printInstructions(F);
+      //printInstructions(F);
 
       findReturnStatements(F, returnStatements);
       findArguments(F, arguments, returnStatements);
@@ -58,50 +56,62 @@ namespace {
       ArgMap::iterator arg_i = arguments.begin();
       ArgMap::iterator arg_e = arguments.end();
       
+      bool isFirstTime = true;
       for(; arg_i != arg_e; ++arg_i) {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
 
-        buildTaintSetFor(F, arg, l, DT);
-       
-        RetMap::iterator ret_i = returnStatements.begin();
-        RetMap::iterator ret_e = returnStatements.end();
-
-        for (; ret_i != ret_e; ++ret_i) {
-          Value& retval = *ret_i->first;
-          TaintSet rets = ret_i->second;
-
-          if (&retval == &arg) {
-            debug() << "Skipping detected self-taint\n";
-            continue;
-          }
-
-          debug() << "Ret-set for `" << retval << "`:\n",
-          printSet(rets);
-          debug() << "\n";
-          TaintSet intersect;
-          set_intersection(l.begin(), l.end(), rets.begin(), rets.end(), inserter(intersect, intersect.end()));
-
-          if (intersect.begin() != intersect.end()) {
-            release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
-            debug() << arg.getName() << " => " << getValueNameOrDefault(retval) << "\n";
-            isFirstTime = false;
-          }
-        }
+        buildArgumentTaintSetFor(F, arg, l, DT);
+        intersectSets(arg, l, returnStatements, &isFirstTime);
       }
 
-      release() << ")\n";
       return false;
     }
 
     private:
-    void buildTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet, DominatorTree& DT) {
+    void intersectSets(Argument& arg, TaintSet argTaintSet, RetMap retStmts, bool* isFirstTime) {
+      RetMap::iterator ret_i = retStmts.begin();
+      RetMap::iterator ret_e = retStmts.end();
+
+      for (; ret_i != ret_e; ++ret_i) {
+        Value& retval = *ret_i->first;
+        TaintSet retTaintSet = ret_i->second;
+
+        if (&retval == &arg) {
+          debug() << "Skipping detected self-taint\n";
+          continue;
+        }
+
+        debug() << "Ret-set for `" << retval << "`:\n",
+        printSet(retTaintSet);
+        debug() << "\n";
+
+        TaintSet intersect;
+        set_intersection(argTaintSet.begin(), argTaintSet.end(), retTaintSet.begin(), retTaintSet.end(), 
+                         inserter(intersect, intersect.end()));
+
+        if (intersect.begin() != intersect.end()) {
+          release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
+          debug() << arg.getName() << " => " << getValueNameOrDefault(retval) << "\n";
+          *isFirstTime = false;
+        }
+      }
+
+      release() << ")\n";
+    }
+
+
+    void buildArgumentTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet, DominatorTree& DT) {
+      debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n";
+
       for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
         Instruction& inst = cast<Instruction>(*inst_i);
         //debug() << "Inspecting instruction: " << inst << "\n";
 
         if (isa<BranchInst>(inst))
           handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT);
+        else if (isa<PHINode>(inst))
+          debug() << "PHI FOUND!: " << inst << "\n";
         else
           handleInstruction(inst, taintSet, DT);
       }
@@ -122,9 +132,10 @@ namespace {
       
          
         BasicBlock* brTrue = inst.getSuccessor(0);
-        // true branch is always taints
+        // true branch is always tainted
         taintSet.insert(brTrue);
-        debug() << "added true branch to taint set\n";
+        debug() << "added true branch to taint set:\n";
+        debug() << *brTrue << "\n";
 
         if (inst.getNumSuccessors() == 2) {
           BasicBlock* brFalse = inst.getSuccessor(1);
@@ -132,7 +143,8 @@ namespace {
           // is not the same as jump target after true branch
           if (getFirstUnconditionalJumpTargetIn(*brTrue) != brFalse) {
             taintSet.insert(brFalse);
-            debug() << "added false branch to taint set\n";
+            debug() << "added false branch to taint set:\n";
+            debug() << *brFalse << "\n";
           }
         }
       }
@@ -158,10 +170,13 @@ namespace {
           continue;
 
         BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
+        BasicBlock& currentBlock = *inst.getParent();
 
-        if (DT.dominates(&taintedBlock, inst.getParent())) {
+        //debug() << "inspecting dirty block: " << taintedBlock << "\n";
+        if (DT.dominates(&taintedBlock, &currentBlock)) {
+          debug() << "dirty block `" << taintedBlock << "` dominates `" << currentBlock << "`\n";
           addValueToSet(taintSet, inst);
-          debug() << "instruction tainted by dirty block\n";
+          debug() << "instruction tainted by dirty block: " << inst << "\n";
           // Don't care for operand interactions anymore.
           return;
         }
@@ -226,7 +241,7 @@ namespace {
         Instruction& I = cast<Instruction>(*i);
         
         debug() << "inspecting: " << I << "\n";
-        if (I.getOpcode() == Instruction::Store && I.getOperand(0) == &arg) {
+        if (isa<StoreInst>(I) && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(*I.getOperand(1));
           retlist.insert(&op);
           debug() << "Found store for `" << arg.getName() << "` @ " << op << "\n";
@@ -234,7 +249,7 @@ namespace {
           findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist);
         }
         
-        if (I.getOpcode() == Instruction::Load && I.getOperand(0) == &arg) {
+        if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(I);
           retlist.insert(&op);
           debug() << "Found load for `" << arg.getName() << "` @ " << op << "\n";
