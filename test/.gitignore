@@ -1,2 +1,4 @@
 *.bc
 *.ll
+*.dot
+*.pdf
