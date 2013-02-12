@@ -48,7 +48,7 @@ namespace {
       arguments.clear();
       returnStatements.clear();
 
-      //printInstructions(F);
+      printInstructions(F);
 
       findReturnStatements(F, returnStatements);
       findArguments(F, arguments, returnStatements);
@@ -57,6 +57,7 @@ namespace {
       ArgMap::iterator arg_e = arguments.end();
       
       bool isFirstTime = true;
+
       for(; arg_i != arg_e; ++arg_i) {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
@@ -64,6 +65,7 @@ namespace {
         buildArgumentTaintSetFor(F, arg, l, DT);
         intersectSets(arg, l, returnStatements, &isFirstTime);
       }
+      release() << ")\n";
 
       return false;
     }
@@ -91,13 +93,11 @@ namespace {
                          inserter(intersect, intersect.end()));
 
         if (intersect.begin() != intersect.end()) {
-          release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
+          release() << (*isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
           debug() << arg.getName() << " => " << getValueNameOrDefault(retval) << "\n";
           *isFirstTime = false;
         }
       }
-
-      release() << ")\n";
     }
 
 
@@ -195,9 +195,6 @@ namespace {
     }
 
     raw_ostream& release() {
-      if (!OUTPUT_RELEASE)
-        return nulls();
-
       return errs();
     }
 
