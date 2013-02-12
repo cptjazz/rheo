@@ -38,12 +38,10 @@ namespace {
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
 
-      DominatorTree* dt = getAnalysisIfAvailable<DominatorTree>();
+      DominatorTree& DT = getAnalysis<DominatorTree>();
 
       RetMap returnStatements;
       ArgMap arguments;
-
-      DominatorTree& DT = *dt;
 
       arguments.clear();
       returnStatements.clear();
