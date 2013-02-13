@@ -1,6 +1,5 @@
+// __expected:nest1(a => $_retval, b => $_retval)
 int nest1(int a, int b) {
-//  char f = a || b;
-
   if (a) {
     if (b) {
       int x = 7;
@@ -9,8 +8,8 @@ int nest1(int a, int b) {
       int y = 8;
       return y;
     }
-  } /*else {
+  } else {
     int z = 9;
     return z;
-  }*/
+  }
 }
