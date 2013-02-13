@@ -1,6 +1,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Instruction.h"
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <cstring>
 #include <stdio.h>
+#include "GraphExporter.cpp"
 
 
 using namespace llvm;
@@ -23,7 +25,7 @@ typedef map<Argument*, TaintSet> ArgMap;
 
 namespace {
 
-  const unsigned int OUTPUT_RELEASE = 1;
+  const unsigned int OUTPUT_RELEASE = 0;
 
   struct Dataflow : public FunctionPass {
     static char ID;
@@ -32,13 +34,17 @@ namespace {
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DominatorTree>();
+      AU.addRequired<PostDominatorTree>();
     }
 
     virtual bool runOnFunction(Function &F) {
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
 
+      GraphExporter* dot = new GraphExporter(F.getName().str());
+
       DominatorTree& DT = getAnalysis<DominatorTree>();
+      PostDominatorTree& PDT = getAnalysis<PostDominatorTree>();
 
       RetMap returnStatements;
       ArgMap arguments;
@@ -60,11 +66,12 @@ namespace {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
 
-        buildArgumentTaintSetFor(F, arg, l, DT);
+        buildTaintSetFor(F, arg, l, DT, PDT, dot);
         intersectSets(arg, l, returnStatements, &isFirstTime);
       }
       release() << ")\n";
 
+      delete(dot);
       return false;
     }
 
@@ -92,26 +99,24 @@ namespace {
 
         if (intersect.begin() != intersect.end()) {
           release() << (*isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
-          debug() << arg.getName() << " => " << getValueNameOrDefault(retval) << "\n";
           *isFirstTime = false;
         }
       }
     }
 
 
-    void buildArgumentTaintSetFor(Function& F, Argument& arg, TaintSet& taintSet, DominatorTree& DT) {
+    void buildTaintSetFor(Function& F, Value& arg, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
       debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n";
 
+      Value* prevTaintInGraph = &arg;
       for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
         Instruction& inst = cast<Instruction>(*inst_i);
-        //debug() << "Inspecting instruction: " << inst << "\n";
+        debug() << "Inspecting instruction: " << inst << "\n";
 
         if (isa<BranchInst>(inst))
-          handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT);
-        else if (isa<PHINode>(inst))
-          debug() << "PHI FOUND!: " << inst << "\n";
+          handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT, PDT);
         else
-          handleInstruction(inst, taintSet, DT);
+          handleInstruction(inst, taintSet, DT, dot, prevTaintInGraph);
       }
 
       debug() << "Taint set for arg `" << arg.getName() << "`:\n";
@@ -119,50 +124,40 @@ namespace {
       debug() << "\n";
     }
 
-    void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT) {
+    void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT) {
       debug() << "  Inspecting branch instruction:\n";
       if (inst.isConditional()) {
-        debug() << "    Cmp is: " << *inst.getCondition() << "\n";
+        Value& cmp = *inst.getCondition();
+        debug() << "    Cmp is: " << cmp << "\n";
    
-        if (taintSet.find(inst.getCondition()) != taintSet.end()) {
+        bool isConditionTainted = (taintSet.find(&cmp) != taintSet.end());
+        if (isConditionTainted) {
           debug() << "    Condition seems tainted.\n";
-        } 
-      
          
-        BasicBlock* brTrue = inst.getSuccessor(0);
-        // true branch is always tainted
-        taintSet.insert(brTrue);
-        debug() << "added true branch to taint set:\n";
-        debug() << *brTrue << "\n";
+          BasicBlock* brTrue = inst.getSuccessor(0);
+          // true branch is always tainted
+          taintSet.insert(brTrue);
+          debug() << "added true branch to taint set:\n";
+          debug() << *brTrue << "\n";
 
-        if (inst.getNumSuccessors() == 2) {
-          BasicBlock* brFalse = inst.getSuccessor(1);
-          // false branch is only tainted if successor 
-          // is not the same as jump target after true branch
-          if (getFirstUnconditionalJumpTargetIn(*brTrue) != brFalse) {
-            taintSet.insert(brFalse);
-            debug() << "added false branch to taint set:\n";
-            debug() << *brFalse << "\n";
+          if (inst.getNumSuccessors() == 2) {
+            BasicBlock* brFalse = inst.getSuccessor(1);
+            // false branch is only tainted if successor 
+            // is not the same as jump target after true branch
+            BasicBlock* target = PDT.findNearestCommonDominator(brFalse, brTrue);
+            debug() << "Nearest Common Post-Dominaotr for tr/fa: " << *target << "\n";
+
+            if (target != brFalse) {
+              taintSet.insert(brFalse);
+              debug() << "added false branch to taint set:\n";
+              debug() << *brFalse << "\n";
+            }
           }
         }
       }
     }
 
-    BasicBlock* getFirstUnconditionalJumpTargetIn(BasicBlock& block) {
-      for (BasicBlock::iterator i = block.begin(), e = block.end(); i != e; ++i) {
-        if (isa<BranchInst>(*i)) {
-          BranchInst& bi = cast<BranchInst>(*i);
-          if (bi.getNumSuccessors() == 1) {
-            debug() << " jump-target after true branch: " << *bi.getSuccessor(0) << "\n";
-            return bi.getSuccessor(0);
-          }
-        }
-      }
-
-       return NULL;
-    }
-
-    void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT) {
+    void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot, Value* prevTaint) {
       for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
         if (! isa<BasicBlock>(*s_i))
           continue;
@@ -172,8 +167,10 @@ namespace {
 
         //debug() << "inspecting dirty block: " << taintedBlock << "\n";
         if (DT.dominates(&taintedBlock, &currentBlock)) {
-          debug() << "dirty block `" << taintedBlock << "` dominates `" << currentBlock << "`\n";
+          debug() << "dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
           addValueToSet(taintSet, inst);
+          dot->addRelation(*prevTaint, inst);
+          prevTaint = &inst;
           debug() << "instruction tainted by dirty block: " << inst << "\n";
           // Don't care for operand interactions anymore.
           return;
@@ -185,6 +182,8 @@ namespace {
           Value& operand = *inst.getOperand(o_i);
           if (taintSet.find(&operand) != taintSet.end()) {
             addValueToSet(taintSet, inst);
+            dot->addRelation(*prevTaint, inst);
+            prevTaint = &inst;
             debug() << "    Added " << inst << "\n";
             // Don't care for other operands. Instruction is already tainted.
             break;
@@ -208,10 +207,11 @@ namespace {
     }
 
     void addValueToSet(set<Value*>& l, Instruction& I) {
-      if (I.getOpcode() == Instruction::Store)
+      if (I.getOpcode() == Instruction::Store) {
         l.insert(I.getOperand(1));
-      else
+      } else {
         l.insert(&I);
+      }
     }
 
     void findArguments(Function& F, ArgMap& args, RetMap& retStmts) {
