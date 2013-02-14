@@ -52,8 +52,10 @@ namespace {
 
       printInstructions(F);
 
-      findReturnStatements(F, returnStatements);
-      findArguments(F, arguments, returnStatements);
+      GraphExporter* dot = new GraphExporter(F.getName());
+
+      findReturnStatements(F, returnStatements, dot);
+      findArguments(F, arguments, returnStatements, dot);
 
       ArgMap::iterator arg_i = arguments.begin();
       ArgMap::iterator arg_e = arguments.end();
@@ -62,16 +64,18 @@ namespace {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
 
-        buildTaintSetFor(F, arg, l, DT, PDT);
-        intersectSets(arg, l, returnStatements, taints);
+        buildTaintSetFor(F, arg, l, DT, PDT, dot);
+        intersectSets(arg, l, returnStatements, taints, dot);
       }
+
+      delete(dot);
 
       writeTaints(F, taints);
       return false;
     }
 
     private:
-    void intersectSets(Argument& arg, TaintSet argTaintSet, RetMap retStmts, ResultSet& taints) {
+    void intersectSets(Argument& arg, TaintSet argTaintSet, RetMap retStmts, ResultSet& taints, GraphExporter* dot) {
       RetMap::iterator ret_i = retStmts.begin();
       RetMap::iterator ret_e = retStmts.end();
 
@@ -95,14 +99,14 @@ namespace {
         if (intersect.begin() != intersect.end()) {
           addTaint(taints, arg, retval);
         }
+          
+       // dot->addReturnSet(retval, retTaintSet);
       }
     }
 
 
-    void buildTaintSetFor(Function& F, Value& arg, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT) {
+    void buildTaintSetFor(Function& F, Value& arg, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
       debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n";
-
-      GraphExporter* dot = new GraphExporter((F.getName() + "_" + arg.getName()).str());
 
       // Arg trivially taints itself.
       taintSet.insert(&arg);
@@ -120,8 +124,6 @@ namespace {
       debug() << "Taint set for arg `" << arg.getName() << "`:\n";
       printSet(taintSet);
       debug() << "\n";
-
-      delete(dot);
     }
 
     void addTaint(ResultSet& taints, Argument& tainter, Value& taintee) {
@@ -167,7 +169,7 @@ namespace {
             // false branch is only tainted if successor 
             // is not the same as jump target after true branch
             BasicBlock* target = PDT.findNearestCommonDominator(brFalse, brTrue);
-            debug() << "Nearest Common Post-Dominaotr for tr/fa: " << *target << "\n";
+            debug() << "Nearest Common Post-Dominator for tr/fa: " << *target << "\n";
 
             if (target != brFalse) {
               taintSet.insert(brFalse);
@@ -179,8 +181,23 @@ namespace {
         }
       }
     }
-
+    
     void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
+      for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
+         debug() << "  Inspecting operand #" << o_i << "\n";
+         Value& operand = *inst.getOperand(o_i);
+         if (taintSet.find(&operand) != taintSet.end()) {
+           addValueToSet(taintSet, inst);
+debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
+           if (isa<StoreInst>(inst))
+             dot->addRelation(operand, *inst.getOperand(1));
+           else
+             dot->addRelation(operand, inst);
+
+           debug() << "    Added " << inst << "\n";
+        }
+      }
+
       for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
         if (! isa<BasicBlock>(*s_i))
           continue;
@@ -196,26 +213,8 @@ namespace {
           dot->addRelation(taintedBlock, currentBlock);
           dot->addRelation(currentBlock, inst);
           debug() << "instruction tainted by dirty block: " << inst << "\n";
-          // Don't care for operand interactions anymore.
-          return;
         }
       }
-
-      for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
-         // debug() << "  Inspecting operand #" << o_i << "\n";
-          Value& operand = *inst.getOperand(o_i);
-          if (taintSet.find(&operand) != taintSet.end()) {
-            addValueToSet(taintSet, inst);
-debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
-            if (isa<StoreInst>(inst))
-              dot->addRelation(operand, *inst.getOperand(1));
-            else
-              dot->addRelation(operand, inst);
-            debug() << "    Added " << inst << "\n";
-            // Don't care for other operands. Instruction is already tainted.
-            break;
-          }
-        }
     }
 
     raw_ostream& release() {
@@ -237,31 +236,38 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
     }
 
     void addValueToSet(set<Value*>& l, Value& I) {
-      if (isa<StoreInst>(I)) {
+      if (isa<StoreInst>(I))
         l.insert(cast<StoreInst>(I).getOperand(1));
-      } else {
+      else
         l.insert(&I);
-      }
     }
 
-    void findArguments(Function& F, ArgMap& args, RetMap& retStmts) {
+    void findArguments(Function& F, ArgMap& args, RetMap& retStmts, GraphExporter* dot) {
       for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
         Argument& arg = *i;
+        bool isInOutNode = false;
+
         if (arg.getType()->isPointerTy()) {
           TaintSet retlist;
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retlist);
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, arg, retlist, dot);
           retStmts.insert(pair<Value*, TaintSet>(&arg, retlist));
+          dot->addInOutNode(arg);
+          isInOutNode = true;
+
           debug() << "added arg `" << arg.getName() << "` to out-list\n";
         }
 
         TaintSet l;
         l.insert(&arg);
+        if (!isInOutNode)
+          dot->addInNode(arg);
+
         args.insert(pair<Argument*, TaintSet>(&arg, l));
         debug() << "added arg `" << arg.getName() << "` to arg-list\n";
       }
     }
 
-    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, TaintSet& retlist) {
+    void findAllStoresAndLoadsForOutArgumentAndAddToSet(Function& F, Value& arg, TaintSet& retlist, GraphExporter* dot) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
         Instruction& I = cast<Instruction>(*i);
         
@@ -269,17 +275,19 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
         if (isa<StoreInst>(I) && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(*I.getOperand(1));
           retlist.insert(&op);
+          dot->addRelation(arg, op);
           debug() << "Found store for `" << arg.getName() << "` @ " << op << "\n";
 
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist);
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist, dot);
         }
         
         if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
           Value& op = cast<Value>(I);
           retlist.insert(&op);
+          dot->addRelation(op, arg);
           debug() << "Found load for `" << arg.getName() << "` @ " << op << "\n";
           
-          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist);
+          findAllStoresAndLoadsForOutArgumentAndAddToSet(F, op, retlist, dot);
         }
       }
     }
@@ -289,16 +297,18 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
         debug() << **i << " | ";
       }
     } 
-    void findReturnStatements(Function& F, RetMap& retStmts) {
+    void findReturnStatements(Function& F, RetMap& retStmts, GraphExporter* dot) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if (isa<ReturnInst>(*i)) {
             ReturnInst& r = cast<ReturnInst>(*i);
             TaintSet l;
             
             // skip 'return void'
-            if (r.getReturnValue()) {
-              l.insert(r.getReturnValue());
-              retStmts.insert(pair<Value*, set<Value*> >(r.getReturnValue(), l));
+            Value* retval = r.getReturnValue();
+            if (retval) {
+              l.insert(retval);
+              retStmts.insert(pair<Value*, set<Value*> >(retval, l));
+              dot->addOutNode(r);
               debug() << "Found ret-stmt: " << r << "\n";
             }
           }

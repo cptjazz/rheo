@@ -39,22 +39,59 @@ class GraphExporter {
     return ss.str();
   }
 
+  void addInOutNode(Value& inout) {
+    _nodes.erase(&inout);
+    _file << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) << "\"" << getInOutNodeShape(inout) << "];\n";
+    _nodes.insert(&inout);
+  }
+
+  void addInNode(Value& in) {
+    _nodes.erase(&in);
+    _file << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" << getInNodeShape(in) << "];\n";
+    _nodes.insert(&in);
+  }
+
+  void addOutNode(Value& out) {
+    _nodes.erase(&out);
+    _file << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" << getOutNodeShape(out) << "];\n";
+    _nodes.insert(&out);
+  }
+
   void addRelation(Value& from, Value& to) {
-    if (_set.find(pair<Value*, Value*>(&from, &to)) != _set.end())
-      return;
+    if (_nodes.find(&from) == _nodes.end()) {
+      _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
+      _nodes.insert(&from);
+    }
 
-    _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
-    _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\"" << getShape(from) << "];\n";
-    _file << getNodeName(from) << " -> " << getNodeName(to) << ";\n";
+    if (_nodes.find(&to) == _nodes.end()) {
+      _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\"" << getShape(from) << "];\n";
+      _nodes.insert(&to);
+    }
 
-    _set.insert(pair<Value*, Value*>(&from, &to));
+    if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
+      _file << getNodeName(from) << " -> " << getNodeName(to) << ";\n";
+      _pairs.insert(pair<Value*, Value*>(&from, &to));
+    }
   }
 
   string getShape(Value& v) {
-    return (isa<Argument>(v) ? "shape=record, style=filled, color=lightblue" : "shape=record");
+    return "shape=record";
+  }
+
+  string getInOutNodeShape(Value& v) {
+    return "shape=record, style=filled, color=yellow";
+  }
+
+  string getInNodeShape(Value& v) {
+    return "shape=record, style=filled, color=lightblue";
+  }
+
+  string getOutNodeShape(Value& v) {
+    return "shape=record, style=filled, color=pink";
   }
 
   string _functionName;
   ofstream _file;
-  set<pair<Value*, Value*> > _set;
+  set<pair<Value*, Value*> > _pairs;
+  set<Value*> _nodes;
 };
