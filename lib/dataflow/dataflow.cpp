@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <cstring>
 #include <stdio.h>
-#include "GraphExporter.cpp"
+#include "GraphExporter.h"
 
 
 using namespace llvm;

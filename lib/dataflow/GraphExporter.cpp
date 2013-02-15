@@ -1,97 +1,81 @@
-#include <iostream>
-#include <fstream>
-#include <cstring>
+#include "GraphExporter.h"
 #include <sstream>
 #include <llvm/Instruction.h>
-#include <llvm/Value.h>
 #include <llvm/ADT/StringMap.h>
-#include <set>
 
-using namespace std;
-using namespace llvm;
+GraphExporter::GraphExporter(string functionName) {
+  _functionName = functionName;
+  _file.open((functionName + ".dot").c_str(), ios::out);
+ 
+  _file << "digraph \"" << functionName << "\" { \n";
+  _file << "  size =\"10,10\";\n";
+  _file << "  label = \"" << functionName << "\";\n";
+}
 
-class GraphExporter {
-  public:
+GraphExporter::~GraphExporter() {
+  _file << "}\n";
+  _file.close();
+} 
 
-  GraphExporter(string functionName) {
-    _functionName = functionName;
-    _file.open((functionName + ".dot").c_str(), ios::out);
-   
-    _file << "digraph \"" << functionName << "\" { \n";
-    _file << "  size =\"10,10\";\n";
-    _file << "  label = \"" << functionName << "\";\n";
+void GraphExporter::addInOutNode(Value& inout) {
+  _nodes.erase(&inout);
+  _file << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) << "\"" << getInOutNodeShape(inout) << "];\n";
+  _nodes.insert(&inout);
+}
+
+void GraphExporter::addInNode(Value& in) {
+  _nodes.erase(&in);
+  _file << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" << getInNodeShape(in) << "];\n";
+  _nodes.insert(&in);
+}
+
+void GraphExporter::addOutNode(Value& out) {
+  _nodes.erase(&out);
+  _file << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" << getOutNodeShape(out) << "];\n";
+  _nodes.insert(&out);
+}
+
+void GraphExporter::addRelation(Value& from, Value& to) {
+  if (_nodes.find(&from) == _nodes.end()) {
+    _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
+    _nodes.insert(&from);
   }
 
-  ~GraphExporter() {
-    _file << "}\n";
-    _file.close();
-  } 
-
-  string getNodeName(Value& i) {
-    stringstream ss;
-    ss << "_" << (long)(&i);
-    return ss.str();
+  if (_nodes.find(&to) == _nodes.end()) {
+    _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\"" << getShape(from) << "];\n";
+    _nodes.insert(&to);
   }
 
-  string getNodeCaption(Value& v) {
-    stringstream ss;
-    ss << v.getName().str() << "_" << (long)(&v);
-    return ss.str();
+  if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
+    _file << getNodeName(from) << " -> " << getNodeName(to) << ";\n";
+    _pairs.insert(pair<Value*, Value*>(&from, &to));
   }
+}
 
-  void addInOutNode(Value& inout) {
-    _nodes.erase(&inout);
-    _file << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) << "\"" << getInOutNodeShape(inout) << "];\n";
-    _nodes.insert(&inout);
-  }
+string GraphExporter::getShape(Value& v) {
+  return "shape=record";
+}
 
-  void addInNode(Value& in) {
-    _nodes.erase(&in);
-    _file << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" << getInNodeShape(in) << "];\n";
-    _nodes.insert(&in);
-  }
+string GraphExporter::getInOutNodeShape(Value& v) {
+  return "shape=record, style=filled, color=yellow";
+}
 
-  void addOutNode(Value& out) {
-    _nodes.erase(&out);
-    _file << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" << getOutNodeShape(out) << "];\n";
-    _nodes.insert(&out);
-  }
+string GraphExporter::getInNodeShape(Value& v) {
+  return "shape=record, style=filled, color=lightblue";
+}
 
-  void addRelation(Value& from, Value& to) {
-    if (_nodes.find(&from) == _nodes.end()) {
-      _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
-      _nodes.insert(&from);
-    }
+string GraphExporter::getOutNodeShape(Value& v) {
+  return "shape=record, style=filled, color=pink";
+}
 
-    if (_nodes.find(&to) == _nodes.end()) {
-      _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\"" << getShape(from) << "];\n";
-      _nodes.insert(&to);
-    }
+string GraphExporter::getNodeName(Value& i) {
+  stringstream ss;
+  ss << "_" << (long)(&i);
+  return ss.str();
+}
 
-    if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
-      _file << getNodeName(from) << " -> " << getNodeName(to) << ";\n";
-      _pairs.insert(pair<Value*, Value*>(&from, &to));
-    }
-  }
-
-  string getShape(Value& v) {
-    return "shape=record";
-  }
-
-  string getInOutNodeShape(Value& v) {
-    return "shape=record, style=filled, color=yellow";
-  }
-
-  string getInNodeShape(Value& v) {
-    return "shape=record, style=filled, color=lightblue";
-  }
-
-  string getOutNodeShape(Value& v) {
-    return "shape=record, style=filled, color=pink";
-  }
-
-  string _functionName;
-  ofstream _file;
-  set<pair<Value*, Value*> > _pairs;
-  set<Value*> _nodes;
-};
+string GraphExporter::getNodeCaption(Value& v) {
+  stringstream ss;
+  ss << v.getName().str() << "_" << (long)(&v);
+  return ss.str();
+}
