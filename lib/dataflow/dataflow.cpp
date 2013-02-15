@@ -145,6 +145,10 @@ namespace {
       taints.insert(TaintPair(&tainter, &taintee));
     }
 
+    bool setContains(TaintSet& taintSet, Value& val) {
+      return taintSet.find(&val) != taintSet.end();
+    }
+
     void writeTaints(Function& F, ResultSet& taints) {
       release() << "__taints:";
       release().write_escaped(F.getName()) << "(";
@@ -167,7 +171,7 @@ namespace {
         Value& cmp = *inst.getCondition();
         debug() << "    Cmp is: " << cmp << "\n";
    
-        bool isConditionTainted = (taintSet.find(&cmp) != taintSet.end());
+        bool isConditionTainted = setContains(taintSet, cmp);
         if (isConditionTainted) {
           debug() << "    Condition seems tainted.\n";
           dot->addRelation(cmp, inst);
@@ -201,7 +205,7 @@ namespace {
       for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
          debug() << "  Inspecting operand #" << o_i << "\n";
          Value& operand = *inst.getOperand(o_i);
-         if (taintSet.find(&operand) != taintSet.end()) {
+         if (setContains(taintSet, operand)) {
            addValueToSet(taintSet, inst);
 debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
            if (isa<StoreInst>(inst))
@@ -312,6 +316,7 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
         debug() << **i << " | ";
       }
     } 
+
     void findReturnStatements(Function& F, RetMap& retStmts, GraphExporter* dot) {
       for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
           if (isa<ReturnInst>(*i)) {
