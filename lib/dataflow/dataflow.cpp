@@ -67,6 +67,7 @@ namespace {
         int iteration = 0;
         int newSetLength;
         int oldSetLength;
+
         do {
           oldSetLength = l.size();
 
@@ -114,8 +115,6 @@ namespace {
         if (intersect.begin() != intersect.end()) {
           addTaint(taints, arg, retval);
         }
-          
-       // dot->addReturnSet(retval, retTaintSet);
       }
     }
 
@@ -132,6 +131,8 @@ namespace {
 
         if (isa<BranchInst>(inst))
           handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT, PDT, dot);
+        else if (isa<StoreInst>(inst))
+          handleStoreInstruction(cast<StoreInst>(inst), taintSet, DT, dot);
         else
           handleInstruction(inst, taintSet, DT, dot);
       }
@@ -163,6 +164,26 @@ namespace {
       }
 
       release() << ")\n";
+    }
+
+    void handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
+      Value& source = *storeInst.getOperand(0);
+      Value& target = *storeInst.getOperand(1);
+
+      debug() << " handle STORE instruction\n";
+      if (setContains(taintSet, source)) {
+        taintSet.insert(&target);
+        dot->addRelation(source, target);
+        debug() << "added STORE taint: " << source << " --> " << target << "\n";
+      }
+
+      //if (!handleBlockTainting(taintSet, storeInst, DT, dot) && !setContains(taintSet, source)) {
+        //taintSet.erase(&target);
+        //debug() << "removed STORE taint due to non-taint overwrite: " << source << " --> " << target << "\n";
+        //dot->addRelation(source, target);
+      //}
+      
+      handleBlockTainting(taintSet, storeInst, DT, dot);
     }
 
     void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
@@ -206,16 +227,20 @@ namespace {
          debug() << "  Inspecting operand #" << o_i << "\n";
          Value& operand = *inst.getOperand(o_i);
          if (setContains(taintSet, operand)) {
-           addValueToSet(taintSet, inst);
-debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
-           if (isa<StoreInst>(inst))
-             dot->addRelation(operand, *inst.getOperand(1));
-           else
-             dot->addRelation(operand, inst);
+           taintSet.insert(&inst);
+           dot->addRelation(operand, inst);
 
+           debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
            debug() << "    Added " << inst << "\n";
         }
       }
+
+      handleBlockTainting(taintSet, inst, DT, dot);
+    }
+
+    bool handleBlockTainting(TaintSet& taintSet, Instruction& inst, DominatorTree& DT, GraphExporter* dot) {
+      debug() << "Handle BLOCK-tainting for " << inst << "\n";
+      bool result = false;
 
       for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
         if (! isa<BasicBlock>(*s_i))
@@ -224,16 +249,22 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
         BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
         BasicBlock& currentBlock = *inst.getParent();
 
-        //debug() << "inspecting dirty block: " << taintedBlock << "\n";
+        debug() << "inspecting dirty block: " << taintedBlock << "\n";
         if (DT.dominates(&taintedBlock, &currentBlock)) {
           debug() << "dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
-          addValueToSet(taintSet, currentBlock);
-          addValueToSet(taintSet, inst);
+
+          taintSet.insert(&currentBlock);
           dot->addRelation(taintedBlock, currentBlock);
+
+          taintSet.insert(&inst);
           dot->addRelation(currentBlock, inst);
+
           debug() << "instruction tainted by dirty block: " << inst << "\n";
+          result = true;
         }
       }
+
+      return result;
     }
 
     raw_ostream& release() {
@@ -252,13 +283,6 @@ debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
         return v.getName();
       else
         return "$_retval";
-    }
-
-    void addValueToSet(set<Value*>& l, Value& I) {
-      if (isa<StoreInst>(I))
-        l.insert(cast<StoreInst>(I).getOperand(1));
-      else
-        l.insert(&I);
     }
 
     void findArguments(Function& F, ArgMap& args, RetMap& retStmts, GraphExporter* dot) {
