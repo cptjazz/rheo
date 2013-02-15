@@ -64,7 +64,22 @@ namespace {
         Argument& arg = *arg_i->first;
         TaintSet l = arg_i->second;
 
-        buildTaintSetFor(F, arg, l, DT, PDT, dot);
+        int iteration = 0;
+        int newSetLength;
+        int oldSetLength;
+        do {
+          oldSetLength = l.size();
+
+          debug() << " ** Begin Iteration #" << iteration << "\n";
+          buildTaintSetFor(F, arg, l, DT, PDT, dot);
+          debug() << " ** End Iteration #" << iteration << "\n";
+
+          newSetLength = l.size();
+          debug() << " ** Tain set length:" << newSetLength << "\n";
+
+          iteration++;
+        } while (iteration < 10 && oldSetLength != newSetLength);
+
         intersectSets(arg, l, returnStatements, taints, dot);
       }
 
