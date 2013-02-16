@@ -170,20 +170,20 @@ namespace {
       Value& source = *storeInst.getOperand(0);
       Value& target = *storeInst.getOperand(1);
 
-      debug() << " handle STORE instruction\n";
-      if (setContains(taintSet, source)) {
+      debug() << " handle STORE instruction " << storeInst << "\n";
+      if (setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst, DT, dot)) {
         taintSet.insert(&target);
         dot->addRelation(source, target);
         debug() << "added STORE taint: " << source << " --> " << target << "\n";
       }
 
-      //if (!handleBlockTainting(taintSet, storeInst, DT, dot) && !setContains(taintSet, source)) {
-        //taintSet.erase(&target);
-        //debug() << "removed STORE taint due to non-taint overwrite: " << source << " --> " << target << "\n";
-        //dot->addRelation(source, target);
-      //}
+      /*if (!handleBlockTainting(taintSet, storeInst, DT, dot) && !setContains(taintSet, source)) {
+        taintSet.erase(&target);
+        debug() << "removed STORE taint due to non-taint overwrite: " << source << " --> " << target << "\n";
+        dot->addRelation(source, target);
+      }*/
       
-      handleBlockTainting(taintSet, storeInst, DT, dot);
+      //handleBlockTainting(taintSet, storeInst, DT, dot));
     }
 
     void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
@@ -220,6 +220,8 @@ namespace {
           }
         }
       }
+
+      handleBlockTainting(taintSet, inst, DT, dot);
     }
     
     void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
@@ -249,7 +251,6 @@ namespace {
         BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
         BasicBlock& currentBlock = *inst.getParent();
 
-        debug() << "inspecting dirty block: " << taintedBlock << "\n";
         if (DT.dominates(&taintedBlock, &currentBlock)) {
           debug() << "dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
 
