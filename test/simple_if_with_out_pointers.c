@@ -15,6 +15,7 @@ void out_pointer_if_2(int a, int* b) {
     *b = 5;
 }
 
+
 // __expected:out_pointer_if_3(a => b)
 void out_pointer_if_3(int a, int* b) {
   if (a)

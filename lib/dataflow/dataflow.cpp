@@ -125,16 +125,9 @@ namespace {
       // Arg trivially taints itself.
       taintSet.insert(&arg);
 
-      for (inst_iterator inst_i = inst_begin(F), inst_e = inst_end(F); inst_i != inst_e; ++inst_i) {
-        Instruction& inst = cast<Instruction>(*inst_i);
-        debug() << "Inspecting instruction: " << inst << "\n";
-
-        if (isa<BranchInst>(inst))
-          handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT, PDT, dot);
-        else if (isa<StoreInst>(inst))
-          handleStoreInstruction(cast<StoreInst>(inst), taintSet, DT, dot);
-        else
-          handleInstruction(inst, taintSet, DT, dot);
+      for (Function::iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
+        BasicBlock& block = cast<BasicBlock>(*b_i);
+        processBasicBlock(block, taintSet, DT, PDT, dot);
       }
 
       debug() << "Taint set for arg `" << arg.getName() << "`:\n";
@@ -148,6 +141,20 @@ namespace {
 
     bool setContains(TaintSet& taintSet, Value& val) {
       return taintSet.find(&val) != taintSet.end();
+    }
+
+    void processBasicBlock(BasicBlock& block, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
+      for (BasicBlock::iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
+        Instruction& inst = cast<Instruction>(*inst_i);
+        debug() << "Inspecting instruction: " << inst << "\n";
+
+        if (isa<BranchInst>(inst))
+          handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT, PDT, dot);
+        else if (isa<StoreInst>(inst))
+          handleStoreInstruction(cast<StoreInst>(inst), taintSet, DT, dot);
+        else
+          handleInstruction(inst, taintSet, DT, dot);
+      }
     }
 
     void writeTaints(Function& F, ResultSet& taints) {
@@ -170,38 +177,52 @@ namespace {
       Value& source = *storeInst.getOperand(0);
       Value& target = *storeInst.getOperand(1);
 
-      debug() << " handle STORE instruction " << storeInst << "\n";
+      debug() << " Handle STORE instruction " << storeInst << "\n";
       if (setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst, DT, dot)) {
         taintSet.insert(&target);
         dot->addRelation(source, target);
-        debug() << "added STORE taint: " << source << " --> " << target << "\n";
-      }
-
-      /*if (!handleBlockTainting(taintSet, storeInst, DT, dot) && !setContains(taintSet, source)) {
+        debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
+      } else if (setContains(taintSet, target) /*&& !isa<Argument>(source)*/) {
+        // Only do removal if value is really in set
+        // Force sources to be non-arguments, otherwise we would remove
+        // initial argument storage locations 
         taintSet.erase(&target);
-        debug() << "removed STORE taint due to non-taint overwrite: " << source << " --> " << target << "\n";
+        debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
         dot->addRelation(source, target);
-      }*/
-      
-      //handleBlockTainting(taintSet, storeInst, DT, dot));
+      }
     }
 
     void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
-      debug() << "  Inspecting branch instruction:\n";
+      debug() << " Handle BRANCH instruction:\n";
+      BasicBlock& currentBlock = *inst.getParent();
+      
+      // Process all nested blocks to find possible tainting of 
+      // condition expression.
+      DomTreeNode* node = DT.getNode(&currentBlock);
+      if (node != NULL) {
+        for (DomTreeNode::iterator n_i = node->begin(), n_e = node->end(); n_i != n_e; ++n_i) {
+          BasicBlock& childBlock = *(*n_i)->getBlock();
+          debug() << " ****  Begin: Processing child block " << childBlock << "\n";
+          processBasicBlock(childBlock, taintSet, DT, PDT, dot);
+          debug() << " ****  End: Processing child block\n";
+        }
+      } else {
+        debug() << " **** ! Block not in DT: " << currentBlock << "\n";
+      }
+
       if (inst.isConditional()) {
-        Value& cmp = *inst.getCondition();
-        debug() << "    Cmp is: " << cmp << "\n";
+        Instruction& cmp = cast<Instruction>(*inst.getCondition());
+        debug() << " = Compare instruction is: " << cmp << "\n";
    
         bool isConditionTainted = setContains(taintSet, cmp);
         if (isConditionTainted) {
-          debug() << "    Condition seems tainted.\n";
           dot->addRelation(cmp, inst);
          
           BasicBlock* brTrue = inst.getSuccessor(0);
           // true branch is always tainted
           taintSet.insert(brTrue);
           dot->addRelation(inst, *brTrue);
-          debug() << "added true branch to taint set:\n";
+          debug() << " + Added TRUE branch to taint set:\n";
           debug() << *brTrue << "\n";
 
           if (inst.getNumSuccessors() == 2) {
@@ -209,12 +230,12 @@ namespace {
             // false branch is only tainted if successor 
             // is not the same as jump target after true branch
             BasicBlock* target = PDT.findNearestCommonDominator(brFalse, brTrue);
-            debug() << "Nearest Common Post-Dominator for tr/fa: " << *target << "\n";
+            debug() << "   Nearest Common Post-Dominator for tr/fa: " << *target << "\n";
 
             if (target != brFalse) {
               taintSet.insert(brFalse);
               dot->addRelation(inst, *brFalse);
-              debug() << "added false branch to taint set:\n";
+              debug() << " + Added FALSE branch to taint set:\n";
               debug() << *brFalse << "\n";
             }
           }
@@ -225,15 +246,16 @@ namespace {
     }
     
     void handleInstruction(Instruction& inst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
+      debug() << " Handle OTHER instruction:\n";
+
       for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
-         debug() << "  Inspecting operand #" << o_i << "\n";
+         debug() << " ~ Inspecting operand #" << o_i << "\n";
          Value& operand = *inst.getOperand(o_i);
          if (setContains(taintSet, operand)) {
            taintSet.insert(&inst);
            dot->addRelation(operand, inst);
 
-           debug() << "TAINTER: " << operand << " --> TAINTEE " << inst << "\n";
-           debug() << "    Added " << inst << "\n";
+           debug() << " + Added " << operand << " --> " << inst << "\n";
         }
       }
 
@@ -241,7 +263,7 @@ namespace {
     }
 
     bool handleBlockTainting(TaintSet& taintSet, Instruction& inst, DominatorTree& DT, GraphExporter* dot) {
-      debug() << "Handle BLOCK-tainting for " << inst << "\n";
+      debug() << " Handle BLOCK-tainting for " << inst << "\n";
       bool result = false;
 
       for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
@@ -252,7 +274,7 @@ namespace {
         BasicBlock& currentBlock = *inst.getParent();
 
         if (DT.dominates(&taintedBlock, &currentBlock)) {
-          debug() << "dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
+          debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
 
           taintSet.insert(&currentBlock);
           dot->addRelation(taintedBlock, currentBlock);
@@ -260,7 +282,7 @@ namespace {
           taintSet.insert(&inst);
           dot->addRelation(currentBlock, inst);
 
-          debug() << "instruction tainted by dirty block: " << inst << "\n";
+          debug() << " + Instruction tainted by dirty block: " << inst << "\n";
           result = true;
         }
       }
