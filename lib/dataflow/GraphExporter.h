@@ -19,7 +19,7 @@ public:
   void addInOutNode(Value& inout);
   void addInNode(Value& in);
   void addOutNode(Value& out);
-  void addRelation(Value& from, Value& to);
+  void addRelation(Value& from, Value& to, string reason = "");
 
 private:
   string _functionName;

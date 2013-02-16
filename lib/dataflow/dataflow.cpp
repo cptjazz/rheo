@@ -188,7 +188,7 @@ namespace {
         // initial argument storage locations 
         taintSet.erase(&target);
         debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
-        dot->addRelation(source, target);
+        dot->addRelation(source, target, "non-taint overwrite");
       }
     }
 

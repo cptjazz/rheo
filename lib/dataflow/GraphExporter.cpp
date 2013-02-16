@@ -35,7 +35,7 @@ void GraphExporter::addOutNode(Value& out) {
   _nodes.insert(&out);
 }
 
-void GraphExporter::addRelation(Value& from, Value& to) {
+void GraphExporter::addRelation(Value& from, Value& to, string reason) {
   if (_nodes.find(&from) == _nodes.end()) {
     _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
     _nodes.insert(&from);
@@ -47,7 +47,7 @@ void GraphExporter::addRelation(Value& from, Value& to) {
   }
 
   if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
-    _file << getNodeName(from) << " -> " << getNodeName(to) << ";\n";
+    _file << getNodeName(from) << " -> " << getNodeName(to) << " [label=\"" << reason << "\"];\n";
     _pairs.insert(pair<Value*, Value*>(&from, &to));
   }
 }
