@@ -9,7 +9,7 @@ int callee_no_taint(int c, int d) {
   return y;
 }
 
-// __expected:callee_no_taint(c => $_retval)
+// __expected:callee_one_taint(c => $_retval)
 int callee_one_taint(int c, int d) {
   int y = c + 1;
   return y;
