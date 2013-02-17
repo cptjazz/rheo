@@ -62,26 +62,26 @@ namespace {
       
       for(; arg_i != arg_e; ++arg_i) {
         Argument& arg = *arg_i->first;
-        TaintSet l = arg_i->second;
+        TaintSet taintSet = arg_i->second;
 
         int iteration = 0;
         int newSetLength;
         int oldSetLength;
 
         do {
-          oldSetLength = l.size();
+          oldSetLength = taintSet.size();
 
           debug() << " ** Begin Iteration #" << iteration << "\n";
-          buildTaintSetFor(F, arg, l, DT, PDT, dot);
+          buildTaintSetFor(F, arg, taintSet, DT, PDT, dot);
           debug() << " ** End Iteration #" << iteration << "\n";
 
-          newSetLength = l.size();
-          debug() << " ** Tain set length:" << newSetLength << "\n";
+          newSetLength = taintSet.size();
+          debug() << " ** Taint set length:" << newSetLength << "\n";
 
           iteration++;
         } while (iteration < 10 && oldSetLength != newSetLength);
 
-        intersectSets(arg, l, returnStatements, taints, dot);
+        intersectSets(arg, taintSet, returnStatements, taints, dot);
       }
 
       delete(dot);
@@ -184,10 +184,8 @@ namespace {
         taintSet.insert(&target);
         dot->addRelation(source, target);
         debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
-      } else if (setContains(taintSet, target) /*&& !isa<Argument>(source)*/) {
+      } else if (setContains(taintSet, target)) {
         // Only do removal if value is really in set
-        // Force sources to be non-arguments, otherwise we would remove
-        // initial argument storage locations 
         taintSet.erase(&target);
         debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
         dot->addRelation(source, target, "non-taint overwrite");
@@ -196,6 +194,13 @@ namespace {
 
     void handleCallInstruction(CallInst& callInst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
       debug() << " Handle CALL instruction:\n";
+      Function* callee = callInst.getCalledFunction();
+
+      if (callee != NULL) {
+        debug() << " * calling function `" << *callee << "`\n";
+      } else {
+        debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
+      }
     }
 
     void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
