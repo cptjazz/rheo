@@ -152,6 +152,8 @@ namespace {
           handleBranchInstruction(cast<BranchInst>(inst), taintSet, DT, PDT, dot);
         else if (isa<StoreInst>(inst))
           handleStoreInstruction(cast<StoreInst>(inst), taintSet, DT, dot);
+        else if (isa<CallInst>(inst))
+          handleCallInstruction(cast<CallInst>(inst), taintSet, DT, dot);
         else
           handleInstruction(inst, taintSet, DT, dot);
       }
@@ -190,6 +192,10 @@ namespace {
         debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
         dot->addRelation(source, target, "non-taint overwrite");
       }
+    }
+
+    void handleCallInstruction(CallInst& callInst, TaintSet& taintSet, DominatorTree& DT, GraphExporter* dot) {
+      debug() << " Handle CALL instruction:\n";
     }
 
     void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet, DominatorTree& DT, PostDominatorTree& PDT, GraphExporter* dot) {
