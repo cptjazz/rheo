@@ -62,10 +62,6 @@ namespace {
   };
 }
 
-#ifndef PFF_REG_PASS
-#define PFF_REG_PASS
 char PerFunctionFlow::ID = 0;
-static RegisterPass<PerFunctionFlow> X("per-function-flow", "Data-flow analysis for one function", true, true);
-#endif // PFF_REG_PASS
 
 #endif // PER_FUNCTION_PASS_H

@@ -33,7 +33,7 @@ namespace {
     Dataflow() : ModulePass(ID) { }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      //AU.addRequired<PerFunctionFlow>();
+      AU.addRequired<PerFunctionFlow>();
     }
 
     virtual bool runOnModule(Module &module) {
@@ -44,10 +44,10 @@ namespace {
         if (taintResultExists(func))
           continue;
 
-        //PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-        //ResultSet result = pff.getResult();
+        PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
+        ResultSet result = pff.getResult();
 
-        //writeResult(func, result);
+        writeResult(func, result);
       }
 
       return false;
@@ -81,4 +81,7 @@ namespace {
 }
 
 char Dataflow::ID = 0;
+
 static RegisterPass<Dataflow> Y("dataflow", "Data-flow analysis", true, true);
+static RegisterPass<PerFunctionFlow> X("per-function-flow", "Data-flow analysis for one function", true, true);
+
