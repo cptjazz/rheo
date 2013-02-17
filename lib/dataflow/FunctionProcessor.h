@@ -27,6 +27,8 @@ typedef map<Value*, TaintSet> RetMap;
 typedef map<Argument*, TaintSet> ArgMap;
 typedef pair<Argument*, Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
+typedef map<Function*, ResultSet> FunctionTaintMap;
+
 
 class FunctionProcessor {
   Function& F;
@@ -34,28 +36,33 @@ class FunctionProcessor {
   PostDominatorTree& PDT;
   GraphExporter* DOT;
 
-  RetMap returnStatements;
-  ArgMap arguments;
-  ResultSet taints;
+  RetMap _returnStatements;
+  ArgMap _arguments;
+  ResultSet _taints;
+  FunctionTaintMap _taintMap;
 
   raw_ostream& _stream;
 
+  bool canceledInspection;
+
 public:
   FunctionProcessor(Function& f, DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), /*DOT(GraphExporter(f.getName())),*/ _stream(stream) { 
+  : F(f), DT(dt), PDT(pdt), _stream(stream)  { 
     DOT = new GraphExporter(f.getName());
+    canceledInspection = false;
   }
 
   ~FunctionProcessor() {
     delete(DOT);
   }
 
-  void processFunction();
+  void processFunction(ResultSet result);
+  bool didFinish();
 
 private:
-  void intersectSets(Argument& arg, TaintSet argTaintSet, RetMap retStmts, ResultSet& taints);
+  void intersectSets(Argument& arg, TaintSet argTaintSet);
   void buildTaintSetFor(Value& arg, TaintSet& taintSet);
-  void addTaint(ResultSet& taints, Argument& tainter, Value& taintee);
+  void addTaint(Argument& tainter, Value& taintee);
   bool setContains(TaintSet& taintSet, Value& val);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
   void printTaints();
@@ -65,10 +72,10 @@ private:
   void handleInstruction(Instruction& inst, TaintSet& taintSet);
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
   StringRef getValueNameOrDefault(Value& v);
-  void findArguments(ArgMap& args, RetMap& retStmts);
+  void findArguments();
   void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist);
   void printSet(set<Value*>& s);
-  void findReturnStatements(RetMap& retStmts);
+  void findReturnStatements();
   void printInstructions(); 
 
   raw_ostream& debug() {

@@ -19,14 +19,20 @@
 using namespace llvm;
 using namespace std;
 
-void FunctionProcessor::processFunction() {
+bool FunctionProcessor::didFinish() {
+  return !canceledInspection;
+}
+
+void FunctionProcessor::processFunction(ResultSet result) {
+  _taints = result;
+
   printInstructions();
 
-  findReturnStatements(returnStatements);
-  findArguments(arguments, returnStatements);
+  findReturnStatements();
+  findArguments();
 
-  ArgMap::iterator arg_i = arguments.begin();
-  ArgMap::iterator arg_e = arguments.end();
+  ArgMap::iterator arg_i = _arguments.begin();
+  ArgMap::iterator arg_e = _arguments.end();
       
   for(; arg_i != arg_e; ++arg_i) {
     Argument& arg = *arg_i->first;
@@ -49,15 +55,16 @@ void FunctionProcessor::processFunction() {
       iteration++;
     } while (iteration < 10 && oldSetLength != newSetLength);
 
-    intersectSets(arg, taintSet, returnStatements, taints);
+    intersectSets(arg, taintSet);
   }
 
+  _taintMap.insert(pair<Function*, ResultSet>(&F, _taints));
   printTaints();
 }
 
-void FunctionProcessor::intersectSets(Argument& arg, TaintSet argTaintSet, RetMap retStmts, ResultSet& taints) {
-  RetMap::iterator ret_i = retStmts.begin();
-  RetMap::iterator ret_e = retStmts.end();
+void FunctionProcessor::intersectSets(Argument& arg, TaintSet argTaintSet) {
+  RetMap::iterator ret_i = _returnStatements.begin();
+  RetMap::iterator ret_e = _returnStatements.end();
 
   for (; ret_i != ret_e; ++ret_i) {
     Value& retval = *ret_i->first;
@@ -77,7 +84,7 @@ void FunctionProcessor::intersectSets(Argument& arg, TaintSet argTaintSet, RetMa
                      inserter(intersect, intersect.end()));
 
     if (intersect.begin() != intersect.end()) {
-      addTaint(taints, arg, retval);
+      addTaint(arg, retval);
     }
   }
 }
@@ -99,8 +106,8 @@ void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
   debug() << "\n";
 }
 
-void FunctionProcessor::addTaint(ResultSet& taints, Argument& tainter, Value& taintee) {
-  taints.insert(TaintPair(&tainter, &taintee));
+void FunctionProcessor::addTaint(Argument& tainter, Value& taintee) {
+  _taints.insert(TaintPair(&tainter, &taintee));
 }
 
 bool FunctionProcessor::setContains(TaintSet& taintSet, Value& val) {
@@ -128,7 +135,7 @@ void FunctionProcessor::printTaints() {
   release().write_escaped(F.getName()) << "(";
   bool isFirstTime = true;
 
-  for (ResultSet::iterator i = taints.begin(), e = taints.end(); i != e; ++i) {
+  for (ResultSet::iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     Argument& arg = cast<Argument>(*i->first);
     Value& retval = cast<Value>(*i->second);
 
@@ -272,7 +279,7 @@ StringRef FunctionProcessor::getValueNameOrDefault(Value& v) {
     return "$_retval";
 }
 
-void FunctionProcessor::findArguments(ArgMap& args, RetMap& retStmts) {
+void FunctionProcessor::findArguments() {
   for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
     Argument& arg = *i;
     bool isInOutNode = false;
@@ -280,7 +287,7 @@ void FunctionProcessor::findArguments(ArgMap& args, RetMap& retStmts) {
     if (arg.getType()->isPointerTy()) {
       TaintSet retlist;
       findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
-      retStmts.insert(pair<Value*, TaintSet>(&arg, retlist));
+      _returnStatements.insert(pair<Value*, TaintSet>(&arg, retlist));
       DOT->addInOutNode(arg);
       isInOutNode = true;
 
@@ -292,7 +299,7 @@ void FunctionProcessor::findArguments(ArgMap& args, RetMap& retStmts) {
     if (!isInOutNode)
       DOT->addInNode(arg);
 
-    args.insert(pair<Argument*, TaintSet>(&arg, taintSet));
+    _arguments.insert(pair<Argument*, TaintSet>(&arg, taintSet));
     debug() << "added arg `" << arg.getName() << "` to arg-list\n";
   }
 }
@@ -328,7 +335,7 @@ void FunctionProcessor::printSet(set<Value*>& s) {
   }
 } 
 
-void FunctionProcessor::findReturnStatements(RetMap& retStmts) {
+void FunctionProcessor::findReturnStatements() {
   for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
       if (isa<ReturnInst>(*i)) {
         ReturnInst& r = cast<ReturnInst>(*i);
@@ -338,7 +345,7 @@ void FunctionProcessor::findReturnStatements(RetMap& retStmts) {
         Value* retval = r.getReturnValue();
         if (retval) {
           taintSet.insert(retval);
-          retStmts.insert(pair<Value*, set<Value*> >(retval, taintSet));
+          _returnStatements.insert(pair<Value*, set<Value*> >(retval, taintSet));
           DOT->addOutNode(r);
           debug() << "Found ret-stmt: " << r << "\n";
         }

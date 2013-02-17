@@ -13,19 +13,15 @@
 #include <set>
 #include <algorithm>
 #include <cstring>
+#include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include "GraphExporter.h"
 #include "FunctionProcessor.h"
-
+#include "PerFunctionFlow.cpp"
 
 using namespace llvm;
 using namespace std;
-
-typedef set<Value*> TaintSet;
-typedef map<Value*, TaintSet> RetMap;
-typedef map<Argument*, TaintSet> ArgMap;
-typedef pair<Argument*, Value*> TaintPair;
-typedef set<TaintPair> ResultSet;
 
 namespace {
 
@@ -37,25 +33,52 @@ namespace {
     Dataflow() : ModulePass(ID) { }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DominatorTree>();
-      AU.addRequired<PostDominatorTree>();
+      //AU.addRequired<PerFunctionFlow>();
     }
 
     virtual bool runOnModule(Module &module) {
       for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
         Function& func = *i;
-        errs() << "## Running analysis for `" << func.getName() << "`\n";
 
-        DominatorTree& dt = getAnalysis<DominatorTree>(func);
-        PostDominatorTree& pdt = getAnalysis<PostDominatorTree>(func);
-        FunctionProcessor proc(func, dt, pdt, errs());
-        proc.processFunction();
+        // Skip if function was already processed.
+        if (taintResultExists(func))
+          continue;
+
+        //PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
+        //ResultSet result = pff.getResult();
+
+        //writeResult(func, result);
       }
 
       return false;
+    }
+
+    bool taintResultExists(Function& f) {
+      ifstream file(f.getName().str().c_str());
+      return file;
+    }
+
+    void writeResult(Function& f, ResultSet result) {
+      ofstream file;
+      file.open((f.getName().str() + ".taints").c_str(), ios::out);
+
+      for (ResultSet::iterator i = result.begin(), e = result.end(); i != e; ++i) {
+        Argument& arg = *i->first;
+        Value& retval = *i->second;
+
+        file << arg.getName().str() << " => ";
+        if (isa<ReturnInst>(retval))
+          file <<  "$_retval";
+        else
+	  file << retval.getName().str();
+
+        file << "\n";
+      }
+
+      file.close();
     }
   };
 }
 
 char Dataflow::ID = 0;
-static RegisterPass<Dataflow> X("dataflow", "Data-flow analysis", true, true);
+static RegisterPass<Dataflow> Y("dataflow", "Data-flow analysis", true, true);
