@@ -27,7 +27,6 @@ typedef map<Value*, TaintSet> RetMap;
 typedef map<Argument*, TaintSet> ArgMap;
 typedef pair<Argument*, Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
-typedef map<Function*, ResultSet> FunctionTaintMap;
 
 
 class FunctionProcessor {
@@ -38,16 +37,15 @@ class FunctionProcessor {
 
   RetMap _returnStatements;
   ArgMap _arguments;
-  ResultSet _taints;
-  FunctionTaintMap _taintMap;
+  ResultSet& _taints;
 
   raw_ostream& _stream;
 
   bool canceledInspection;
 
 public:
-  FunctionProcessor(Function& f, DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), _stream(stream)  { 
+  FunctionProcessor(Function& f, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
+  : F(f), DT(dt), PDT(pdt), _taints(result), _stream(stream)  { 
     DOT = new GraphExporter(f.getName());
     canceledInspection = false;
   }
@@ -56,7 +54,7 @@ public:
     delete(DOT);
   }
 
-  void processFunction(ResultSet result);
+  void processFunction();
   bool didFinish();
 
 private:

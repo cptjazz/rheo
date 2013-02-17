@@ -23,9 +23,7 @@ bool FunctionProcessor::didFinish() {
   return !canceledInspection;
 }
 
-void FunctionProcessor::processFunction(ResultSet result) {
-  _taints = result;
-
+void FunctionProcessor::processFunction() {
   printInstructions();
 
   findReturnStatements();
@@ -58,7 +56,6 @@ void FunctionProcessor::processFunction(ResultSet result) {
     intersectSets(arg, taintSet);
   }
 
-  _taintMap.insert(pair<Function*, ResultSet>(&F, _taints));
   printTaints();
 }
 
@@ -131,6 +128,7 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
 }
 
 void FunctionProcessor::printTaints() {
+  release() << "xx result is " << (long)(&_taints) << "\n";
   release() << "__taints:";
   release().write_escaped(F.getName()) << "(";
   bool isFirstTime = true;

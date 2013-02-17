@@ -45,7 +45,7 @@ namespace {
           continue;
 
         PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-        ResultSet result = pff.getResult();
+        ResultSet& result = pff.getResult();
 
         writeResult(func, result);
       }
@@ -67,10 +67,10 @@ namespace {
         Value& retval = *i->second;
 
         file << arg.getName().str() << " => ";
-        if (isa<ReturnInst>(retval))
-          file <<  "$_retval";
-        else
+        if (isa<Argument>(retval))
 	  file << retval.getName().str();
+        else
+          file << "$_retval";
 
         file << "\n";
       }

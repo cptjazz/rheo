@@ -45,8 +45,8 @@ namespace {
       DominatorTree& dt = getAnalysis<DominatorTree>();
       PostDominatorTree& pdt = getAnalysis<PostDominatorTree>();
 
-      FunctionProcessor proc(func, dt, pdt, errs());
-      proc.processFunction(_result);
+      FunctionProcessor proc(func, dt, pdt, _result, errs());
+      proc.processFunction();
       finished = proc.didFinish();
 
       return false;
