@@ -3,13 +3,13 @@
 #include <llvm/Instruction.h>
 #include <llvm/ADT/StringMap.h>
 
-GraphExporter::GraphExporter(string functionName) {
-  _functionName = functionName;
-  _file.open((functionName + ".dot").c_str(), ios::out);
- 
-  _file << "digraph \"" << functionName << "\" { \n";
+
+void GraphExporter::initialiseFile() {
+  _file.open((_functionName + ".dot").c_str(), ios::out);
+
+  _file << "digraph \"" << _functionName << "\" { \n";
   _file << "  size =\"10,10\";\n";
-  _file << "  label = \"" << functionName << "\";\n";
+  _file << "  label = \"" << _functionName << "\";\n";
 }
 
 GraphExporter::~GraphExporter() {
@@ -52,29 +52,29 @@ void GraphExporter::addRelation(Value& from, Value& to, string reason) {
   }
 }
 
-string GraphExporter::getShape(Value& v) {
+string GraphExporter::getShape(Value& v) const {
   return "shape=record";
 }
 
-string GraphExporter::getInOutNodeShape(Value& v) {
+string GraphExporter::getInOutNodeShape(Value& v) const {
   return "shape=record, style=filled, color=yellow";
 }
 
-string GraphExporter::getInNodeShape(Value& v) {
+string GraphExporter::getInNodeShape(Value& v) const {
   return "shape=record, style=filled, color=lightblue";
 }
 
-string GraphExporter::getOutNodeShape(Value& v) {
+string GraphExporter::getOutNodeShape(Value& v) const {
   return "shape=record, style=filled, color=pink";
 }
 
-string GraphExporter::getNodeName(Value& i) {
+string GraphExporter::getNodeName(Value& i) const {
   stringstream ss;
   ss << "_" << (long)(&i);
   return ss.str();
 }
 
-string GraphExporter::getNodeCaption(Value& v) {
+string GraphExporter::getNodeCaption(Value& v) const {
   stringstream ss;
   ss << v.getName().str() << "_" << (long)(&v);
   return ss.str();

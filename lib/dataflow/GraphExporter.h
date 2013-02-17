@@ -13,7 +13,10 @@ using namespace llvm;
 class GraphExporter {
 
 public:
-  GraphExporter(string functionName);
+  GraphExporter(string functionName) : _functionName(functionName) {
+    initialiseFile();
+  }
+
   ~GraphExporter();
 
   void addInOutNode(Value& inout);
@@ -22,17 +25,18 @@ public:
   void addRelation(Value& from, Value& to, string reason = "");
 
 private:
-  string _functionName;
+  const string _functionName;
   ofstream _file;
   set<pair<Value*, Value*> > _pairs;
   set<Value*> _nodes;
 
-  string getShape(Value& v);
-  string getInOutNodeShape(Value& v);
-  string getInNodeShape(Value& v);
-  string getOutNodeShape(Value& v);
-  string getNodeName(Value& i);
-  string getNodeCaption(Value& v);
+  void initialiseFile();
+  string getShape(Value& v) const;
+  string getInOutNodeShape(Value& v) const;
+  string getInNodeShape(Value& v) const;
+  string getOutNodeShape(Value& v) const;
+  string getNodeName(Value& i) const;
+  string getNodeCaption(Value& v) const;
 };
 
 #endif
