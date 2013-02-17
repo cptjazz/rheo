@@ -77,15 +77,18 @@ def test(file, exp_map, out_map)
       next
     end
 
+    single_taint_check_result = true
     taints.each do |taint|
       unless out_taints.include? taint
         print_failed(file, function, "Expected taint missing: " + taint.color(:cyan))
         test_result &&= false
         failed_count += 1
-        next
+        single_taint_check_result = false
       end
     end
   
+    next unless single_taint_check_result
+
     print_passed(file, function)
     passed_count += 1
   end
