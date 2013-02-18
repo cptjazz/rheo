@@ -161,7 +161,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   }
 }
 
-void FunctionProcessor::readTaintsFromFile(Function& func, ResultSet& result) {
+void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
   ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
   if (!file.is_open()) {
     debug() << " -- No file -- cancel.";
@@ -172,23 +172,48 @@ void FunctionProcessor::readTaintsFromFile(Function& func, ResultSet& result) {
   while (file.good()) {
     getline(file, line);
     
-    string argName;
+    string paramName;
     string valName;
     istringstream iss(line);
 
-    iss >> argName;
+    iss >> paramName;
     // consume => :
     iss >> valName;
     iss >> valName;
 
-    Argument* arg;
+    Argument* param = NULL;
+    int paramPos = -1;
+    int retvalPos = -1;
+
     for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-      arg = &*a_i;
-      if (arg->getName().str() == argName)
-        break; 
+      if (a_i->getName().str() == paramName) {
+        param = &*a_i;
+        paramPos++;
+      }
+
+      if (a_i->getName().str() == valName) {
+        retvalPos++;
+      }
     }
     
-    debug() << "Found arg: " << *arg << "\n";
+    if (param == NULL) {
+      debug() << "  - Skipping `" << paramName << "` -- does not taint.\n";
+      continue;
+    }
+
+    Value* arg = callInst.getArgOperand(paramPos);
+
+    if (setContains(taintSet, *arg)) {
+      if (retvalPos == -1) {
+        taintSet.insert(&callInst);
+      }
+      else {
+        Value* returnTarget = callInst.getArgOperand(retvalPos);
+        taintSet.insert(returnTarget);
+      }
+
+      debug() << "  - Argument `" << *arg << "` taints f-param `" << *param << "`\n";
+    }
   }
 }
 
@@ -199,8 +224,9 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
   if (callee != NULL) {
     debug() << " * calling function `" << *callee << "`\n";
 
+
     ResultSet result;
-    readTaintsFromFile(*callee, result);
+    readTaintsFromFile(taintSet, callInst, *callee, result);
     
   } else {
     debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
