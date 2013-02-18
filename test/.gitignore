@@ -2,3 +2,4 @@
 *.ll
 *.dot
 *.pdf
+*.taints
