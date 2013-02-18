@@ -50,14 +50,14 @@ int caller5(int a, int b) {
 int caller6(int a, int b) {
   int x = callee_one_taint(a, 5);
 
-  return b;
+  return x;
 }
 
 // __expected:caller7()
 int caller7(int a, int b) {
   int x = callee_one_taint(5, b);
 
-  return b;
+  return x;
 }
 
 // __expected:caller8()
@@ -86,7 +86,7 @@ int caller11(int a, int b) {
   return callee_no_taint(a, b);
 }
 
-// __expected:caller12()
+// __expected:caller12(b => $_retval)
 int caller12(int a, int b) {
   int x = callee_no_taint(a, 5);
 
@@ -97,7 +97,7 @@ int caller12(int a, int b) {
 int caller13(int a, int b) {
   int x = callee_no_taint(5, b);
 
-  return b;
+  return x;
 }
 
 // __expected:caller14()
