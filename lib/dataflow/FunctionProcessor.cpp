@@ -184,16 +184,20 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
     Argument* param = NULL;
     int paramPos = -1;
     int retvalPos = -1;
+    int i = 0;
 
+    debug() << "Searching for param " << paramName << "\n";
     for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
       if (a_i->getName().str() == paramName) {
         param = &*a_i;
-        paramPos++;
+        paramPos = i;
       }
 
       if (a_i->getName().str() == valName) {
-        retvalPos++;
+        retvalPos = i;
       }
+
+      i++;
     }
     
     if (param == NULL) {
@@ -212,9 +216,11 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
         taintSet.insert(returnTarget);
       }
 
-      debug() << "  - Argument `" << *arg << "` taints f-param `" << *param << "`\n";
+      debug() << "  - Argument `" << *arg << "` taints f-param `" << *param << "` at pos #" << paramPos << "\n";
     }
   }
+
+  file.close();
 }
 
 void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& taintSet) {
