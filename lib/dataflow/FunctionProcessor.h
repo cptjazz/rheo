@@ -75,6 +75,7 @@ private:
   void printSet(set<Value*>& s);
   void findReturnStatements();
   void printInstructions(); 
+  void readTaintsFromFile(Function& func, ResultSet& result);
 
   raw_ostream& debug() {
     return _stream;
@@ -84,6 +85,5 @@ private:
     return _stream;
   }
 };
-
 
 #endif // FUNCTION_PROCESSOR_H

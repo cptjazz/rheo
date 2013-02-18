@@ -12,6 +12,7 @@
 #include <set>
 #include <algorithm>
 #include <cstring>
+#include <sstream>
 #include <stdio.h>
 #include "FunctionProcessor.h"
 
@@ -128,7 +129,6 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
 }
 
 void FunctionProcessor::printTaints() {
-  release() << "xx result is " << (long)(&_taints) << "\n";
   release() << "__taints:";
   release().write_escaped(F.getName()) << "(";
   bool isFirstTime = true;
@@ -161,12 +161,47 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   }
 }
 
+void FunctionProcessor::readTaintsFromFile(Function& func, ResultSet& result) {
+  ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
+  if (!file.is_open()) {
+    debug() << " -- No file -- cancel.";
+    return;
+  }
+
+  string line;
+  while (file.good()) {
+    getline(file, line);
+    
+    string argName;
+    string valName;
+    istringstream iss(line);
+
+    iss >> argName;
+    // consume => :
+    iss >> valName;
+    iss >> valName;
+
+    Argument* arg;
+    for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+      arg = &*a_i;
+      if (arg->getName().str() == argName)
+        break; 
+    }
+    
+    debug() << "Found arg: " << *arg << "\n";
+  }
+}
+
 void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& taintSet) {
   debug() << " Handle CALL instruction:\n";
   Function* callee = callInst.getCalledFunction();
 
   if (callee != NULL) {
     debug() << " * calling function `" << *callee << "`\n";
+
+    ResultSet result;
+    readTaintsFromFile(*callee, result);
+    
   } else {
     debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
   }
