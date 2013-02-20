@@ -57,6 +57,8 @@ void FunctionProcessor::processFunction() {
       iteration++;
     } while (iteration < 10 && oldSetLength != newSetLength);
 
+    STOP_ON_CANCEL
+
     intersectSets(arg, taintSet);
   }
 
@@ -99,6 +101,7 @@ void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
 
   for (Function::iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     STOP_ON_CANCEL
+
     BasicBlock& block = cast<BasicBlock>(*b_i);
     processBasicBlock(block, taintSet);
   }
@@ -171,6 +174,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
   ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
   if (!file.is_open()) {
     debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.";
+    canceledInspection = true;
     return;
   }
 
@@ -235,7 +239,6 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
 
   if (callee != NULL) {
     debug() << " * calling function `" << *callee << "`\n";
-
 
     ResultSet result;
     readTaintsFromFile(taintSet, callInst, *callee, result);

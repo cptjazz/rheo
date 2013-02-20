@@ -43,14 +43,17 @@ namespace {
         // Skip if function was already processed.
         if (taintResultExists(func))
           continue;
+	
+	errs() << "# Run per function pass on `" << func.getName() << "`\n";
 
-        PerFunctionFlow* pff = getAnalysisIfAvailable<PerFunctionFlow>();
-        if (!pff) {
-          errs() << "##! Skip. `" << func.getName() << "` is most likely an external function.\n";
-          return false;
-        }
+	// FIXME: only should be called if method is non-external!
+        PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
+        /*if (!pff) {
+          errs() << "Cancel on `" << func.getName() << "`\n";
+	  return false;
+        }*/
 
-        ResultSet& result = pff->getResult();
+        ResultSet& result = pff.getResult();
 
         writeResult(func, result);
       }

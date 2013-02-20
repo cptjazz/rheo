@@ -36,9 +36,7 @@ namespace {
       AU.addRequired<PostDominatorTree>();
     }
 
-    virtual bool runOnFunction(Function& func) { return runOnFunctionImpl(func); }
-
-    bool runOnFunctionImpl(Function& func) {
+    virtual bool runOnFunction(Function& func) {
       _result = ResultSet();
       errs() << "## Running analysis for `" << func.getName() << "`\n";
 
@@ -46,10 +44,10 @@ namespace {
       PostDominatorTree* pdt = getAnalysisIfAvailable<PostDominatorTree>();
 
       if (!dt || !pdt) {
-        errs() << "##! Skip. `" << func.getName() << "` is most likely an external function.\n";
-        return false;
+        errs() << "Skipping `" << func.getName() << "`\n";
+	return false;
       }
-
+      
       FunctionProcessor proc(func, *dt, *pdt, _result, errs());
       proc.processFunction();
       _finished = proc.didFinish();
