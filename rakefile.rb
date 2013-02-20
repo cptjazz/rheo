@@ -1,5 +1,7 @@
 require 'fileutils'
 require 'rainbow'
+require 'rake/clean'
+
 
 task :test do
   `make`
@@ -110,3 +112,5 @@ def print_passed(file, function)
   print "." + function.italic
   print "\n"
 end
+
+CLEAN.include('test/*.taints')
