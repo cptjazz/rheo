@@ -44,8 +44,13 @@ namespace {
         if (taintResultExists(func))
           continue;
 
-        PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-        ResultSet& result = pff.getResult();
+        PerFunctionFlow* pff = getAnalysisIfAvailable<PerFunctionFlow>();
+        if (!pff) {
+          errs() << "##! Skip. `" << func.getName() << "` is most likely an external function.\n";
+          return false;
+        }
+
+        ResultSet& result = pff->getResult();
 
         writeResult(func, result);
       }
@@ -54,6 +59,7 @@ namespace {
     }
 
     bool taintResultExists(Function& f) {
+      return false;
       ifstream file(f.getName().str().c_str());
       return file;
     }

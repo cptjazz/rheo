@@ -27,7 +27,7 @@ namespace {
   struct PerFunctionFlow : public FunctionPass {
     static char ID;
     ResultSet _result;
-    bool finished;
+    bool _finished;
 
     PerFunctionFlow() : FunctionPass(ID) { }
 
@@ -42,12 +42,17 @@ namespace {
       _result = ResultSet();
       errs() << "## Running analysis for `" << func.getName() << "`\n";
 
-      DominatorTree& dt = getAnalysis<DominatorTree>();
-      PostDominatorTree& pdt = getAnalysis<PostDominatorTree>();
+      DominatorTree* dt = getAnalysisIfAvailable<DominatorTree>();
+      PostDominatorTree* pdt = getAnalysisIfAvailable<PostDominatorTree>();
 
-      FunctionProcessor proc(func, dt, pdt, _result, errs());
+      if (!dt || !pdt) {
+        errs() << "##! Skip. `" << func.getName() << "` is most likely an external function.\n";
+        return false;
+      }
+
+      FunctionProcessor proc(func, *dt, *pdt, _result, errs());
       proc.processFunction();
-      finished = proc.didFinish();
+      _finished = proc.didFinish();
 
       return false;
     }
@@ -57,7 +62,7 @@ namespace {
     }
 
     bool didFinish() {
-      return finished;
+      return _finished;
     }
   };
 }

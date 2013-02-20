@@ -17,6 +17,8 @@
 #include "FunctionProcessor.h"
 
 
+#define STOP_ON_CANCEL if (canceledInspection) return;
+
 using namespace llvm;
 using namespace std;
 
@@ -46,6 +48,7 @@ void FunctionProcessor::processFunction() {
 
       debug() << " ** Begin Iteration #" << iteration << "\n";
       buildTaintSetFor(arg, taintSet);
+      STOP_ON_CANCEL
       debug() << " ** End Iteration #" << iteration << "\n";
 
       newSetLength = taintSet.size();
@@ -95,6 +98,7 @@ void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
   taintSet.insert(&arg);
 
   for (Function::iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
+    STOP_ON_CANCEL
     BasicBlock& block = cast<BasicBlock>(*b_i);
     processBasicBlock(block, taintSet);
   }
@@ -114,6 +118,8 @@ bool FunctionProcessor::setContains(TaintSet& taintSet, Value& val) {
 
 void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet) {
   for (BasicBlock::iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
+    STOP_ON_CANCEL
+
     Instruction& inst = cast<Instruction>(*inst_i);
     debug() << "Inspecting instruction: " << inst << "\n";
 
@@ -164,7 +170,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
 void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
   ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
   if (!file.is_open()) {
-    debug() << " -- No file -- cancel.";
+    debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.";
     return;
   }
 
