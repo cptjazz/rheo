@@ -9,8 +9,7 @@
 #include "llvm/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/InstrTypes.h"
-#include <map>
-#include <set>
+#include <queue>
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -29,6 +28,8 @@ namespace {
 
   struct Dataflow : public ModulePass {
     static char ID;
+    queue<Function*> _functionQueue;
+    map<Function*, int> _occurrenceCount;
 
     Dataflow() : ModulePass(ID) { }
 
@@ -38,29 +39,51 @@ namespace {
 
     virtual bool runOnModule(Module &module) {
       for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
-        Function& func = *i;
+        Function* f = &*i;
+        _functionQueue.push(f);
+        _occurrenceCount.insert(pair<Function*, int>(f, 1));
+      }
 
-        // Skip if function was already processed.
-        if (taintResultExists(func))
-          continue;
-	
-        if (!func.size())
-          continue;
+      while (!_functionQueue.empty()) {
+        Function* f = _functionQueue.front();
 
-	errs() << "# Run per function pass on `" << func.getName() << "`\n";
-
-        PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-        if (pff.getState() == Skip) {
-          errs() << "Cancel on `" << func.getName() << "`\n";
-	  return false;
+        if (_occurrenceCount[f]++ > 10) {
+          errs() << "!!! PANIC: detected endless loop. Aborting.\n";
+          return false;
         }
 
-        ResultSet& result = pff.getResult();
-
-        writeResult(func, result);
+        processFunction(*f);
+        _functionQueue.pop();
       }
 
       return false;
+    }
+
+    void processFunction(Function& func) {
+      // Skip if function was already processed.
+      if (taintResultExists(func))
+        return;
+
+      // Skip external (library) functions
+      if (!func.size())
+        return;
+
+      errs() << "# Run per function pass on `" << func.getName() << "`\n";
+
+      PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
+      if (pff.getState() == Skip) {
+        errs() << "Skipping `" << func.getName() << "`\n";
+        return;
+      }
+
+      if (pff.getState() == Deferred) {
+        errs() << "Deferring `" << func.getName() << "`\n";
+        _functionQueue.push(&func); 
+        return;
+      }
+
+      ResultSet& result = pff.getResult();
+      writeResult(func, result);
     }
 
     bool taintResultExists(Function& f) {

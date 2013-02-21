@@ -207,6 +207,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
       }
     }
 
+    i = 0;
     stringstream convert2(valName);
     if( !(convert2 >> valName)) {
       debug() << "Searching for retval " << valName << "\n";
