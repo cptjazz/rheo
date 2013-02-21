@@ -21,10 +21,13 @@ task :test do
 
       exp_map = {}
       out_map = {}
+      def_map = {}
 
       exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
+      exp_file.scan(/__define:(.+)\((.*)\)/) { |m| def_map[m[0]] = m[1].split(', ') }
       opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
+      create_taint_file(def_map)
       (test_result, passed_count, failed_count) = test(file, exp_map, out_map)
 
       overall_passed += passed_count
@@ -96,6 +99,14 @@ def test(file, exp_map, out_map)
   end
 
   [test_result, passed_count, failed_count]
+end
+
+def create_taint_file(def_map)
+  def_map.each do |function, taints|
+    File.open(function + ".taints", "w") do |f|
+      f.puts taints.join("\n")
+    end
+  end
 end
 
 def print_failed(file, function, reason)
