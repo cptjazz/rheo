@@ -6,6 +6,7 @@ typedef char bool;
 char one_taint(char x, bool isDebug) {
   if (isDebug)
     printf("fancy debug output...");
+    // __define:printf()
 
   return x * x;
 }
