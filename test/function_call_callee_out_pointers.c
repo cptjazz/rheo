@@ -79,8 +79,8 @@ int caller9(int a, int b) {
   return *x;
 }
 
-// __expected:caller10()
-int caller10(int a, int b) {
+// __expected:caller10_with_pointer_val_overwrite()
+int caller10_with_pointer_val_overwrite(int a, int b) {
   int* x;
   callee_two_taints(a, b, x);
   *x = 2;

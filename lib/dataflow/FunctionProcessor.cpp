@@ -166,6 +166,13 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
     // Only do removal if value is really in set
     taintSet.erase(&target);
     debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
+
+    if (isa<LoadInst>(target)) {
+      Value* load = (cast<LoadInst>(target)).getPointerOperand();
+      taintSet.erase(load);
+      debug() << " - Also removed transitive LOAD." << *load << "\n";
+    }
+
     DOT->addRelation(source, target, "non-taint overwrite");
   }
 }
@@ -191,33 +198,43 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
     iss >> valName;
     iss >> valName;
 
-    int paramPos = -1;
-    int retvalPos = -1;
+    int paramPos;
+    int retvalPos;
     int i = 0;
 
     stringstream convert1(paramName);
     if( !(convert1 >> paramPos)) {
+      paramPos = -1;
       debug() << "Searching for param " << paramName << "\n";
       for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
+          debug() << "Found at #" << i << "\n";
+          break;
         }
 
         i++;
       }
+    } else {
+      debug() << "Param-info from file: seem to be at #" << paramPos << "\n";
     }
 
     i = 0;
     stringstream convert2(valName);
-    if( !(convert2 >> valName)) {
+    if( !(convert2 >> retvalPos)) {
+      retvalPos = -1;
       debug() << "Searching for retval " << valName << "\n";
       for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == valName) {
           retvalPos = i;
+          debug() << "Found at #" << i << "\n";
+          break;
         }
 
         i++;
       }
+    } else {
+      debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n";
     }
 
     if (paramPos == -1) {
@@ -229,11 +246,18 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
 
     if (setContains(taintSet, *arg)) {
       if (retvalPos == -1) {
+        debug() << " + Added retval taint `" << callInst << "`\n";
         taintSet.insert(&callInst);
       }
       else {
         Value* returnTarget = callInst.getArgOperand(retvalPos);
+        debug() << " + Added out-argument taint `" << returnTarget->getName() << "`\n";
         taintSet.insert(returnTarget);
+        // Value is a pointer, so the previous load is also tainted.
+        if (isa<LoadInst>(returnTarget)) {
+          taintSet.insert((cast<LoadInst>(returnTarget))->getOperand(0));
+          debug() << " ++ Added previous load: " << *returnTarget << "\n";
+        }
       }
 
       debug() << "  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n";
