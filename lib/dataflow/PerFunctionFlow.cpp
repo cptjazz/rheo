@@ -23,11 +23,18 @@
 using namespace llvm;
 using namespace std;
 
+enum PerFunctionResultState {
+  Success,
+  Deferred,
+  Skip
+};
+
 namespace {
   struct PerFunctionFlow : public FunctionPass {
     static char ID;
     ResultSet _result;
     bool _finished;
+    PerFunctionResultState _state;
 
     PerFunctionFlow() : FunctionPass(ID) { }
 
@@ -45,6 +52,7 @@ namespace {
 
       if (!dt || !pdt) {
         errs() << "Skipping `" << func.getName() << "`\n";
+        _state = Skip;
 	return false;
       }
       
@@ -52,11 +60,16 @@ namespace {
       proc.processFunction();
       _finished = proc.didFinish();
 
+      _state = _finished ? Success : Deferred;
       return false;
     }
 
     ResultSet& getResult() {
       return _result;
+    }
+
+    PerFunctionResultState getState() {
+      return _state;
     }
 
     bool didFinish() {

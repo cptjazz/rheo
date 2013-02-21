@@ -44,14 +44,16 @@ namespace {
         if (taintResultExists(func))
           continue;
 	
+        if (!func.size())
+          continue;
+
 	errs() << "# Run per function pass on `" << func.getName() << "`\n";
 
-	// FIXME: only should be called if method is non-external!
         PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-        /*if (!pff) {
+        if (pff.getState() == Skip) {
           errs() << "Cancel on `" << func.getName() << "`\n";
 	  return false;
-        }*/
+        }
 
         ResultSet& result = pff.getResult();
 

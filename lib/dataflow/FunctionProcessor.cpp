@@ -191,27 +191,36 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
     iss >> valName;
     iss >> valName;
 
-    Argument* param = NULL;
     int paramPos = -1;
     int retvalPos = -1;
     int i = 0;
 
-    debug() << "Searching for param " << paramName << "\n";
-    for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-      if (a_i->getName().str() == paramName) {
-        param = &*a_i;
-        paramPos = i;
-      }
+    stringstream convert1(paramName);
+    if( !(convert1 >> paramPos)) {
+      debug() << "Searching for param " << paramName << "\n";
+      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+        if (a_i->getName().str() == paramName) {
+          paramPos = i;
+        }
 
-      if (a_i->getName().str() == valName) {
-        retvalPos = i;
+        i++;
       }
-
-      i++;
     }
-    
-    if (param == NULL) {
-      debug() << "  - Skipping `" << paramName << "` -- does not taint.\n";
+
+    stringstream convert2(valName);
+    if( !(convert2 >> valName)) {
+      debug() << "Searching for retval " << valName << "\n";
+      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+        if (a_i->getName().str() == valName) {
+          retvalPos = i;
+        }
+
+        i++;
+      }
+    }
+
+    if (paramPos == -1) {
+      debug() << "  - Skipping `" << paramName << "` -- not found.\n";
       continue;
     }
 
@@ -226,7 +235,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
         taintSet.insert(returnTarget);
       }
 
-      debug() << "  - Argument `" << *arg << "` taints f-param `" << *param << "` at pos #" << paramPos << "\n";
+      debug() << "  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n";
     }
   }
 
