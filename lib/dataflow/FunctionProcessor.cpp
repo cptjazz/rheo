@@ -421,16 +421,25 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       Value& op = cast<Value>(*I.getOperand(1));
       retlist.insert(&op);
       DOT->addRelation(arg, op);
-      debug() << "Found store for `" << arg.getName() << "` @ " << op << "\n";
+      debug() << " + Found STORE for `" << arg.getName() << "` @ " << op << "\n";
 
       findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retlist);
     }
     
+    if (isa<GetElementPtrInst>(I)) {
+      Value& ptr = *(cast<GetElementPtrInst>(I)).getPointerOperand();
+      if (!setContains(retlist, ptr))
+        continue;
+
+      retlist.insert(&I);
+      debug() << " + Found GEP for `" << arg.getName() << "` @ " << ptr << "\n";
+    }
+
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       Value& op = cast<Value>(I);
       retlist.insert(&op);
       DOT->addRelation(op, arg);
-      debug() << "Found load for `" << arg.getName() << "` @ " << op << "\n";
+      debug() << " + Found LOAD for `" << arg.getName() << "` @ " << op << "\n";
       
       findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retlist);
     }
