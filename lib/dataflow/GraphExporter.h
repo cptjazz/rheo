@@ -37,6 +37,7 @@ private:
   string getOutNodeShape(Value& v) const;
   string getNodeName(Value& i) const;
   string getNodeCaption(Value& v) const;
+  string getLineStyle(string reason) const;
 };
 
 #endif

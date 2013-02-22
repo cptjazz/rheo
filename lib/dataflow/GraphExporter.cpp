@@ -47,9 +47,16 @@ void GraphExporter::addRelation(Value& from, Value& to, string reason) {
   }
 
   if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
-    _file << getNodeName(from) << " -> " << getNodeName(to) << " [label=\"" << reason << "\"];\n";
+    _file << getNodeName(from) << " -> " << getNodeName(to) 
+          << " [label=\"" << reason << "\", style=\"" 
+          << getLineStyle(reason) <<  "\"];\n";
+
     _pairs.insert(pair<Value*, Value*>(&from, &to));
   }
+}
+
+string GraphExporter::getLineStyle(string reason) const {
+  return reason == "block-taint" ? "dotted" : "solid";
 }
 
 string GraphExporter::getShape(Value& v) const {
