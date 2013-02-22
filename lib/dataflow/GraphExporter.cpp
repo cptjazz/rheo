@@ -1,7 +1,7 @@
 #include "GraphExporter.h"
 #include <sstream>
 #include <llvm/Instruction.h>
-#include <llvm/ADT/StringMap.h>
+#include <llvm/Support/raw_ostream.h>
 
 
 void GraphExporter::initialiseFile() {
@@ -10,7 +10,7 @@ void GraphExporter::initialiseFile() {
   _file << "digraph \"" << _functionName << "\" { \n";
   _file << "  graph [";
   _file << "    splines=\"true\",\n";
-  _file << "    label=\"" << _functionName << "\"";
+  _file << "    label=\"" << _functionName << "\"\n";
   _file << "  ];\n";
 
   _file << "  edge [ fontsize=8, arrowsize=0.7 ];\n";
@@ -68,12 +68,16 @@ void GraphExporter::addRelation(Value& from, Value& to, string reason) {
 
   if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
     _file << getNodeName(from) << " -> " << getNodeName(to) 
-          << " [label=\"" << reason << "\", "
+          << " [label=\"" << getLabel(reason) << "\", "
           << "style=\"" << getLineStyle(reason) << "\""
           <<  "];\n";
 
     _pairs.insert(pair<Value*, Value*>(&from, &to));
   }
+}
+
+string GraphExporter::getLabel(string reason) const {
+  return reason == "block-taint" ? "" : reason;
 }
 
 string GraphExporter::getLineStyle(string reason) const {
@@ -104,7 +108,14 @@ string GraphExporter::getNodeName(Value& i) const {
 }
 
 string GraphExporter::getNodeCaption(Value& v) const {
+   if (!v.hasName()) {
+    string s;
+    raw_string_ostream rstr(s);
+    rstr << v;
+    return rstr.str();
+  }
+
   stringstream ss;
-  ss << v.getName().str() << "_" << (long)(&v);
+  ss << v.getName().str();
   return ss.str();
 }

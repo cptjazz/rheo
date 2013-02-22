@@ -39,6 +39,7 @@ private:
   string getNodeName(Value& i) const;
   string getNodeCaption(Value& v) const;
   string getLineStyle(string reason) const;
+  string getLabel(string reason) const;
 };
 
 #endif
