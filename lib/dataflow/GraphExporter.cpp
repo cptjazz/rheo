@@ -8,8 +8,12 @@ void GraphExporter::initialiseFile() {
   _file.open((_functionName + ".dot").c_str(), ios::out);
 
   _file << "digraph \"" << _functionName << "\" { \n";
-  _file << "  size =\"10,10\";\n";
-  _file << "  label = \"" << _functionName << "\";\n";
+  _file << "  graph [";
+  _file << "    splines=\"true\",\n";
+  _file << "    label=\"" << _functionName << "\"";
+  _file << "  ];\n";
+
+  _file << "  edge [ fontsize=8, arrowsize=0.7 ];\n";
 }
 
 GraphExporter::~GraphExporter() {
@@ -19,20 +23,36 @@ GraphExporter::~GraphExporter() {
 
 void GraphExporter::addInOutNode(Value& inout) {
   _nodes.erase(&inout);
-  _file << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) << "\"" << getInOutNodeShape(inout) << "];\n";
+  _file << "  { rank=source;\n";
+  _file << "    " << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) 
+        << "\"" << getInOutNodeShape(inout) << "];\n";
+  _file << "  }\n";
   _nodes.insert(&inout);
 }
 
 void GraphExporter::addInNode(Value& in) {
   _nodes.erase(&in);
-  _file << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" << getInNodeShape(in) << "];\n";
+  _file << "  { rank=source;\n";
+  _file << "    " << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" 
+        << getInNodeShape(in) << "];\n";
+  _file << "  }\n";
   _nodes.insert(&in);
 }
 
 void GraphExporter::addOutNode(Value& out) {
   _nodes.erase(&out);
-  _file << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" << getOutNodeShape(out) << "];\n";
+  _file << "  { rank=sink;\n";
+  _file << "    " << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" 
+        << getOutNodeShape(out) << "];\n";
+  _file << "  }\n";
   _nodes.insert(&out);
+}
+
+void GraphExporter::addBlockNode(Value& b) {
+  _nodes.erase(&b);
+  _file << "    " << getNodeName(b) << " [label=\"" << getNodeCaption(b) << "\"" 
+        << ", weight=3];\n";
+  _nodes.insert(&b);
 }
 
 void GraphExporter::addRelation(Value& from, Value& to, string reason) {
@@ -48,15 +68,17 @@ void GraphExporter::addRelation(Value& from, Value& to, string reason) {
 
   if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
     _file << getNodeName(from) << " -> " << getNodeName(to) 
-          << " [label=\"" << reason << "\", style=\"" 
-          << getLineStyle(reason) <<  "\"];\n";
+          << " [label=\"" << reason << "\", "
+          << "style=\"" << getLineStyle(reason) << "\""
+          <<  "];\n";
 
     _pairs.insert(pair<Value*, Value*>(&from, &to));
   }
 }
 
 string GraphExporter::getLineStyle(string reason) const {
-  return reason == "block-taint" ? "dotted" : "solid";
+  return reason == "block-taint" ? "dotted" :
+         reason == "out-init" ? "dashed" : "solid";
 }
 
 string GraphExporter::getShape(Value& v) const {

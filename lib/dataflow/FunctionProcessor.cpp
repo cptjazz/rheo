@@ -330,6 +330,7 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
       BasicBlock* brTrue = inst.getSuccessor(0);
       // true branch is always tainted
       taintSet.insert(brTrue);
+      DOT->addBlockNode(*brTrue);
       DOT->addRelation(inst, *brTrue, "br-true");
       debug() << " + Added TRUE branch to taint set:\n";
       debug() << *brTrue << "\n";
@@ -343,6 +344,7 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
 
         if (target != brFalse) {
           taintSet.insert(brFalse);
+          DOT->addBlockNode(*brFalse);
           DOT->addRelation(inst, *brFalse, "br-false");
           debug() << " + Added FALSE branch to taint set:\n";
           debug() << *brFalse << "\n";
@@ -385,8 +387,11 @@ bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& ins
     if (DT.dominates(&taintedBlock, &currentBlock)) {
       debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
 
-      taintSet.insert(&currentBlock);
-      DOT->addRelation(taintedBlock, currentBlock, "block-taint");
+      if (&taintedBlock != &currentBlock) {
+        taintSet.insert(&currentBlock);
+        DOT->addBlockNode(currentBlock);
+        DOT->addRelation(taintedBlock, currentBlock, "block-taint");
+      }
 
       taintSet.insert(&inst);
       DOT->addRelation(currentBlock, inst, "block-taint");
@@ -440,6 +445,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       Value& op = cast<Value>(*I.getOperand(1));
       retlist.insert(&op);
       DOT->addRelation(arg, op, "store");
+      DOT->addRelation(op, arg, "out-init");
       debug() << " + Found STORE for `" << arg.getName() << "` @ " << op << "\n";
 
       findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retlist);
