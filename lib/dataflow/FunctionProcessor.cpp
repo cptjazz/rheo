@@ -132,6 +132,8 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
       handleStoreInstruction(cast<StoreInst>(inst), taintSet);
     else if (isa<CallInst>(inst))
       handleCallInstruction(cast<CallInst>(inst), taintSet);
+    else if (isa<GetElementPtrInst>(inst))
+      ; // skip, because it is most likely a read. write are handles in handleStoreInstruction
     else
       handleInstruction(inst, taintSet);
   }
@@ -162,6 +164,14 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
     taintSet.insert(&target);
     DOT->addRelation(source, target);
     debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
+    if (isa<GetElementPtrInst>(target)) {
+      GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
+      for (User::op_iterator gep_i = gep.idx_begin(), gep_e = gep.idx_end(); gep_i != gep_e; ++gep_i) {
+        Value& gepOperand = *cast<Value>(*gep_i);
+        taintSet.insert(&gepOperand);
+        debug() << " ++ Also added GEP `" << gepOperand << "` because it is used by STORE.\n";
+      }
+    }
   } else if (setContains(taintSet, target)) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
