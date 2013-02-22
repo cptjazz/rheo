@@ -64,6 +64,7 @@ private:
   bool setContains(TaintSet& taintSet, Value& val);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
   void printTaints();
+  void handleGetElementPtrInstruction(GetElementPtrInst& storeInst, TaintSet& taintSet);
   void handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet);
   void handleCallInstruction(CallInst& callInst, TaintSet& taintSet);
   void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet);

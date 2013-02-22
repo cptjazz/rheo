@@ -133,7 +133,7 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
     else if (isa<CallInst>(inst))
       handleCallInstruction(cast<CallInst>(inst), taintSet);
     else if (isa<GetElementPtrInst>(inst))
-      ; // skip, because it is most likely a read. write are handles in handleStoreInstruction
+      handleGetElementPtrInstruction(cast<GetElementPtrInst>(inst), taintSet);
     else
       handleInstruction(inst, taintSet);
   }
@@ -153,6 +153,14 @@ void FunctionProcessor::printTaints() {
   }
 
   release() << ")\n";
+}
+
+void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, TaintSet& taintSet) {
+  Value& op = *inst.getPointerOperand();
+  if (setContains(taintSet, op)) {
+    taintSet.insert(&inst); 
+    debug() << " + Added GEP taint: `" << inst << "`\n";
+  }
 }
 
 void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet) {
@@ -464,19 +472,19 @@ void FunctionProcessor::printSet(set<Value*>& s) {
 
 void FunctionProcessor::findReturnStatements() {
   for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-      if (isa<ReturnInst>(*i)) {
-        ReturnInst& r = cast<ReturnInst>(*i);
-        TaintSet taintSet;
-        
-        // skip 'return void'
-        Value* retval = r.getReturnValue();
-        if (retval) {
-          taintSet.insert(retval);
-          _returnStatements.insert(pair<Value*, set<Value*> >(retval, taintSet));
-          DOT->addOutNode(r);
-          debug() << "Found ret-stmt: " << r << "\n";
-        }
+    if (isa<ReturnInst>(*i)) {
+      ReturnInst& r = cast<ReturnInst>(*i);
+      TaintSet taintSet;
+      
+      // skip 'return void'
+      Value* retval = r.getReturnValue();
+      if (retval) {
+        taintSet.insert(retval);
+        _returnStatements.insert(pair<Value*, set<Value*> >(retval, taintSet));
+        DOT->addOutNode(r);
+        debug() << "Found ret-stmt: " << r << "\n";
       }
+    }
   }
 }
 
