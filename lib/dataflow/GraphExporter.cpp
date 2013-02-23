@@ -2,6 +2,7 @@
 #include <sstream>
 #include <algorithm>
 #include <llvm/Instruction.h>
+#include <llvm/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
 
 
@@ -117,14 +118,20 @@ string GraphExporter::getNodeName(Value& i) const {
 
 string GraphExporter::getNodeCaption(Value& v) const {
    if (!v.hasName()) {
-    string s;
-    raw_string_ostream rstr(s);
-    rstr << v;
-    s = rstr.str();
-    replace( s.begin(), s.end(), '[', '(');
-    replace( s.begin(), s.end(), ']', ')');
-    replace( s.begin(), s.end(), '\n', ' ');
-    return s;
+    if (isa<SwitchInst>(v))
+      return "switch";
+    else if (isa<BranchInst>(v))
+      return "br";
+    else {
+      string s;
+      raw_string_ostream rstr(s);
+      rstr << v;
+      s = rstr.str();
+      replace( s.begin(), s.end(), '[', '(');
+      replace( s.begin(), s.end(), ']', ')');
+      replace( s.begin(), s.end(), '\n', ' ');
+      return s;
+    }
   }
 
   stringstream ss;
