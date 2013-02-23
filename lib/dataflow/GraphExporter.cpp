@@ -1,5 +1,6 @@
 #include "GraphExporter.h"
 #include <sstream>
+#include <algorithm>
 #include <llvm/Instruction.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -55,14 +56,21 @@ void GraphExporter::addBlockNode(Value& b) {
   _nodes.insert(&b);
 }
 
+void GraphExporter::addCallNode(Function& f) {
+  _nodes.erase(&f);
+  _file << "    " << getNodeName(f) << " [label=\"" << getNodeCaption(f) << "\"" 
+        << ", weight=3, shape=polygon, skew=0.5];\n";
+  _nodes.insert(&f);
+}
+
 void GraphExporter::addRelation(Value& from, Value& to, string reason) {
   if (_nodes.find(&from) == _nodes.end()) {
-    _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\"" << getShape(from) << "];\n";
+    _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\", " << getShape(from) << "];\n";
     _nodes.insert(&from);
   }
 
   if (_nodes.find(&to) == _nodes.end()) {
-    _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\"" << getShape(from) << "];\n";
+    _file << getNodeName(to) << " [label=\"" << getNodeCaption(to) << "\", " << getShape(from) << "];\n";
     _nodes.insert(&to);
   }
 
@@ -112,7 +120,11 @@ string GraphExporter::getNodeCaption(Value& v) const {
     string s;
     raw_string_ostream rstr(s);
     rstr << v;
-    return rstr.str();
+    s = rstr.str();
+    replace( s.begin(), s.end(), '[', '(');
+    replace( s.begin(), s.end(), ']', ')');
+    replace( s.begin(), s.end(), '\n', ' ');
+    return s;
   }
 
   stringstream ss;

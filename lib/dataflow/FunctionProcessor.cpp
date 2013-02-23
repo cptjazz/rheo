@@ -264,18 +264,30 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
     Value* arg = callInst.getArgOperand(paramPos);
 
     if (setContains(taintSet, *arg)) {
+      stringstream reas("");
+      reas << "in, arg#";
+      reas << paramPos;
+
+      DOT->addCallNode(func);
+      DOT->addRelation(*arg, func, reas.str());
+
       if (retvalPos == -1) {
         debug() << " + Added retval taint `" << callInst << "`\n";
         taintSet.insert(&callInst);
+        DOT->addRelation(func, callInst, "ret");
       }
       else {
         Value* returnTarget = callInst.getArgOperand(retvalPos);
         debug() << " + Added out-argument taint `" << returnTarget->getName() << "`\n";
         taintSet.insert(returnTarget);
+        DOT->addRelation(func, *returnTarget, "out");
+
         // Value is a pointer, so the previous load is also tainted.
         if (isa<LoadInst>(returnTarget)) {
-          taintSet.insert((cast<LoadInst>(returnTarget))->getOperand(0));
+          Value* op = (cast<LoadInst>(returnTarget))->getOperand(0);
+          taintSet.insert(op);
           debug() << " ++ Added previous load: " << *returnTarget << "\n";
+          DOT->addRelation(*op, *returnTarget, "load");
         }
       }
 
@@ -325,7 +337,7 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
 
     bool isConditionTainted = setContains(taintSet, cmp);
     if (isConditionTainted) {
-      DOT->addRelation(cmp, inst, "cmp");
+      DOT->addRelation(cmp, inst, "condition");
      
       BasicBlock* brTrue = inst.getSuccessor(0);
       // true branch is always tainted

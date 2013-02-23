@@ -6,6 +6,7 @@
 #include <fstream>
 #include <set>
 #include <llvm/Value.h>
+#include <llvm/Function.h>
 
 using namespace std;
 using namespace llvm;
@@ -23,6 +24,7 @@ public:
   void addInNode(Value& in);
   void addOutNode(Value& out);
   void addBlockNode(Value& b);
+  void addCallNode(Function& f);
   void addRelation(Value& from, Value& to, string reason = "");
 
 private:
