@@ -78,6 +78,8 @@ private:
   void findReturnStatements();
   void printInstructions(); 
   void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result);
+  bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
+  bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
 
   raw_ostream& debug() {
     return _stream;

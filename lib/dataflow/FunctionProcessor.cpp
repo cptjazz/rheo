@@ -173,6 +173,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   debug() << " Handle STORE instruction " << storeInst << "\n";
   if (setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst)) {
     taintSet.insert(&target);
+    taintSet.insert(&storeInst);
     DOT->addRelation(source, target, "store");
     debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
     if (isa<GetElementPtrInst>(target)) {
@@ -183,8 +184,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
         debug() << " ++ Also added GEP `" << gepOperand << "` because it is used by STORE.\n";
       }
     }
-  } else if (setContains(taintSet, target) 
-    && DT.dominates(storeInst.getParent(), cast<Instruction>(*taintSet.find(&target))->getParent())) {
+  } else if (setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
     debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
@@ -197,6 +197,53 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
 
     DOT->addRelation(source, target, "non-taint overwrite");
   }
+}
+
+bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet) {
+  debug() << " CFG SUCC: start for " << storeInst << "\n";
+  for (TaintSet::iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
+    debug() << " CFG SUCC: inspecting " << **i << "\n";
+
+    if (!isa<StoreInst>(*i))
+      continue;
+
+    StoreInst& prevStore = *cast<StoreInst>(*i);
+
+    debug() << " CFG SUCC: testing storeInst Operand: " << *storeInst.getOperand(1) << "\n";
+    debug() << " CFG SUCC: testing prevStore Operand: " << *prevStore.getOperand(1) << "\n";
+
+    if (prevStore.getOperand(1) != storeInst.getOperand(1))
+      continue;
+
+    debug() << " CFG SUCC: testing storeInst: " << prevStore << "\n";
+    set<BasicBlock*> usedList;
+    if (!isCfgSuccessor(storeInst.getParent(), prevStore.getParent(), usedList)) {
+      debug() << " CFG SUCC: in-if: " << prevStore << "\n";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList) {
+  if (NULL == succ || NULL == pred)
+    return false;
+
+  if (pred == succ)
+    return true;
+
+  for (pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
+    if (usedList.count(succ))
+      continue;
+  debug() << *i << "\n";
+
+    usedList.insert(*i);
+    if (isCfgSuccessor(*i, pred, usedList))
+      return true;
+  }
+
+  return false;
 }
 
 void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
