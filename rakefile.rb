@@ -11,11 +11,13 @@ task :test do
     overall_passed = 0
     overall_failed = 0
 
+    `rm *.taints`
+
     Dir.glob("*.c") do |file|
       file = File.basename(file, ".*")
 
       `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so -dataflow < #{file}.bc -o /dev/null 2>&1`
+      opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
 
       exp_file = File.readlines("#{file}.c").join
 
