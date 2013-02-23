@@ -39,6 +39,19 @@ int overwrite_5(int a) {
   return x;
 }
 
+// __expected:overwrite_5_2(a => $_retval)
+int overwrite_5_2(int a) {
+  int x;
+  int y = 5;
+
+  if (y)
+    x = a;
+  else
+    x = 3;
+
+  return x;
+}
+
 // __expected:overwrite_6()
 int overwrite_6(int a) {
   int x;
@@ -52,11 +65,40 @@ int overwrite_6(int a) {
   return x;
 }
 
-// __expected:overwrite_7(a => $_retval)
+// __expected:overwrite_6_2()
+int overwrite_6_2(int a) {
+  int x;
+  int y = 5;
+
+  if (y)
+    x = a;
+  else
+    x = 3;
+
+  x = 4;
+  return x;
+}
+
+// __expected:overwrite_7()
+// here, a does not taint because Clang removes
+// the dead false branch even with -O0
 int overwrite_7(int a) {
   int x;
 
   if (5)
+    x = 3;
+  else
+    x = a;
+
+  return x;
+}
+
+// __expected:overwrite_7_2(a => $_retval)
+int overwrite_7_2(int a) {
+  int x;
+  int y = 5;
+
+  if (y)
     x = 3;
   else
     x = a;
@@ -69,6 +111,20 @@ int overwrite_8(int a) {
   int x;
 
   if (5)
+    x = 3;
+  else
+    x = a;
+
+  x = 4;
+  return x;
+}
+
+// __expected:overwrite_8_2()
+int overwrite_8_2(int a) {
+  int x;
+  int y = 5;
+
+  if (y)
     x = 3;
   else
     x = a;
