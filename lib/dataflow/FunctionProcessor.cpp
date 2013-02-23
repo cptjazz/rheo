@@ -324,8 +324,11 @@ void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& tain
     return;
 
   debug() << " Handle SWITCH instruction:\n";
-  for (SwitchInst::CaseIt i = inst.case_begin(), e = inst.case_end(); i != e; ++i) {
-    
+  for (size_t i = 0; i < inst.getNumSuccessors(); ++i) {
+    // Mark all case-blocks as tainted.
+    BasicBlock& caseBlock = *inst.getSuccessor(i);
+    taintSet.insert(&caseBlock);
+    debug() << " + Added Block due to tainted SWITCH condition: " << caseBlock << "\n";
   }
 }
 
