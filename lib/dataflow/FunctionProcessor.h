@@ -68,6 +68,7 @@ private:
   void handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet);
   void handleCallInstruction(CallInst& callInst, TaintSet& taintSet);
   void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet);
+  void handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet);
   void handleInstruction(Instruction& inst, TaintSet& taintSet);
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
   StringRef getValueNameOrDefault(Value& v);

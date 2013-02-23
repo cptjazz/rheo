@@ -134,6 +134,8 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
       handleCallInstruction(cast<CallInst>(inst), taintSet);
     else if (isa<GetElementPtrInst>(inst))
       handleGetElementPtrInstruction(cast<GetElementPtrInst>(inst), taintSet);
+    else if (isa<SwitchInst>(inst))
+      handleSwitchInstruction(cast<SwitchInst>(inst), taintSet);
     else
       handleInstruction(inst, taintSet);
   }
@@ -181,7 +183,8 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
         debug() << " ++ Also added GEP `" << gepOperand << "` because it is used by STORE.\n";
       }
     }
-  } else if (setContains(taintSet, target)) {
+  } else if (setContains(taintSet, target) 
+    && DT.dominates(storeInst.getParent(), cast<Instruction>(*taintSet.find(&target))->getParent())) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
     debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
@@ -265,8 +268,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
 
     if (setContains(taintSet, *arg)) {
       stringstream reas("");
-      reas << "in, arg#";
-      reas << paramPos;
+      reas << "in, arg#" << paramPos;
 
       DOT->addCallNode(func);
       DOT->addRelation(*arg, func, reas.str());
@@ -280,7 +282,9 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
         Value* returnTarget = callInst.getArgOperand(retvalPos);
         debug() << " + Added out-argument taint `" << returnTarget->getName() << "`\n";
         taintSet.insert(returnTarget);
-        DOT->addRelation(func, *returnTarget, "out");
+        stringstream outReas("");
+        outReas << "out, arg#" << retvalPos;
+        DOT->addRelation(func, *returnTarget, outReas.str());
 
         // Value is a pointer, so the previous load is also tainted.
         if (isa<LoadInst>(returnTarget)) {
@@ -310,6 +314,18 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
     
   } else {
     debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
+  }
+}
+
+void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet) {
+  Value* condition = inst.getCondition();
+  
+  if (!setContains(taintSet, *condition))
+    return;
+
+  debug() << " Handle SWITCH instruction:\n";
+  for (SwitchInst::CaseIt i = inst.case_begin(), e = inst.case_end(); i != e; ++i) {
+    
   }
 }
 
