@@ -51,20 +51,15 @@ def test(file, exp_map, out_map)
 
   unless exp_map.length == out_map.length
     print_failed(file, "", "Function count mismatch. Expected #{exp_map.length} but was #{out_map.length}")
-    puts exp_map
-    puts " ----- but was"
-    puts out_map
+    puts exp_map.keys
+    puts " --- But was ---".color(:yellow)
+    puts out_map.keys
     test_result &&= false
-    failed_count += 1
   end
   
   exp_map.each do |function, taints|
     unless out_map.has_key? function
       print_failed(file, function, "function `#{function}` not found")
-      puts " --- Expected ---".color(:yellow)
-      puts exp_map
-      puts " --- But was ---".color(:yellow)
-      puts out_map
       test_result &&= false
       failed_count += 1
       next
