@@ -575,6 +575,15 @@ void FunctionProcessor::findReturnStatements() {
       Value* retval = r.getReturnValue();
       if (retval) {
         taintSet.insert(retval);
+
+        if (isa<PHINode>(retval)) {
+          PHINode& phi = cast<PHINode>(*retval);
+          for (size_t j = 0; j < phi.getNumIncomingValues(); ++j) {
+            debug() << " + Added PHI block" << *phi.getIncomingBlock(j) << "\n";
+            taintSet.insert(phi.getIncomingBlock(j));
+          }
+        }
+
         _returnStatements.insert(pair<Value*, set<Value*> >(&r, taintSet));
         DOT.addOutNode(r);
         debug() << "Found ret-stmt: " << r << "\n";
