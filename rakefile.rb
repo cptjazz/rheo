@@ -28,7 +28,7 @@ task :test do
       create_taint_file(def_map)
 
        `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+      opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so -mem2reg -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
       opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
       File.open(file + ".log", "w") do |logfile|

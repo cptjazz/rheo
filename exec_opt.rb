@@ -4,7 +4,7 @@ file = ARGV[0][0..-2] + "bc"
 puts "\n"
 puts file
 puts "###########################################"
-`opt -load Debug+Asserts/lib/dataflow.so -o /dev/null -instnamer -dataflow < #{file}`
+`opt -load Debug+Asserts/lib/dataflow.so -o /dev/null -mem2reg -instnamer -dataflow < #{file}`
 
 Dir.glob("*.dot") do |dot|
   `dot -Tpdf #{dot} > #{dot}.pdf`
