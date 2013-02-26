@@ -28,18 +28,20 @@ task :test do
       create_taint_file(def_map)
 
        `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so -mem2reg -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
-      opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
+      ["", "-mem2reg"].each do |opt|
+        opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+        opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
-      File.open(file + ".log", "w") do |logfile|
-        logfile.puts opt_out
+        File.open(file + "#{opt}.log", "w") do |logfile|
+          logfile.puts opt_out
+        end
+
+        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, opt)
+
+        overall_passed += passed_count
+        overall_failed += failed_count
+        overall_result &&= test_result
       end
-
-      (test_result, passed_count, failed_count) = test(file, exp_map, out_map)
-
-      overall_passed += passed_count
-      overall_failed += failed_count
-      overall_result &&= test_result
     end
 
     puts
@@ -51,13 +53,13 @@ task :test do
   end
 end
 
-def test(file, exp_map, out_map)
+def test(file, exp_map, out_map, opts)
   test_result = true
   failed_count = 0
   passed_count = 0
 
   unless exp_map.length == out_map.length
-    print_failed(file, "", "Function count mismatch. Expected #{exp_map.length} but was #{out_map.length}")
+    print_failed(file, "", "Function count mismatch. Expected #{exp_map.length} but was #{out_map.length}", opts)
     puts exp_map.keys
     puts " --- But was ---".color(:yellow)
     puts out_map.keys
@@ -66,7 +68,7 @@ def test(file, exp_map, out_map)
   
   exp_map.each do |function, taints|
     unless out_map.has_key? function
-      print_failed(file, function, "function `#{function}` not found")
+      print_failed(file, function, "function `#{function}` not found", opts)
       test_result &&= false
       failed_count += 1
       next
@@ -74,7 +76,7 @@ def test(file, exp_map, out_map)
 
     out_taints = out_map[function]
     unless taints.length == out_taints.length
-      print_failed(file, function, "Taint count mismatch. Expected #{taints.length} but was #{out_taints.length}")
+      print_failed(file, function, "Taint count mismatch. Expected #{taints.length} but was #{out_taints.length}", opts)
       puts " --- Expected ---".color(:yellow)
       puts taints
       puts " --- But was ---".color(:yellow)
@@ -87,7 +89,7 @@ def test(file, exp_map, out_map)
     single_taint_check_result = true
     taints.each do |taint|
       unless out_taints.include? taint
-        print_failed(file, function, "Expected taint missing: " + taint.color(:cyan))
+        print_failed(file, function, "Expected taint missing: " + taint.color(:cyan), opts)
         test_result &&= false
         failed_count += 1
         single_taint_check_result = false
@@ -96,7 +98,7 @@ def test(file, exp_map, out_map)
   
     next unless single_taint_check_result
 
-    print_passed(file, function)
+    print_passed(file, function, opts)
     passed_count += 1
   end
 
@@ -111,16 +113,18 @@ def create_taint_file(def_map)
   end
 end
 
-def print_failed(file, function, reason)
+def print_failed(file, function, reason, opts)
   print " * " + "FAILED".bright.color(:red)
+  print " [#{opts}]".color("#AAAAAA")
   print " : " + file.color(:blue) 
   print "." + function.italic if function.length > 0
   print " -- " + reason.color(:yellow)
   print "\n"
 end
 
-def print_passed(file, function)
+def print_passed(file, function, opts)
   print " * " + "PASSED".bright.color(:green)
+  print " [#{opts}]".color("#AAAAAA")
   print " : " + file.color(:blue) 
   print "." + function.italic
   print "\n"
