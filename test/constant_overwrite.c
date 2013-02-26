@@ -132,3 +132,26 @@ int overwrite_8_2(int a) {
   x = 4;
   return x;
 }
+
+// __expected:overwrite_9()
+int overwrite_9(int a) {
+  a = 10;
+  return a;
+}
+
+// __expected:overwrite_10()
+int overwrite_10(int a) {
+  a = 10;
+  return a;
+}
+
+// __expected:overwrite_11()
+int overwrite_11(int a) {
+  a = 10;
+
+  if (a)
+    return 1;
+  else
+    return 2;
+}
+

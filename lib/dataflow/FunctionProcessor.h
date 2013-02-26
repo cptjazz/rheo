@@ -33,7 +33,7 @@ class FunctionProcessor {
   Function& F;
   DominatorTree& DT;
   PostDominatorTree& PDT;
-  GraphExporter* DOT;
+  GraphExporter DOT;
 
   RetMap _returnStatements;
   ArgMap _arguments;
@@ -45,13 +45,11 @@ class FunctionProcessor {
 
 public:
   FunctionProcessor(Function& f, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), _taints(result), _stream(stream)  { 
-    DOT = new GraphExporter(f.getName());
+  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), _taints(result), _stream(stream)  { 
     canceledInspection = false;
   }
 
   ~FunctionProcessor() {
-    delete(DOT);
   }
 
   void processFunction();
