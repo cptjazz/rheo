@@ -504,6 +504,7 @@ void FunctionProcessor::findArguments() {
 
     if (arg.getType()->isPointerTy()) {
       TaintSet retlist;
+      retlist.insert(&arg);
       findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
       _returnStatements.insert(pair<Value*, TaintSet>(&arg, retlist));
       DOT.addInOutNode(arg);
