@@ -570,7 +570,7 @@ void FunctionProcessor::findReturnStatements() {
       Value* retval = r.getReturnValue();
       if (retval) {
         taintSet.insert(retval);
-        _returnStatements.insert(pair<Value*, set<Value*> >(retval, taintSet));
+        _returnStatements.insert(pair<Value*, set<Value*> >(&r, taintSet));
         DOT->addOutNode(r);
         debug() << "Found ret-stmt: " << r << "\n";
       }
