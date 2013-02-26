@@ -249,9 +249,13 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
 void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
   ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
   if (!file.is_open()) {
-    debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.";
-    canceledInspection = true;
-    return;
+    file.open(("taintlib/" + func.getName().str() + ".taints").c_str(), ios::in);
+
+    if (!file.is_open()) {
+      debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.";
+      canceledInspection = true;
+      return;
+    }
   }
 
   string line;
