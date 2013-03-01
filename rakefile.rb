@@ -30,7 +30,7 @@ task :test, [:pattern] do |t, args|
       create_taint_file(def_map)
 
        `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      ["", "-mem2reg"].each do |opt|
+      ["", "-mem2reg", "-reg2mem"].each do |opt|
         opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
