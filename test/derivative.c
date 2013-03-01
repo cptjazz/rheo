@@ -3,7 +3,7 @@
 
 const int N = 100;
 double H = 0.001;
-double PI = 3.14159265;
+const double PI = 3.14159265;
 
 
 // __expected:derive(input => output, elements => output, elements => input)
