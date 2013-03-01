@@ -75,13 +75,13 @@ void GraphExporter::addRelation(Value& from, Value& to, string reason) {
     _nodes.insert(&to);
   }
 
-  if (_pairs.find(pair<Value*, Value*>(&from, &to)) == _pairs.end()) {
+  if (_pairs.find(make_pair(&from, &to)) == _pairs.end()) {
     _file << getNodeName(from) << " -> " << getNodeName(to) 
           << " [label=\"" << getLabel(reason) << "\", "
           << "style=\"" << getLineStyle(reason) << "\""
           <<  "];\n";
 
-    _pairs.insert(pair<Value*, Value*>(&from, &to));
+    _pairs.insert(make_pair(&from, &to));
   }
 }
 

@@ -506,7 +506,7 @@ void FunctionProcessor::findArguments() {
       TaintSet retlist;
       retlist.insert(&arg);
       findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
-      _returnStatements.insert(pair<Value*, TaintSet>(&arg, retlist));
+      _returnStatements.insert(make_pair(&arg, retlist));
       DOT.addInOutNode(arg);
       isInOutNode = true;
 
@@ -518,7 +518,7 @@ void FunctionProcessor::findArguments() {
     if (!isInOutNode)
       DOT.addInNode(arg);
 
-    _arguments.insert(pair<Argument*, TaintSet>(&arg, taintSet));
+    _arguments.insert(make_pair(&arg, taintSet));
     debug() << "added arg `" << arg.getName() << "` to arg-list\n";
   }
 }
@@ -584,7 +584,7 @@ void FunctionProcessor::findReturnStatements() {
           }
         }
 
-        _returnStatements.insert(pair<Value*, set<Value*> >(&r, taintSet));
+        _returnStatements.insert(make_pair(&r, taintSet));
         DOT.addOutNode(r);
         debug() << "Found ret-stmt: " << r << "\n";
       }
