@@ -3,7 +3,7 @@ require 'rainbow'
 require 'rake/clean'
 
 
-task :test do
+task :test, [:pattern] do |t, args|
   `make`
 
   FileUtils.cd("test") do
@@ -14,6 +14,8 @@ task :test do
     `rm *.taints`
 
     Dir.glob("*.c") do |file|
+      next if (args.pattern != nil and not file.match(args.pattern))
+
       file = File.basename(file, ".*")
 
       exp_file = File.readlines("#{file}.c").join
