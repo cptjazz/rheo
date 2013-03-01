@@ -17,6 +17,7 @@
 #include <cstring>
 #include <stdio.h>
 #include "GraphExporter.h"
+#include "Helper.h"
 
 
 using namespace llvm;

@@ -100,13 +100,7 @@ namespace {
         Value& arg = *i->first;
         Value& retval = *i->second;
 
-        file << arg.getName().str() << " => ";
-        if (isa<Argument>(retval) || isa<GlobalVariable>(retval))
-	  file << retval.getName().str();
-        else
-          file << "$_retval";
-
-        file << "\n";
+        file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
       }
 
       file.close();

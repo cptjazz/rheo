@@ -152,7 +152,7 @@ void FunctionProcessor::printTaints() {
     Value& arg = cast<Value>(*i->first);
     Value& retval = cast<Value>(*i->second);
 
-    release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
+    release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << Helper::getValueNameOrDefault(retval);
     isFirstTime = false;
   }
 
@@ -492,13 +492,6 @@ bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& ins
   return result;
 }
 
-StringRef FunctionProcessor::getValueNameOrDefault(Value& v) {
-  if (isa<Argument>(v))
-    return v.getName();
-  else
-    return "$_retval";
-}
-
 void FunctionProcessor::findArguments() {
   for (Function::arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
     Argument& arg = *a_i;
@@ -514,7 +507,7 @@ void FunctionProcessor::findArguments() {
 void FunctionProcessor::handleFoundArgument(Value& arg) {
   bool isInOutNode = false;
 
-  if (arg.getType()->isPointerTy()) {
+  if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
     TaintSet retlist;
     retlist.insert(&arg);
     findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
@@ -534,38 +527,38 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
   debug() << "added arg `" << arg.getName() << "` to arg-list\n";
 }
 
-void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist) {
+void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& taintSet) {
   for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     Instruction& I = cast<Instruction>(*i);
     
     debug() << "inspecting: " << I << "\n";
     if (isa<StoreInst>(I) && I.getOperand(0) == &arg) {
       Value& op = cast<Value>(*I.getOperand(1));
-      retlist.insert(&op);
+      taintSet.insert(&op);
       DOT.addRelation(arg, op, "store");
       DOT.addRelation(op, arg, "out-init");
       debug() << " + Found STORE for `" << arg.getName() << "` @ " << op << "\n";
 
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retlist);
+      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet);
     }
-    
+
     if (isa<GetElementPtrInst>(I)) {
       Value& ptr = *(cast<GetElementPtrInst>(I)).getPointerOperand();
-      if (!setContains(retlist, ptr))
+      if (!setContains(taintSet, ptr))
         continue;
 
-      retlist.insert(&I);
+      taintSet.insert(&I);
       debug() << " + Found GEP for `" << arg.getName() << "` @ " << ptr << "\n";
       DOT.addRelation(arg, ptr, "gep");
     }
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       Value& op = cast<Value>(I);
-      retlist.insert(&op);
+      taintSet.insert(&op);
       DOT.addRelation(op, arg, "load");
       debug() << " + Found LOAD for `" << arg.getName() << "` @ " << op << "\n";
       
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, retlist);
+      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet);
     }
   }
 }
