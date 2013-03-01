@@ -23,9 +23,8 @@ using namespace llvm;
 using namespace std;
 
 typedef set<Value*> TaintSet;
-typedef map<Value*, TaintSet> RetMap;
-typedef map<Argument*, TaintSet> ArgMap;
-typedef pair<Argument*, Value*> TaintPair;
+typedef map<Value*, TaintSet> TaintMap;
+typedef pair<Value*, Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
 
 
@@ -34,9 +33,10 @@ class FunctionProcessor {
   DominatorTree& DT;
   PostDominatorTree& PDT;
   GraphExporter DOT;
+  Module& M;
 
-  RetMap _returnStatements;
-  ArgMap _arguments;
+  TaintMap _returnStatements;
+  TaintMap _arguments;
   ResultSet& _taints;
 
   raw_ostream& _stream;
@@ -44,8 +44,8 @@ class FunctionProcessor {
   bool canceledInspection;
 
 public:
-  FunctionProcessor(Function& f, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), _taints(result), _stream(stream)  { 
+  FunctionProcessor(Function& f, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
+  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), M(m), _taints(result), _stream(stream)  { 
     canceledInspection = false;
   }
 
@@ -56,9 +56,9 @@ public:
   bool didFinish();
 
 private:
-  void intersectSets(Argument& arg, TaintSet argTaintSet);
+  void intersectSets(Value& arg, TaintSet argTaintSet);
   void buildTaintSetFor(Value& arg, TaintSet& taintSet);
-  void addTaint(Argument& tainter, Value& taintee);
+  void addTaint(Value& tainter, Value& taintee);
   bool setContains(TaintSet& taintSet, Value& val);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
   void printTaints();
@@ -71,6 +71,7 @@ private:
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
   StringRef getValueNameOrDefault(Value& v);
   void findArguments();
+  void handleFoundArgument(Value& arg);
   void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist);
   void printSet(set<Value*>& s);
   void findReturnStatements();

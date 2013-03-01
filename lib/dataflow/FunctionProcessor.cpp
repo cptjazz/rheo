@@ -1,13 +1,15 @@
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
+#include "llvm/Module.h"
+#include "llvm/Instruction.h"
+#include "llvm/Instructions.h"
+#include "llvm/GlobalVariable.h"
+#include "llvm/InstrTypes.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/InstrTypes.h"
 #include <map>
 #include <set>
 #include <algorithm>
@@ -32,11 +34,11 @@ void FunctionProcessor::processFunction() {
   findReturnStatements();
   findArguments();
 
-  ArgMap::iterator arg_i = _arguments.begin();
-  ArgMap::iterator arg_e = _arguments.end();
+  TaintMap::iterator arg_i = _arguments.begin();
+  TaintMap::iterator arg_e = _arguments.end();
       
   for(; arg_i != arg_e; ++arg_i) {
-    Argument& arg = *arg_i->first;
+    Value& arg = *arg_i->first;
     TaintSet taintSet = arg_i->second;
 
     int iteration = 0;
@@ -65,9 +67,9 @@ void FunctionProcessor::processFunction() {
   printTaints();
 }
 
-void FunctionProcessor::intersectSets(Argument& arg, TaintSet argTaintSet) {
-  RetMap::iterator ret_i = _returnStatements.begin();
-  RetMap::iterator ret_e = _returnStatements.end();
+void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
+  TaintMap::iterator ret_i = _returnStatements.begin();
+  TaintMap::iterator ret_e = _returnStatements.end();
 
   for (; ret_i != ret_e; ++ret_i) {
     Value& retval = *ret_i->first;
@@ -111,8 +113,8 @@ void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
   debug() << "\n";
 }
 
-void FunctionProcessor::addTaint(Argument& tainter, Value& taintee) {
-  _taints.insert(TaintPair(&tainter, &taintee));
+void FunctionProcessor::addTaint(Value& tainter, Value& taintee) {
+  _taints.insert(make_pair(&tainter, &taintee));
 }
 
 bool FunctionProcessor::setContains(TaintSet& taintSet, Value& val) {
@@ -147,7 +149,7 @@ void FunctionProcessor::printTaints() {
   bool isFirstTime = true;
 
   for (ResultSet::iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
-    Argument& arg = cast<Argument>(*i->first);
+    Value& arg = cast<Value>(*i->first);
     Value& retval = cast<Value>(*i->second);
 
     release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << getValueNameOrDefault(retval);
@@ -498,29 +500,38 @@ StringRef FunctionProcessor::getValueNameOrDefault(Value& v) {
 }
 
 void FunctionProcessor::findArguments() {
-  for (Function::arg_iterator i = F.arg_begin(), e = F.arg_end(); i != e; ++i) {
-    Argument& arg = *i;
-    bool isInOutNode = false;
-
-    if (arg.getType()->isPointerTy()) {
-      TaintSet retlist;
-      retlist.insert(&arg);
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
-      _returnStatements.insert(make_pair(&arg, retlist));
-      DOT.addInOutNode(arg);
-      isInOutNode = true;
-
-      debug() << "added arg `" << arg.getName() << "` to out-list\n";
-    }
-
-    TaintSet taintSet;
-    taintSet.insert(&arg);
-    if (!isInOutNode)
-      DOT.addInNode(arg);
-
-    _arguments.insert(make_pair(&arg, taintSet));
-    debug() << "added arg `" << arg.getName() << "` to arg-list\n";
+  for (Function::arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
+    Argument& arg = *a_i;
+    handleFoundArgument(arg);
   }
+
+  for (Module::global_iterator m_i = M.global_begin(), m_e = M.global_end(); m_i != m_e; ++m_i) {
+    GlobalVariable& g = *m_i;
+    handleFoundArgument(g);
+  }
+}
+
+void FunctionProcessor::handleFoundArgument(Value& arg) {
+  bool isInOutNode = false;
+
+  if (arg.getType()->isPointerTy()) {
+    TaintSet retlist;
+    retlist.insert(&arg);
+    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
+    _returnStatements.insert(make_pair(&arg, retlist));
+    DOT.addInOutNode(arg);
+    isInOutNode = true;
+
+    debug() << "added arg `" << arg.getName() << "` to out-list\n";
+  }
+
+  TaintSet taintSet;
+  taintSet.insert(&arg);
+  if (!isInOutNode)
+    DOT.addInNode(arg);
+
+  _arguments.insert(make_pair(&arg, taintSet));
+  debug() << "added arg `" << arg.getName() << "` to arg-list\n";
 }
 
 void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist) {

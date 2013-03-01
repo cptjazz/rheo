@@ -56,7 +56,7 @@ namespace {
 	return false;
       }
       
-      FunctionProcessor proc(func, *dt, *pdt, _result, errs());
+      FunctionProcessor proc(func, *func.getParent(), *dt, *pdt, _result, errs());
       proc.processFunction();
       _finished = proc.didFinish();
 

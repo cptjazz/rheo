@@ -97,11 +97,11 @@ namespace {
       file.open((f.getName().str() + ".taints").c_str(), ios::out);
 
       for (ResultSet::iterator i = result.begin(), e = result.end(); i != e; ++i) {
-        Argument& arg = *i->first;
+        Value& arg = *i->first;
         Value& retval = *i->second;
 
         file << arg.getName().str() << " => ";
-        if (isa<Argument>(retval))
+        if (isa<Argument>(retval) || isa<GlobalVariable>(retval))
 	  file << retval.getName().str();
         else
           file << "$_retval";
