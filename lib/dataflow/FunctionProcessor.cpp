@@ -465,6 +465,13 @@ bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& ins
   debug() << " Handle BLOCK-tainting for " << inst << "\n";
   bool result = false;
 
+  // Loads should not be tained by parenting block
+  // because otherwise a block would taint a load of
+  // a global variable what makes no sense -- it would
+  // introduce a taint that does not exist.
+  if (isa<LoadInst>(inst))
+    return false;
+
   for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     if (! isa<BasicBlock>(*s_i))
       continue;
