@@ -73,13 +73,14 @@ private:
   StringRef getValueNameOrDefault(Value& v);
   void findArguments();
   void handleFoundArgument(Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist);
+  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist, set<Value*>& alreadyProcessed);
   void printSet(set<Value*>& s);
   void findReturnStatements();
   void printInstructions(); 
   void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result);
   bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
+  void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
 
   raw_ostream& debug() {
     return _stream;

@@ -126,7 +126,7 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
     STOP_ON_CANCEL
 
     Instruction& inst = cast<Instruction>(*inst_i);
-    debug() << "Inspecting instruction: " << inst << "\n";
+//    debug() << "Inspecting instruction: " << inst << "\n";
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
@@ -180,11 +180,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
     debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
     if (isa<GetElementPtrInst>(target)) {
       GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
-      for (User::op_iterator gep_i = gep.idx_begin(), gep_e = gep.idx_end(); gep_i != gep_e; ++gep_i) {
-        Value& gepOperand = *cast<Value>(*gep_i);
-        taintSet.insert(&gepOperand);
-        debug() << " ++ Also added GEP `" << gepOperand << "` because it is used by STORE.\n";
-      }
+      recursivelyAddAllGeps(gep, taintSet);
     }
   } else if (setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
     // Only do removal if value is really in set
@@ -201,8 +197,28 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   }
 }
 
+void FunctionProcessor::recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet) {
+  Value& ptrOp = *gep.getPointerOperand();
+  debug() << " ++ Added GEP SOURCE:" << ptrOp << "\n";
+  taintSet.insert(&ptrOp);
+  DOT.addRelation(gep, ptrOp);
+
+  for (User::op_iterator gep_i = gep.idx_begin(), gep_e = gep.idx_end(); gep_i != gep_e; ++gep_i) {
+    // Skip constant array indices
+    if (isa<Constant>(*gep_i))
+      continue;
+
+    Value& gepOperand = *cast<Value>(*gep_i);
+    taintSet.insert(&gepOperand);
+    debug() << " ++ Also added GEP INDEX `" << gepOperand << "` because it is used by STORE.\n";
+  }
+
+  //if (isa<GetElementPtrInst>(ptrOp))
+   // recursivelyAddAllGeps(ptrOp, taintSet);
+}
+
 bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet) {
-  debug() << " CFG SUCC: start for " << storeInst << "\n";
+//  debug() << " CFG SUCC: start for " << storeInst << "\n";
   for (TaintSet::iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
     debug() << " CFG SUCC: inspecting " << **i << "\n";
 
@@ -445,10 +461,10 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
 }
 
 void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet) {
-  debug() << " Handle OTHER instruction:\n";
+//  debug() << " Handle OTHER instruction:\n";
 
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
-     debug() << " ~ Inspecting operand #" << o_i << "\n";
+ //    debug() << " ~ Inspecting operand #" << o_i << "\n";
      Value& operand = *inst.getOperand(o_i);
      if (setContains(taintSet, operand)) {
        taintSet.insert(&inst);
@@ -462,7 +478,7 @@ void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet)
 }
 
 bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& inst) {
-  debug() << " Handle BLOCK-tainting for " << inst << "\n";
+//  debug() << " Handle BLOCK-tainting for " << inst << "\n";
   bool result = false;
 
   // Loads should not be tained by parenting block
@@ -517,7 +533,10 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
   if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
     TaintSet retlist;
     retlist.insert(&arg);
-    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
+
+    set<Value*> alreadyProcessed;
+    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist, alreadyProcessed);
+
     _returnStatements.insert(make_pair(&arg, retlist));
     DOT.addInOutNode(arg);
     isInOutNode = true;
@@ -534,7 +553,13 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
   debug() << "added arg `" << arg.getName() << "` to arg-list\n";
 }
 
-void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& taintSet) {
+void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& taintSet, set<Value*>& alreadyProcessed) {
+  // avoid infinite loops
+  if (alreadyProcessed.count(&arg))
+    return;
+
+  alreadyProcessed.insert(&arg);
+
   for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     Instruction& I = cast<Instruction>(*i);
     
@@ -546,17 +571,21 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       DOT.addRelation(op, arg, "out-init");
       debug() << " + Found STORE for `" << arg.getName() << "` @ " << op << "\n";
 
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet);
+      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet, alreadyProcessed);
     }
 
     if (isa<GetElementPtrInst>(I)) {
-      Value& ptr = *(cast<GetElementPtrInst>(I)).getPointerOperand();
-      if (!setContains(taintSet, ptr))
+      GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
+      Value& ptr = *gep.getPointerOperand();
+
+      if (&arg != &ptr)
         continue;
 
       taintSet.insert(&I);
-      debug() << " + Found GEP for `" << arg.getName() << "` @ " << ptr << "\n";
+      debug() << " + Found GEP for `" << arg.getName() << "` @ " << gep << "\n";
       DOT.addRelation(arg, ptr, "gep");
+
+      findAllStoresAndLoadsForOutArgumentAndAddToSet(gep, taintSet, alreadyProcessed);
     }
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
@@ -565,7 +594,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       DOT.addRelation(op, arg, "load");
       debug() << " + Found LOAD for `" << arg.getName() << "` @ " << op << "\n";
       
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet);
+      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet, alreadyProcessed);
     }
   }
 }
