@@ -585,7 +585,13 @@ void FunctionProcessor::findReturnStatements() {
       // skip 'return void'
       Value* retval = r.getReturnValue();
       if (retval) {
-        taintSet.insert(retval);
+        if (isa<Constant>(retval)) {
+          taintSet.insert(&r);
+          debug() << " + Added instruction CONSTANT RETURN VALUE `" << retval << "`\n";
+        } else {
+          taintSet.insert(retval);
+          debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n";
+        }
 
         if (isa<PHINode>(retval)) {
           PHINode& phi = cast<PHINode>(*retval);
