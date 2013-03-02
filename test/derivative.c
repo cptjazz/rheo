@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <math.h>
 
+// const global variables do not taint
 const int N = 100;
-double H = 0.001;
+const double H = 0.001;
 const double PI = 3.14159265;
 
 
-// __expected:derive(input => output, elements => output, elements => input)
+// __expected:derive(input => output, elements => output)
 void derive(double* input, long elements, double* output) {
   for (int i = 1; i < elements - 1; i++) {
     output[i - 1] = (input[i + 1] - input[i - 1])/ (2 * H);
