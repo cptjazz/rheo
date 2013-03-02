@@ -31,10 +31,12 @@ int loop_test_2(int a, int b) {
   c = 0;
   f = 100;
 
+  int r = a;
   // a tains retval
   do {
-    return 6;
-  } while (a);
+    if (d > c)
+      return 6;
+  } while (r);
 
   do {
     // b taints f and f taints retval
