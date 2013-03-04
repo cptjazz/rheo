@@ -40,24 +40,22 @@ void FunctionProcessor::processFunction() {
   for(; arg_i != arg_e; ++arg_i) {
     Value& arg = *arg_i->first;
     TaintSet taintSet = arg_i->second;
+    TaintSet oldTaintSet;
 
     int iteration = 0;
-    int newSetLength;
-    int oldSetLength;
 
     do {
-      oldSetLength = taintSet.size();
+      oldTaintSet = taintSet;
 
       debug() << " ** Begin Iteration #" << iteration << "\n";
       buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL
       debug() << " ** End Iteration #" << iteration << "\n";
 
-      newSetLength = taintSet.size();
-      debug() << " ** Taint set length:" << newSetLength << "\n";
+      debug() << " ** Taint set length:" << taintSet.size() << "\n";
 
       iteration++;
-    } while (iteration < 10 && oldSetLength != newSetLength);
+    } while (iteration < 10 && !Helper::areSetsEqual(oldTaintSet, taintSet));
 
     STOP_ON_CANCEL
 
