@@ -115,10 +115,6 @@ void FunctionProcessor::addTaint(Value& tainter, Value& taintee) {
   _taints.insert(make_pair(&tainter, &taintee));
 }
 
-bool FunctionProcessor::setContains(TaintSet& taintSet, Value& val) {
-  return taintSet.find(&val) != taintSet.end();
-}
-
 void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet) {
   for (BasicBlock::iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL
@@ -159,7 +155,7 @@ void FunctionProcessor::printTaints() {
 
 void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, TaintSet& taintSet) {
   Value& op = *inst.getPointerOperand();
-  if (setContains(taintSet, op)) {
+  if (Helper::setContains(taintSet, op)) {
     taintSet.insert(&inst); 
     DOT.addRelation(op, inst, "indexer");
     debug() << " + Added GEP taint: `" << inst << "`\n";
@@ -171,7 +167,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   Value& target = *storeInst.getOperand(1);
 
   debug() << " Handle STORE instruction " << storeInst << "\n";
-  if (setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst)) {
+  if (Helper::setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst)) {
     taintSet.insert(&target);
     taintSet.insert(&storeInst);
     DOT.addRelation(source, target, "store");
@@ -180,7 +176,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
       GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       recursivelyAddAllGeps(gep, taintSet);
     }
-  } else if (setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
+  } else if (Helper::setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
     debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
@@ -333,7 +329,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
 
     Value* arg = callInst.getArgOperand(paramPos);
 
-    if (setContains(taintSet, *arg)) {
+    if (Helper::setContains(taintSet, *arg)) {
       stringstream reas("");
       reas << "in, arg#" << paramPos;
 
@@ -387,7 +383,7 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
 void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet) {
   Value* condition = inst.getCondition();
   
-  if (!setContains(taintSet, *condition))
+  if (!Helper::setContains(taintSet, *condition))
     return;
 
   DOT.addRelation(*condition, inst, "switch");
@@ -425,7 +421,7 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
     Instruction& cmp = cast<Instruction>(*inst.getCondition());
     debug() << " = Compare instruction is: " << cmp << "\n";
 
-    bool isConditionTainted = setContains(taintSet, cmp);
+    bool isConditionTainted = Helper::setContains(taintSet, cmp);
     if (isConditionTainted) {
       DOT.addRelation(cmp, inst, "condition");
      
@@ -464,7 +460,7 @@ void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet)
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
  //    debug() << " ~ Inspecting operand #" << o_i << "\n";
      Value& operand = *inst.getOperand(o_i);
-     if (setContains(taintSet, operand)) {
+     if (Helper::setContains(taintSet, operand)) {
        taintSet.insert(&inst);
        DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
 

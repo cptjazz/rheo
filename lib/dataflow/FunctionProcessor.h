@@ -11,22 +11,16 @@
 #include "llvm/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/InstrTypes.h"
-#include <map>
-#include <set>
 #include <algorithm>
 #include <cstring>
 #include <stdio.h>
 #include "GraphExporter.h"
 #include "Helper.h"
+#include "Core.h"
 
 
 using namespace llvm;
 using namespace std;
-
-typedef set<Value*> TaintSet;
-typedef map<Value*, TaintSet> TaintMap;
-typedef pair<Value*, Value*> TaintPair;
-typedef set<TaintPair> ResultSet;
 
 
 class FunctionProcessor {
@@ -60,7 +54,6 @@ private:
   void intersectSets(Value& arg, TaintSet argTaintSet);
   void buildTaintSetFor(Value& arg, TaintSet& taintSet);
   void addTaint(Value& tainter, Value& taintee);
-  bool setContains(TaintSet& taintSet, Value& val);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
   void printTaints();
   void handleGetElementPtrInstruction(GetElementPtrInst& storeInst, TaintSet& taintSet);

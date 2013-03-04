@@ -1,6 +1,8 @@
+#ifndef HELPER_H
+#define HELPER_H
+
 #include <string>
-#include <set>
-#include <llvm/Value.h>
+#include "Core.h"
 
 using namespace std;
 using namespace llvm;
@@ -8,5 +10,8 @@ using namespace llvm;
 class Helper {
 public:
   static string getValueNameOrDefault(Value& v);   
-  static bool areSetsEqual(set<Value*>& s1, set<Value*>& s2);
+  static bool areSetsEqual(TaintSet& s1, TaintSet& s2);
+  static bool setContains(TaintSet& taintSet, Value& val);
 };
+
+#endif // HELPER_H
