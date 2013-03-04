@@ -63,11 +63,10 @@ private:
   void handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet);
   void handleInstruction(Instruction& inst, TaintSet& taintSet);
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
-  StringRef getValueNameOrDefault(Value& v);
   void findArguments();
   void handleFoundArgument(Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist, set<Value*>& alreadyProcessed);
-  void printSet(set<Value*>& s);
+  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist, TaintSet& alreadyProcessed);
+  void printSet(TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
   void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result);
