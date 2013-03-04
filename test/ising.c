@@ -8,13 +8,17 @@
 #define SKIP 10
 #define RUNLENGTH 20
 
+// __expected:should_update(dE => $_retval, kt => $_retval)
 char should_update(double dE, double kt) {		
+        // __define:exp(0 => $_retval)
 	double prob = exp(-dE/kt);
+        // __define:rand()
 	double r = (float)rand()/(float)RAND_MAX;
 	
 	return (prob > r);
 }
 
+// __expected:get_neighbour_indices_for(i => $_retval, l => $_retval, a => $_retval)
 int get_neighbour_indices_for(int i, int l, int a) {
 	int x = i % l;
 	int y = i / l;
@@ -48,10 +52,12 @@ int get_neighbour_indices_for(int i, int l, int a) {
 	}
 }
 
+// __expected:get_neighbour_sum(neighbours => $_retval, i => $_retval)
 short get_neighbour_sum(short *spins, short*** neighbours, int i, int l) {
 	return *neighbours[i][0] + *neighbours[i][1] + *neighbours[i][2] + *neighbours[i][3];
 }
 
+// __expected:do_monte_carlo_update(l => spins, neighbours => spins, j => spins, h => spins, kT => spins)
 void do_monte_carlo_update(short* spins, short*** neighbours, int l, double j, double h, double kT) {
 	for (int i = 0; i < l * l; i++) {
 		short sig = spins[i];
@@ -65,20 +71,24 @@ void do_monte_carlo_update(short* spins, short*** neighbours, int l, double j, d
 	}
 }
 
+// __expected:equilibrate(l => spins, neighbours => spins, j => spins, h => spins, kT => spins)
 void equilibrate(short* spins, short*** neighbours, int l, double j, double h, double kT) {
 	for (int i = 0; i < EQUI; i++)
 		do_monte_carlo_update(spins, neighbours, l, j, h, kT);
 }
 
+// __expected:get_magnetization(spins => $_retval, l => $_retval)
 double get_magnetization(short* spins, int l) {
 	int sum = 0;
 	
 	for (int i = 0; i < l * l; i++)
 		sum += spins[i];
 
+        // __define:fabs(0 => $_retval)
 	return fabs(sum)  / (l * l);
 }
 
+// __expected:get_energy(spins => $_retval, l => $_retval, j => $_retval, h => $_retval, neighbours => $_retval)
 double get_energy(short* spins, short*** neighbours, int l, double j, double h) {
 	double sum = 0;
 	
@@ -88,7 +98,7 @@ double get_energy(short* spins, short*** neighbours, int l, double j, double h) 
 	return sum  / (l * l);
 }
 
-
+// __expected:measure(l => spins, neighbours => spins, j => spins, h => spins, kT => spins, l => energy, neighbours => energy, j => energy, h => energy, kT => energy, spins => energy, l => energy2, neighbours => energy2, j => energy2, h => energy2, kT => energy2, spins => energy2, l => magnetization, neighbours => magnetization, j => magnetization, h => magnetization, kT => magnetization, spins => magnetization, l => magnetization2, neighbours => magnetization2, j => magnetization2, h => magnetization2, kT => magnetization2, spins => magnetization2)
 void measure(short* spins, short*** neighbours, int l, double j, double h, double kT, double* energy, double* magnetization, double* energy2, double* magnetization2) {
 	double e = 0.0;
 	double e2 = 0.0;
@@ -122,11 +132,13 @@ void measure(short* spins, short*** neighbours, int l, double j, double h, doubl
 	(*magnetization2) = sqrt(m2 - m * m);
 }
 
+// __expected:create_lattice(l => spins)
 void create_lattice(short* spins, int l) {
 	for (int i = 0; i < l * l; i++) 
 		spins[i] = (rand() % 2 > 0) ? 1 : -1;
 }
 
+// __expected:create_neighbours(l => neighbours, spins => neighbours)
 void create_neighbours(short* spins, short*** neighbours, int l) {
 	for (int i = 0; i < l * l; i++) {
 		neighbours[i] = (short**) malloc(sizeof(short*) * 4);
@@ -136,6 +148,7 @@ void create_neighbours(short* spins, short*** neighbours, int l) {
 	}
 }
 
+// __expected:write_file()
 void write_file(double j, double* kT, double* energies, double* magnetization, double* energies2, double* magnetization2, int l) {
 	char filename[255];
 	FILE *fp;
@@ -149,6 +162,7 @@ void write_file(double j, double* kT, double* energies, double* magnetization, d
 	fclose(fp);
 }
 
+// __expected:run_ising()
 void run_ising(double j, int l) {	
 	short* spins = (short*) malloc( sizeof(short) * l * l);
 	short*** neighbours = (short***) malloc( sizeof(short**) * l * l);
@@ -185,6 +199,7 @@ void run_ising(double j, int l) {
 	free(neighbours);
 }
 
+// __expected:main()
 int main() {
 	for (double j = -0.5; j <= 0.5; j += 0.5)
 		for (int l = 20; l <= 100; l += 20)
