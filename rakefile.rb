@@ -2,6 +2,7 @@ require 'fileutils'
 require 'rainbow'
 require 'rake/clean'
 
+OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce"]
 
 task :test, [:pattern] do |t, args|
   `make`
@@ -14,7 +15,7 @@ task :test, [:pattern] do |t, args|
     `rm *.taints`
     `cp ../taintlib/*.taints .`
 
-    Dir.glob("*.c") do |file|
+    Dir.glob("*.c").sort.each do |file|
       next if (args.pattern != nil and not file.match(args.pattern))
 
       file = File.basename(file, ".*")
@@ -31,7 +32,7 @@ task :test, [:pattern] do |t, args|
       create_taint_file(def_map)
 
        `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce"].each do |opt|
+      OPTS.each do |opt|
         opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
 
@@ -69,7 +70,7 @@ def test(file, exp_map, out_map, opts)
     test_result &&= false
   end
   
-  exp_map.each do |function, taints|
+  exp_map.sort.each do |function, taints|
     unless out_map.has_key? function
       print_failed(file, function, "function `#{function}` not found", opts)
       test_result &&= false
