@@ -1,17 +1,17 @@
 #include <stdlib.h>
 
-// __expected:get_index()
-int get_index(int i, int j) {
+// __expected:get_some_index()
+int get_some_index(int i, int j) {
   return 20;
 }
 
-// __expected:create_neighbours(l => neighbours, values => neighbours)
-void create_neighbours(short* values, short*** neighbours, int l) {
+// __expected:create_2d_array(l => neighbours, values => neighbours)
+void create_2d_array(short* values, short*** neighbours, int l) {
   for (int i = 0; i < l * l; i++) {
     neighbours[i] = (short**) malloc(sizeof(short*) * 4);
 
     for (int j = 0; j < 4; j++)
-      neighbours[i][j] = &values[get_index(i, j)];
+      neighbours[i][j] = &values[get_some_index(i, j)];
   }
 }
 
