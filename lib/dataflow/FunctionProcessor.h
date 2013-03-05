@@ -65,7 +65,7 @@ private:
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
   void findArguments();
   void handleFoundArgument(Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist, TaintSet& alreadyProcessed);
+  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist);
   void printSet(TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
@@ -73,6 +73,7 @@ private:
   bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
   void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
+  void recursivelyFindAliases(Value& arg, TaintSet& taintSet, TaintSet& alreadyProcessed);
 
   raw_ostream& debug() {
     return _stream;

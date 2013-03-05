@@ -86,8 +86,14 @@ void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
     set_intersection(argTaintSet.begin(), argTaintSet.end(), retTaintSet.begin(), retTaintSet.end(), 
                      inserter(intersect, intersect.end()));
 
-    if (intersect.begin() != intersect.end()) {
+    if (intersect.size()) {
       addTaint(arg, retval);
+
+      debug() << "Values that lead to taint "
+              << Helper::getValueNameOrDefault(arg) << " -> "
+              << Helper::getValueNameOrDefault(retval) << ":\n";
+      for (TaintSet::iterator i_i = intersect.begin(), i_e = intersect.end(); i_i != i_e; ++i_i)
+        debug() << **i_i << "\n";
     }
   }
 }
@@ -472,15 +478,22 @@ void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet)
 }
 
 bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& inst) {
-//  debug() << " Handle BLOCK-tainting for " << inst << "\n";
+  debug() << " Handle BLOCK-tainting for " << inst << "\n";
   bool result = false;
 
   // Loads should not be tained by parenting block
   // because otherwise a block would taint a load of
   // a global variable what makes no sense -- it would
   // introduce a taint that does not exist.
-  if (isa<LoadInst>(inst))
+  if (isa<LoadInst>(inst)) {
+    debug() << " Ignoring LOAD\n";
     return false;
+  }
+
+  if (isa<GetElementPtrInst>(inst)) {
+    debug() << " Ignoring GEP\n";
+    return false;
+  }
 
   for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     if (! isa<BasicBlock>(*s_i))
@@ -528,8 +541,7 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
     TaintSet retlist;
     retlist.insert(&arg);
 
-    set<Value*> alreadyProcessed;
-    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist, alreadyProcessed);
+    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, retlist);
 
     _returnStatements.insert(make_pair(&arg, retlist));
     DOT.addInOutNode(arg);
@@ -547,26 +559,35 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
   debug() << "added arg `" << arg.getName() << "` to arg-list\n";
 }
 
-void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& taintSet, set<Value*>& alreadyProcessed) {
-  // avoid infinite loops
-  if (alreadyProcessed.count(&arg))
+void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& taintSet) {
+
+    Value* newArg = &arg;
+
+    for (User::use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
+      if (isa<StoreInst>(*u_i)) {
+        taintSet.insert(*u_i);
+        debug() << " Added ARG STORE: " << **u_i << "\n";
+        newArg = u_i->getOperand(1);
+      }
+    }
+
+    TaintSet alreadyProcessed;
+    recursivelyFindAliases(*newArg, taintSet, alreadyProcessed);
+}
+
+void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, TaintSet& alreadyProcessed) {
+
+  debug() << "recursively find: " << arg << "\n";
+
+  if (Helper::setContains(alreadyProcessed, arg))
     return;
 
   alreadyProcessed.insert(&arg);
 
-  for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    Instruction& I = cast<Instruction>(*i);
+  for (User::use_iterator i = arg.use_begin(), e = arg.use_end(); i != e; ++i) {
+    Instruction& I = cast<Instruction>(**i);
     
     debug() << "inspecting: " << I << "\n";
-    if (isa<StoreInst>(I) && I.getOperand(0) == &arg) {
-      Value& op = cast<Value>(*I.getOperand(1));
-      taintSet.insert(&op);
-      DOT.addRelation(arg, op, "store");
-      DOT.addRelation(op, arg, "out-init");
-      debug() << " + Found STORE for `" << arg.getName() << "` @ " << op << "\n";
-
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet, alreadyProcessed);
-    }
 
     if (isa<GetElementPtrInst>(I)) {
       GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
@@ -579,8 +600,8 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       debug() << " + Found GEP for `" << arg.getName() << "` @ " << gep << "\n";
       DOT.addRelation(arg, ptr, "gep");
 
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(gep, taintSet, alreadyProcessed);
-    }
+      recursivelyFindAliases(gep, taintSet, alreadyProcessed);
+   }
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       Value& op = cast<Value>(I);
@@ -588,7 +609,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
       DOT.addRelation(op, arg, "load");
       debug() << " + Found LOAD for `" << arg.getName() << "` @ " << op << "\n";
       
-      findAllStoresAndLoadsForOutArgumentAndAddToSet(op, taintSet, alreadyProcessed);
+      recursivelyFindAliases(op, taintSet, alreadyProcessed);
     }
   }
 }
