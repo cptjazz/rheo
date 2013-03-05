@@ -161,10 +161,23 @@ void FunctionProcessor::printTaints() {
 
 void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, TaintSet& taintSet) {
   Value& op = *inst.getPointerOperand();
+
   if (Helper::setContains(taintSet, op)) {
     taintSet.insert(&inst); 
     DOT.addRelation(op, inst, "indexer");
     debug() << " + Added GEP taint: `" << inst << "`\n";
+  }
+  
+  for (size_t i = 0; i < inst.getNumIndices(); i++) {
+    Value& idx = *inst.getOperand(i + 1);
+
+    if (Helper::setContains(taintSet, idx)) {
+      taintSet.insert(&inst);
+      stringstream reason("");
+      reason << "index #" << i;
+      DOT.addRelation(idx, inst, reason.str());
+      debug() << " ++ Added GEP INDEX: `" << idx << "`\n";
+    }
   }
 }
 
@@ -201,20 +214,14 @@ void FunctionProcessor::recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& 
   Value& ptrOp = *gep.getPointerOperand();
   debug() << " ++ Added GEP SOURCE:" << ptrOp << "\n";
   taintSet.insert(&ptrOp);
-  DOT.addRelation(gep, ptrOp);
+  DOT.addRelation(gep, ptrOp, "gep via store");
 
-  for (User::op_iterator gep_i = gep.idx_begin(), gep_e = gep.idx_end(); gep_i != gep_e; ++gep_i) {
-    // Skip constant array indices
-    if (isa<Constant>(*gep_i))
-      continue;
-
-    Value& gepOperand = *cast<Value>(*gep_i);
-    taintSet.insert(&gepOperand);
-    debug() << " ++ Also added GEP INDEX `" << gepOperand << "` because it is used by STORE.\n";
+  if (isa<LoadInst>(ptrOp)) {
+    LoadInst& load = cast<LoadInst>(ptrOp);
+    Value& loadOperand = *load.getOperand(0);
+    if (isa<GetElementPtrInst>(loadOperand))
+      recursivelyAddAllGeps(cast<GetElementPtrInst>(loadOperand), taintSet);
   }
-
-  //if (isa<GetElementPtrInst>(ptrOp))
-   // recursivelyAddAllGeps(ptrOp, taintSet);
 }
 
 bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet) {
@@ -597,7 +604,7 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, T
     
     debug() << "Inspecting: " << I << "\n";
 
-    if (isa<GetElementPtrInst>(I)) {
+/*    if (isa<GetElementPtrInst>(I)) {
       GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
       Value& ptr = *gep.getPointerOperand();
 
@@ -606,18 +613,18 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, T
 
       taintSet.insert(&I);
       debug() << " + Found GEP for `" << arg.getName() << "` @ " << gep << "\n";
-      DOT.addRelation(arg, ptr, "gep");
+      DOT.addRelation(arg, gep, "gep");
 
       recursivelyFindAliases(gep, taintSet, alreadyProcessed);
    }
-
+*/
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
-      Value& op = cast<Value>(I);
-      taintSet.insert(&op);
-      DOT.addRelation(op, arg, "load");
-      debug() << " + Found LOAD for `" << arg.getName() << "` @ " << op << "\n";
+      Value& load = cast<LoadInst>(I);
+      taintSet.insert(&load);
+      DOT.addRelation(arg, load, "load");
+      debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n";
       
-      recursivelyFindAliases(op, taintSet, alreadyProcessed);
+      recursivelyFindAliases(load, taintSet, alreadyProcessed);
     }
   }
 }
