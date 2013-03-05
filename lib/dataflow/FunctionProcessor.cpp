@@ -577,7 +577,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
 
 void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, TaintSet& alreadyProcessed) {
 
-  debug() << "recursively find: " << arg << "\n";
+  debug() << "Recursively find: " << arg << "\n";
 
   if (Helper::setContains(alreadyProcessed, arg))
     return;
@@ -585,9 +585,17 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, T
   alreadyProcessed.insert(&arg);
 
   for (User::use_iterator i = arg.use_begin(), e = arg.use_end(); i != e; ++i) {
+    if (!isa<Instruction>(**i)) {
+      // Necessary, as constant string literals also come 
+      // as GlobalVariables, but do not point to an instruction.
+      // They point to an operand of a GEP.
+      debug() << "Skip: " << **i << "\n";
+      continue;
+    }
+
     Instruction& I = cast<Instruction>(**i);
     
-    debug() << "inspecting: " << I << "\n";
+    debug() << "Inspecting: " << I << "\n";
 
     if (isa<GetElementPtrInst>(I)) {
       GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
