@@ -240,7 +240,8 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, Tai
     if (prevStore.getOperand(1) != storeInst.getOperand(1))
       continue;
 
-    debug() << " CFG SUCC: testing storeInst: " << prevStore << "\n";
+    debug() << " CFG SUCC: testing storeInst: " << storeInst << "\n";
+    debug() << " CFG SUCC: testing prev storeInst: " << prevStore << "\n";
     set<BasicBlock*> usedList;
     if (!isCfgSuccessor(storeInst.getParent(), prevStore.getParent(), usedList)) {
       debug() << " CFG SUCC: in-if: " << prevStore << "\n";
@@ -255,13 +256,16 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
   if (NULL == succ || NULL == pred)
     return false;
 
+  debug() << "CFG SUCC recursion for succ = `" << *succ
+          << "` and pred = `" << *pred << "`\n";
+
   if (pred == succ)
     return true;
 
   for (pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
-    if (usedList.count(succ))
+    if (usedList.count(*i))
       continue;
-  debug() << *i << "\n";
+  debug() << **i << "\n";
 
     usedList.insert(*i);
     if (isCfgSuccessor(*i, pred, usedList))
@@ -463,7 +467,7 @@ void FunctionProcessor::followTransientBranchPaths(BasicBlock& br, BasicBlock& j
           &brSuccessor != &join) {
         taintSet.insert(&brSuccessor);
         DOT.addBlockNode(brSuccessor);
-        DOT.addRelation(br, brSuccessor, "br");
+        DOT.addRelation(brTerminator, brSuccessor, "br");
         debug() << " ++ Added TRANSIENT branch:\n";
         debug() << brSuccessor << "\n";
         
@@ -608,20 +612,6 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, TaintSet& taintSet, T
     
     debug() << "Inspecting: " << I << "\n";
 
-/*    if (isa<GetElementPtrInst>(I)) {
-      GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
-      Value& ptr = *gep.getPointerOperand();
-
-      if (&arg != &ptr)
-        continue;
-
-      taintSet.insert(&I);
-      debug() << " + Found GEP for `" << arg.getName() << "` @ " << gep << "\n";
-      DOT.addRelation(arg, gep, "gep");
-
-      recursivelyFindAliases(gep, taintSet, alreadyProcessed);
-   }
-*/
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       Value& load = cast<LoadInst>(I);
       taintSet.insert(&load);
