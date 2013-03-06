@@ -527,7 +527,10 @@ bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& ins
       }
 
       taintSet.insert(&inst);
-      DOT.addRelation(currentBlock, inst, "block-taint");
+      if (isa<StoreInst>(inst))
+        DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint");
+      else
+        DOT.addRelation(currentBlock, inst, "block-taint");
 
       debug() << " + Instruction tainted by dirty block: " << inst << "\n";
       result = true;
