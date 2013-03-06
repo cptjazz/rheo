@@ -74,6 +74,7 @@ private:
   bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
   void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
   void recursivelyFindAliases(Value& arg, TaintSet& taintSet, TaintSet& alreadyProcessed);
+  void followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet);
 
   raw_ostream& debug() {
     return _stream;

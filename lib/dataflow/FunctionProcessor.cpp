@@ -413,23 +413,8 @@ void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& tain
 }
 
 void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& taintSet) {
-  debug() << " Handle BRANCH instruction:\n";
-  BasicBlock& currentBlock = *inst.getParent();
+  debug() << " Handle BRANCH instruction: " << inst << "\n";
   
-  // Process all nested blocks to find possible tainting of 
-  // condition expression.
-  DomTreeNode* node = DT.getNode(&currentBlock);
-  if (node != NULL) {
-    for (DomTreeNode::iterator n_i = node->begin(), n_e = node->end(); n_i != n_e; ++n_i) {
-      BasicBlock& childBlock = *(*n_i)->getBlock();
-      debug() << " ****  Begin: Processing child block " << childBlock << "\n";
-      processBasicBlock(childBlock, taintSet);
-      debug() << " ****  End: Processing child block\n";
-    }
-  } else {
-    debug() << " **** ! Block not in DT: " << currentBlock << "\n";
-  }
-
   if (inst.isConditional()) {
     Instruction& cmp = cast<Instruction>(*inst.getCondition());
     debug() << " = Compare instruction is: " << cmp << "\n";
@@ -438,33 +423,52 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
     if (isConditionTainted) {
       DOT.addRelation(cmp, inst, "condition");
      
-      BasicBlock* brTrue = inst.getSuccessor(0);
+      BasicBlock& brTrue = *inst.getSuccessor(0);
+      BasicBlock& brFalse = *inst.getSuccessor(1);
+
+      BasicBlock& join = *PDT.findNearestCommonDominator(&brFalse, &brTrue);
+      debug() << "   Nearest Common Post-Dominator for tr/fa: " << join << "\n";
+      
       // true branch is always tainted
-      taintSet.insert(brTrue);
-      DOT.addBlockNode(*brTrue);
-      DOT.addRelation(inst, *brTrue, "br-true");
+      taintSet.insert(&brTrue);
+      DOT.addBlockNode(brTrue);
+      DOT.addRelation(inst, brTrue, "br-true");
       debug() << " + Added TRUE branch to taint set:\n";
-      debug() << *brTrue << "\n";
+      debug() << brTrue << "\n";
 
-      if (inst.getNumSuccessors() == 2) {
-        BasicBlock* brFalse = inst.getSuccessor(1);
-        // false branch is only tainted if successor 
-        // is not the same as jump target after true branch
-        BasicBlock* target = PDT.findNearestCommonDominator(brFalse, brTrue);
-        debug() << "   Nearest Common Post-Dominator for tr/fa: " << *target << "\n";
+      followTransientBranchPaths(brTrue, join, taintSet);
 
-        if (target != brFalse) {
-          taintSet.insert(brFalse);
-          DOT.addBlockNode(*brFalse);
-          DOT.addRelation(inst, *brFalse, "br-false");
-          debug() << " + Added FALSE branch to taint set:\n";
-          debug() << *brFalse << "\n";
-        }
-      }
+      // false branch is only tainted if successor 
+      // is not the same as jump target after true branch
+      if (&join != &brFalse) {
+        taintSet.insert(&brFalse);
+        DOT.addBlockNode(brFalse);
+        DOT.addRelation(inst, brFalse, "br-false");
+        debug() << " + Added FALSE branch to taint set:\n";
+        debug() << brFalse << "\n";
+
+        followTransientBranchPaths(brFalse, join, taintSet);
+     }
     }
   }
 
   handleBlockTainting(taintSet, inst);
+}
+
+void FunctionProcessor::followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet) {
+      TerminatorInst& brTerminator = *br.getTerminator();
+      BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
+      if (brTerminator.getNumSuccessors() == 1 &&
+          PDT.dominates(&join, &brSuccessor) && 
+          &brSuccessor != &join) {
+        taintSet.insert(&brSuccessor);
+        DOT.addBlockNode(brSuccessor);
+        DOT.addRelation(br, brSuccessor, "br");
+        debug() << " ++ Added TRANSIENT branch:\n";
+        debug() << brSuccessor << "\n";
+        
+        followTransientBranchPaths(brSuccessor, join, taintSet);
+      }
 }
 
 void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet) {
