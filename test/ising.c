@@ -198,11 +198,3 @@ void run_ising(double j, int l) {
 	free(spins);
 	free(neighbours);
 }
-
-// __expected:main()
-int main() {
-	for (double j = -0.5; j <= 0.5; j += 0.5)
-		for (int l = 20; l <= 100; l += 20)
-			run_ising(j, l);
-        return 0;
-}

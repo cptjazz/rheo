@@ -1,4 +1,4 @@
-// __expected:nested_if_2(b => $_retval)
+// __expected:nested_if_2(b => $_retval, f => $_retval)
 int nested_if_2(int a, int b, int c, int d, int f) {
   int e;
 
