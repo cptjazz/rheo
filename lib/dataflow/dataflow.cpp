@@ -18,6 +18,7 @@
 #include "GraphExporter.h"
 #include "FunctionProcessor.h"
 #include "PerFunctionFlow.cpp"
+#include "TaintFile.h"
 
 using namespace llvm;
 using namespace std;
@@ -61,7 +62,7 @@ namespace {
 
     void processFunction(Function& func) {
       // Skip if function was already processed.
-      if (taintResultExists(func))
+      if (TaintFile::exists(func))
         return;
 
       // Skip external (library) functions
@@ -83,27 +84,7 @@ namespace {
       }
 
       ResultSet& result = pff.getResult();
-      writeResult(func, result);
-    }
-
-    bool taintResultExists(Function& f) {
-      return false;
-      ifstream file(f.getName().str().c_str());
-      return file;
-    }
-
-    void writeResult(Function& f, ResultSet result) {
-      ofstream file;
-      file.open((f.getName().str() + ".taints").c_str(), ios::out);
-
-      for (ResultSet::iterator i = result.begin(), e = result.end(); i != e; ++i) {
-        Value& arg = *i->first;
-        Value& retval = *i->second;
-
-        file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
-      }
-
-      file.close();
+      TaintFile::writeResult(func, result);
     }
   };
 }

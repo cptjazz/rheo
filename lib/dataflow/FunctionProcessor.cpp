@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdio.h>
 #include "FunctionProcessor.h"
+#include "TaintFile.h"
 
 
 #define STOP_ON_CANCEL if (canceledInspection) return;
@@ -276,74 +277,21 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
 }
 
 void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
-  ifstream file((func.getName().str() + ".taints").c_str(), ios::in);
-  if (!file.is_open()) {
-    file.open(("taintlib/" + func.getName().str() + ".taints").c_str(), ios::in);
+  TaintFile* taints = TaintFile::read(func, debug());
 
-    if (!file.is_open()) {
-      debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.";
-      canceledInspection = true;
-      return;
-    }
+  if (!taints) {
+    debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
+    canceledInspection = true;
+    return;
   }
 
-  string line;
-  while (file.good()) {
-    getline(file, line);
-    
-    string paramName;
-    string valName;
-    istringstream iss(line);
+  FunctionTaintMap& mapping = taints->getMapping();
 
-    iss >> paramName;
-    // consume => :
-    iss >> valName;
-    iss >> valName;
+  for (FunctionTaintMap::iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
+    int paramPos = i->first;
+    int retvalPos = i->second;
 
-    int paramPos;
-    int retvalPos;
-    int i = 0;
-
-    stringstream convert1(paramName);
-    if( !(convert1 >> paramPos)) {
-      paramPos = -1;
-      debug() << "Searching for param " << paramName << "\n";
-      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-        if (a_i->getName().str() == paramName) {
-          paramPos = i;
-          debug() << "Found at #" << i << "\n";
-          break;
-        }
-
-        i++;
-      }
-    } else {
-      debug() << "Param-info from file: seem to be at #" << paramPos << "\n";
-    }
-
-    i = 0;
-    stringstream convert2(valName);
-    if( !(convert2 >> retvalPos)) {
-      retvalPos = -1;
-      debug() << "Searching for retval " << valName << "\n";
-      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-        if (a_i->getName().str() == valName) {
-          retvalPos = i;
-          debug() << "Found at #" << i << "\n";
-          break;
-        }
-
-        i++;
-      }
-    } else {
-      debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n";
-    }
-
-    if (paramPos == -1) {
-      debug() << "  - Skipping `" << paramName << "` -- not found.\n";
-      continue;
-    }
-
+    debug() << " Use mapping: " << paramPos << " => " << retvalPos << "\n";
     Value* arg = callInst.getArgOperand(paramPos);
 
     if (Helper::setContains(taintSet, *arg)) {
@@ -379,7 +327,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
     }
   }
 
-  file.close();
+  delete(taints);
 }
 
 void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& taintSet) {

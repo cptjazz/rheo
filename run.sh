@@ -1,5 +1,6 @@
 #!/bin/bash
 make
+rm *.taints
 cd test/
 ./compile.rb
 cd ..
