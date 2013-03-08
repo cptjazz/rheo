@@ -40,7 +40,7 @@ void FunctionProcessor::processFunction() {
       
   for(; arg_i != arg_e; ++arg_i) {
     Value& arg = *arg_i->first;
-    TaintSet taintSet = arg_i->second;
+    TaintSet& taintSet = arg_i->second;
     TaintSet oldTaintSet;
 
     int iteration = 0;
@@ -59,11 +59,23 @@ void FunctionProcessor::processFunction() {
     } while (iteration < 10 && !Helper::areSetsEqual(oldTaintSet, taintSet));
 
     STOP_ON_CANCEL
+  }
+
+  buildResultSet();
+  printTaints();
+}
+
+void FunctionProcessor::buildResultSet() {
+
+  TaintMap::iterator arg_i = _arguments.begin();
+  TaintMap::iterator arg_e = _arguments.end();
+      
+  for(; arg_i != arg_e; ++arg_i) {
+    Value& arg = *arg_i->first;
+    TaintSet& taintSet = arg_i->second;
 
     intersectSets(arg, taintSet);
   }
-
-  printTaints();
 }
 
 void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
@@ -276,7 +288,7 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result) {
+void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func) {
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
@@ -337,9 +349,11 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
   if (callee != NULL) {
     debug() << " * calling function `" << *callee << "`\n";
 
-    ResultSet result;
-    readTaintsFromFile(taintSet, callInst, *callee, result);
-    
+    // build intermediate taint sets
+    buildResultSet();
+    TaintFile::writeResult(F, _taints);
+
+    readTaintsFromFile(taintSet, callInst, *callee);
   } else {
     debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
   }

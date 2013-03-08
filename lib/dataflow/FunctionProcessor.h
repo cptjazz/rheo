@@ -52,6 +52,7 @@ public:
 
 private:
   void intersectSets(Value& arg, TaintSet argTaintSet);
+  void buildResultSet();
   void buildTaintSetFor(Value& arg, TaintSet& taintSet);
   void addTaint(Value& tainter, Value& taintee);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
@@ -69,7 +70,7 @@ private:
   void printSet(TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func, ResultSet& result);
+  void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func);
   bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
   void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
