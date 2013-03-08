@@ -9,6 +9,9 @@
 char isEven(int number);
 char isOdd(int number);
 
+char isEven_2(int number);
+char isOdd_2(int number);
+
 // __expected:isEven(number => $_retval)
 char isEven(int number) {
   if (number == 0)
@@ -23,4 +26,20 @@ char isOdd(int number) {
     return false;
   else
     return isEven(abs(number) - 1);
+}
+
+// __expected:isEven_2(number => $_retval)
+char isEven_2(int number) {
+  if (number)
+    isOdd_2(abs(number) - 1);
+
+  return 0;
+}
+
+// __expected:isOdd_2(number => $_retval)
+char isOdd_2(int number) {
+  if (number)
+    isEven_2(abs(number) - 1);
+
+  return 0;
 }
