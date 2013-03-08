@@ -2,9 +2,10 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <stdio.h>
 
 TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
-  string filename = func.getName().str() + ".taints";
+  string filename = getFilename(func);
   ifstream file(filename.c_str(), ios::in);
 
   if (!file.is_open()) {
@@ -91,8 +92,16 @@ TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
 }
 
 bool TaintFile::exists(Function& f) {
-  ifstream file(f.getName().str().c_str());
+  ifstream file(getFilename(f).c_str());
   return file.good();
+}
+
+void TaintFile::remove(Function& f) {
+  ::remove(getFilename(f).c_str());
+}
+
+string TaintFile::getFilename(Function& f) {
+  return f.getName().str() + ".taints";
 }
 
 void TaintFile::writeResult(Function& f, ResultSet result) {
