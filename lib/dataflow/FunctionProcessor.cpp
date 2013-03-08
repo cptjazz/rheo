@@ -347,7 +347,7 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
   Function* callee = callInst.getCalledFunction();
 
   if (callee != NULL) {
-    debug() << " * calling function `" << *callee << "`\n";
+    debug() << " * Calling function `" << callee->getName() << "`\n";
 
     // build intermediate taint sets
     buildResultSet();
@@ -355,7 +355,7 @@ void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& tain
 
     readTaintsFromFile(taintSet, callInst, *callee);
   } else {
-    debug() << " ! cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
+    debug() << " ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
   }
 }
 
@@ -605,7 +605,7 @@ void FunctionProcessor::findReturnStatements() {
       if (retval) {
         if (isa<Constant>(retval)) {
           taintSet.insert(&r);
-          debug() << " + Added instruction CONSTANT RETURN VALUE `" << retval << "`\n";
+          debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n";
         } else {
           taintSet.insert(retval);
           debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n";
