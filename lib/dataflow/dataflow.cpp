@@ -41,6 +41,11 @@ namespace {
     virtual bool runOnModule(Module &module) {
       for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
         Function* f = &*i;
+        
+        // Skip if function was already processed.
+        if (TaintFile::exists(*f))
+          continue;
+
         _functionQueue.push(f);
         _occurrenceCount.insert(pair<Function*, int>(f, 1));
       }
@@ -61,10 +66,6 @@ namespace {
     }
 
     void processFunction(Function& func) {
-      // Skip if function was already processed.
-      if (TaintFile::exists(func))
-        return;
-
       // Skip external (library) functions
       if (!func.size())
         return;
