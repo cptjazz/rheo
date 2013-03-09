@@ -2,9 +2,21 @@ require 'fileutils'
 require 'rainbow'
 require 'rake/clean'
 
-OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce"]
+OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-inline", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergefunc", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp"]
 
+desc "Run all tests, but only show failed ones"
+namespace :test do
+  task :failed_only, [:pattern] do |t, args|
+    run_tests(:failed_only, args)
+  end
+end
+
+desc "Run all tests"
 task :test, [:pattern] do |t, args|
+  run_tests(:all, args)
+end
+
+def run_tests(show_only, args)
   `make`
 
   FileUtils.cd("test") do
@@ -12,11 +24,12 @@ task :test, [:pattern] do |t, args|
     overall_passed = 0
     overall_failed = 0
 
-    `rm *.taints`
-    `cp ../taintlib/*.taints .`
-
     Dir.glob("*.c").sort.each do |file|
       next if (args.pattern != nil and not file.match(args.pattern))
+
+      `rm *.taints`
+      `cp ../taintlib/*.taints .`
+
 
       file = File.basename(file, ".*")
 
@@ -40,7 +53,7 @@ task :test, [:pattern] do |t, args|
           logfile.puts opt_out
         end
 
-        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, opt)
+        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, opt, show_only)
 
         overall_passed += passed_count
         overall_failed += failed_count
@@ -57,7 +70,7 @@ task :test, [:pattern] do |t, args|
   end
 end
 
-def test(file, exp_map, out_map, opts)
+def test(file, exp_map, out_map, opts, show_only)
   test_result = true
   failed_count = 0
   passed_count = 0
@@ -102,7 +115,7 @@ def test(file, exp_map, out_map, opts)
   
     next unless single_taint_check_result
 
-    print_passed(file, function, opts)
+    print_passed(file, function, opts) if show_only == :all
     passed_count += 1
   end
 
