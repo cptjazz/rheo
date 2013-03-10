@@ -12,8 +12,6 @@ string Helper::getValueNameOrDefault(Value& v) {
 }
 
 bool Helper::areSetsEqual(TaintSet& s1, TaintSet& s2) {
-  long t = getTimestamp();
-
   set<Value*> diff;
   set_symmetric_difference(s1.begin(), s1.end(), s2.begin(), s2.end(), inserter(diff, diff.begin()));
 
