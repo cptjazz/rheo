@@ -3,9 +3,11 @@
 *.o
 *.so
 *.swp
-Release+Asserts
 autoconf/autom4te.cache
 config.log
 config.status
 Debug+Asserts
+Debug+Profile+Asserts
+Release+Asserts
+Release+Profile+Asserts
 configure.out
