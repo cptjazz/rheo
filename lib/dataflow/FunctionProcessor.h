@@ -37,6 +37,7 @@ class FunctionProcessor {
   raw_ostream& _stream;
 
   bool canceledInspection;
+  bool _taintSetChanged;
 
 public:
   FunctionProcessor(Function& f, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
@@ -66,7 +67,7 @@ private:
   bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
   void findArguments();
   void handleFoundArgument(Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, TaintSet& retlist);
+  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, ReturnSet& retlist);
   void printSet(TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
@@ -74,8 +75,9 @@ private:
   bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
   void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
-  void recursivelyFindAliases(Value& arg, TaintSet& taintSet, TaintSet& alreadyProcessed);
+  void recursivelyFindAliases(Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
   void followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet);
+  void addTaintToSet(TaintSet& taintSet, Value& v);
 
   raw_ostream& debug() {
     return _stream;

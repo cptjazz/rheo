@@ -9,6 +9,7 @@ using namespace std;
 using namespace llvm;
 
 typedef set<Value*> TaintSet;
+typedef set<Value*> ReturnSet;
 typedef map<Value*, TaintSet> TaintMap;
 typedef pair<Value*, Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
