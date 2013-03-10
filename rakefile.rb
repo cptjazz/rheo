@@ -2,7 +2,7 @@ require 'fileutils'
 require 'rainbow'
 require 'rake/clean'
 
-OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-inline", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergefunc", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp"]
+OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp", "-lowerswitch", "-reassociate"]
 
 @opts = []
 1.times do |i| 
@@ -34,28 +34,28 @@ def run_tests(show_only, args)
     Dir.glob("*.c").sort.each do |file|
       next if (args.pattern != nil and not file.match(args.pattern))
 
-      `rm *.taints`
-      `cp ../taintlib/*.taints .`
-
-
       file = File.basename(file, ".*")
 
       exp_file = File.readlines("#{file}.c").join
 
       exp_map = {}
-      out_map = {}
       def_map = {}
-      out_logs = {}
 
       exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
       exp_file.scan(/__define:(.+)\((.*)\)/) { |m| def_map[m[0]] = m[1].split(', ') }
 
-      create_taint_file(def_map)
-
       `clang -emit-llvm -c #{file}.c -o #{file}.bc`
 
       @opts.each do |opt|
-        opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+        `rm *.taints`
+        `cp ../taintlib/*.taints .`
+        create_taint_file(def_map)
+
+        out_map = {}
+        out_logs = {}
+
+        opt_out = `opt -load ../Release+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+        
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
         opt_out.scan(/__logtime:(.*):(.*)/) { |m| out_logs[m[0]] = m[1] }
 
