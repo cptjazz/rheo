@@ -16,6 +16,7 @@
 #include <set>
 #include <algorithm>
 #include <cstring>
+#include <time.h>
 #include "GraphExporter.h"
 #include "FunctionProcessor.h"
 
@@ -53,12 +54,21 @@ namespace {
       if (!dt || !pdt) {
         errs() << "Skipping `" << func.getName() << "`\n";
         _state = Skip;
-	return false;
+	      return false;
       }
       
+      timespec t;
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+      long time = t.tv_nsec;
+
       FunctionProcessor proc(func, *func.getParent(), *dt, *pdt, _result, errs());
       proc.processFunction();
       _finished = proc.didFinish();
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+
+      time = t.tv_nsec - time;
+      
+      errs() << "__logtime:" << func.getName() << ":" << time / 1000 << " µs\n";
 
       _state = _finished ? Success : Deferred;
       return false;

@@ -4,6 +4,13 @@ require 'rake/clean'
 
 OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-inline", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergefunc", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp"]
 
+@opts = []
+1.times do |i| 
+  @opts << OPTS.combination(i + 1).to_a.map { |x| x.join(" ") }
+end
+
+@opts.flatten!
+
 desc "Run all tests, but only show failed ones"
 namespace :test do
   task :failed_only, [:pattern] do |t, args|
@@ -38,22 +45,25 @@ def run_tests(show_only, args)
       exp_map = {}
       out_map = {}
       def_map = {}
+      out_logs = {}
 
       exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
       exp_file.scan(/__define:(.+)\((.*)\)/) { |m| def_map[m[0]] = m[1].split(', ') }
 
       create_taint_file(def_map)
 
-       `clang -emit-llvm -c #{file}.c -o #{file}.bc`
-      OPTS.each do |opt|
+      `clang -emit-llvm -c #{file}.c -o #{file}.bc`
+
+      @opts.each do |opt|
         opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
+        opt_out.scan(/__logtime:(.*):(.*)/) { |m| out_logs[m[0]] = m[1] }
 
         File.open(file + "#{opt}.log", "w") do |logfile|
           logfile.puts opt_out
         end
 
-        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, opt, show_only)
+        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, out_logs, opt, show_only)
 
         overall_passed += passed_count
         overall_failed += failed_count
@@ -70,7 +80,7 @@ def run_tests(show_only, args)
   end
 end
 
-def test(file, exp_map, out_map, opts, show_only)
+def test(file, exp_map, out_map, out_logs, opts, show_only)
   test_result = true
   failed_count = 0
   passed_count = 0
@@ -115,7 +125,8 @@ def test(file, exp_map, out_map, opts, show_only)
   
     next unless single_taint_check_result
 
-    print_passed(file, function, opts) if show_only == :all
+    time = out_logs[function]
+    print_passed(file, function, time, opts) if show_only == :all
     passed_count += 1
   end
 
@@ -139,11 +150,12 @@ def print_failed(file, function, reason, opts)
   print "\n"
 end
 
-def print_passed(file, function, opts)
+def print_passed(file, function, time, opts)
   print " * " + "PASSED".bright.color(:green)
   print " [#{opts}]".color("#AAAAAA")
   print " : " + file.color(:blue) 
   print "." + function.italic
+  print (", took " + time).color("#444444")
   print "\n"
 end
 
