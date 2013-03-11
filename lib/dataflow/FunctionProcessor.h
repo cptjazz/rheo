@@ -38,6 +38,7 @@ class FunctionProcessor {
 
   bool canceledInspection;
   bool _taintSetChanged;
+  bool _resultSetChanged;
 
 public:
   FunctionProcessor(Function& f, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 

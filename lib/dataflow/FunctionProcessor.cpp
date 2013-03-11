@@ -35,30 +35,37 @@ void FunctionProcessor::processFunction() {
   findReturnStatements();
   findArguments();
 
-  TaintMap::iterator arg_i = _arguments.begin();
-  TaintMap::iterator arg_e = _arguments.end();
+  int resultIteration = 0;
+
+  do {
+    _resultSetChanged = false;
+
+    TaintMap::iterator arg_i = _arguments.begin();
+    TaintMap::iterator arg_e = _arguments.end();
       
-  for(; arg_i != arg_e; ++arg_i) {
-    const Value& arg = *arg_i->first;
-    TaintSet& taintSet = arg_i->second;
+    for(; arg_i != arg_e; ++arg_i) {
+      const Value& arg = *arg_i->first;
+      TaintSet& taintSet = arg_i->second;
 
-    int iteration = 0;
+      int iteration = 0;
 
-    do {
-      _taintSetChanged = false;
+      do {
+        _taintSetChanged = false;
 
-      debug() << " ** Begin Iteration #" << iteration << "\n";
-      buildTaintSetFor(arg, taintSet);
+        debug() << " ** Begin Iteration #" << iteration << "\n";
+        buildTaintSetFor(arg, taintSet);
+        STOP_ON_CANCEL
+          debug() << " ** End Iteration #" << iteration << "\n";
+
+        debug() << " ** Taint set length:" << taintSet.size() << "\n";
+
+        iteration++;
+      } while (iteration < 10 && _taintSetChanged);
+
       STOP_ON_CANCEL
-      debug() << " ** End Iteration #" << iteration << "\n";
-
-      debug() << " ** Taint set length:" << taintSet.size() << "\n";
-
-      iteration++;
-    } while (iteration < 10 && _taintSetChanged);
-
-    STOP_ON_CANCEL
-  }
+        resultIteration++;
+    }
+  } while (resultIteration < 10 && _resultSetChanged);
 
   buildResultSet();
   printTaints();
@@ -113,8 +120,7 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
   }
 }
 
-inline
-void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
+inline void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
   long t = Helper::getTimestamp();
   if (taintSet.insert(&v))
     _taintSetChanged = true;
@@ -140,8 +146,9 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   debug() << "\n";
 }
 
-void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
+inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
   _taints.insert(make_pair(&tainter, &taintee));
+  _resultSetChanged = true;
 }
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {

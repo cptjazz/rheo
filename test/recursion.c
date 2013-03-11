@@ -34,3 +34,27 @@ int multiple_iterations(double a, double b, int n) {
 
   return 3;
 }
+
+// __expected:nasty_recursion(b => $_retval);
+int nasty_recursion(int a, int b, int c) {
+  if (b < 10)
+    return 0;
+
+  return nasty_recursion(c, b, a);
+}
+
+// __expected:nasty_recursion_2(a => $_retval, b => $_retval, c => $_retval);
+int nasty_recursion_2(int a, int b, int c) {
+  if (b < 10)
+    return 0;
+
+  return nasty_recursion_2(c, a, b);
+}
+
+// __expected:nasty_recursion_3(a => $_retval, c => $_retval);
+int nasty_recursion_3(int a, int b, int c) {
+  if (c < 10)
+    return 0;
+
+  return nasty_recursion_3(0, 0, a);
+}
