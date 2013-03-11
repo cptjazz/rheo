@@ -23,7 +23,7 @@ GraphExporter::~GraphExporter() {
   _file.close();
 } 
 
-void GraphExporter::addInOutNode(Value& inout) {
+void GraphExporter::addInOutNode(const Value& inout) {
   _nodes.erase(&inout);
   _file << "  { rank=source;\n";
   _file << "    " << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) 
@@ -32,7 +32,7 @@ void GraphExporter::addInOutNode(Value& inout) {
   _nodes.insert(&inout);
 }
 
-void GraphExporter::addInNode(Value& in) {
+void GraphExporter::addInNode(const Value& in) {
   _nodes.erase(&in);
   _file << "  { rank=source;\n";
   _file << "    " << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" 
@@ -41,7 +41,7 @@ void GraphExporter::addInNode(Value& in) {
   _nodes.insert(&in);
 }
 
-void GraphExporter::addOutNode(Value& out) {
+void GraphExporter::addOutNode(const Value& out) {
   _nodes.erase(&out);
   _file << "  { rank=sink;\n";
   _file << "    " << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" 
@@ -50,21 +50,21 @@ void GraphExporter::addOutNode(Value& out) {
   _nodes.insert(&out);
 }
 
-void GraphExporter::addBlockNode(Value& b) {
+void GraphExporter::addBlockNode(const Value& b) {
   _nodes.erase(&b);
   _file << "    " << getNodeName(b) << " [label=\"" << getNodeCaption(b) << "\"" 
         << ", weight=3];\n";
   _nodes.insert(&b);
 }
 
-void GraphExporter::addCallNode(Function& f) {
+void GraphExporter::addCallNode(const Function& f) {
   _nodes.erase(&f);
   _file << "    " << getNodeName(f) << " [label=\"" << getNodeCaption(f) << "\"" 
         << ", weight=3, shape=polygon, skew=0.5];\n";
   _nodes.insert(&f);
 }
 
-void GraphExporter::addRelation(Value& from, Value& to, string reason) {
+void GraphExporter::addRelation(const Value& from, const Value& to, string reason) {
   if (_nodes.find(&from) == _nodes.end()) {
     _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\", " << getShape(from) << "];\n";
     _nodes.insert(&from);
@@ -94,29 +94,29 @@ string GraphExporter::getLineStyle(string reason) const {
          reason == "load" ? "dashed" : "solid";
 }
 
-string GraphExporter::getShape(Value& v) const {
+string GraphExporter::getShape(const Value& v) const {
   return "shape=record";
 }
 
-string GraphExporter::getInOutNodeShape(Value& v) const {
+string GraphExporter::getInOutNodeShape(const Value& v) const {
   return "shape=record, style=filled, color=yellow";
 }
 
-string GraphExporter::getInNodeShape(Value& v) const {
+string GraphExporter::getInNodeShape(const Value& v) const {
   return "shape=record, style=filled, color=lightblue";
 }
 
-string GraphExporter::getOutNodeShape(Value& v) const {
+string GraphExporter::getOutNodeShape(const Value& v) const {
   return "shape=record, style=filled, color=pink";
 }
 
-string GraphExporter::getNodeName(Value& i) const {
+string GraphExporter::getNodeName(const Value& i) const {
   stringstream ss;
   ss << "_" << (long)(&i);
   return ss.str();
 }
 
-string GraphExporter::getNodeCaption(Value& v) const {
+string GraphExporter::getNodeCaption(const Value& v) const {
    if (!v.hasName()) {
     if (isa<SwitchInst>(v))
       return "switch";

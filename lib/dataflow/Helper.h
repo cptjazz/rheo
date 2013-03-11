@@ -10,11 +10,23 @@ using namespace llvm;
 
 class Helper {
 public:
-  static string getValueNameOrDefault(Value& v);   
-  static bool areSetsEqual(TaintSet& s1, TaintSet& s2);
-  static bool setContains(TaintSet& taintSet, Value& val);
-  static long getTimestamp();
-  static long getTimestampDelta(long tOld);
+  static string getValueNameOrDefault(const Value& v);   
+  static bool setContains(const TaintSet& taintSet, const Value& val);
+  static void intersectSets(const TaintSet& argTaintSet, const TaintSet& retTaintSet, TaintSet& intersect);
+
+  inline
+    static long getTimestamp() {
+      timespec t;
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+      return t.tv_nsec;
+    }
+
+  inline
+    static long getTimestampDelta(long tOld) {
+      long tNew = getTimestamp();
+      return abs(tNew - tOld) * 0.001;
+    }
+
 };
 
 #endif // HELPER_H

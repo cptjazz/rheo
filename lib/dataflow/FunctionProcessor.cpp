@@ -39,15 +39,13 @@ void FunctionProcessor::processFunction() {
   TaintMap::iterator arg_e = _arguments.end();
       
   for(; arg_i != arg_e; ++arg_i) {
-    Value& arg = *arg_i->first;
+    const Value& arg = *arg_i->first;
     TaintSet& taintSet = arg_i->second;
-    TaintSet oldTaintSet;
 
     int iteration = 0;
 
     do {
       _taintSetChanged = false;
-      oldTaintSet = taintSet;
 
       debug() << " ** Begin Iteration #" << iteration << "\n";
       buildTaintSetFor(arg, taintSet);
@@ -68,24 +66,24 @@ void FunctionProcessor::processFunction() {
 
 void FunctionProcessor::buildResultSet() {
 
-  TaintMap::iterator arg_i = _arguments.begin();
-  TaintMap::iterator arg_e = _arguments.end();
+  TaintMap::const_iterator arg_i = _arguments.begin();
+  TaintMap::const_iterator arg_e = _arguments.end();
       
   for(; arg_i != arg_e; ++arg_i) {
-    Value& arg = *arg_i->first;
-    TaintSet& taintSet = arg_i->second;
+    const Value& arg = *arg_i->first;
+    const TaintSet& taintSet = arg_i->second;
 
     intersectSets(arg, taintSet);
   }
 }
 
-void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
-  TaintMap::iterator ret_i = _returnStatements.begin();
-  TaintMap::iterator ret_e = _returnStatements.end();
+void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintSet) {
+  TaintMap::const_iterator ret_i = _returnStatements.begin();
+  TaintMap::const_iterator ret_e = _returnStatements.end();
 
   for (; ret_i != ret_e; ++ret_i) {
-    Value& retval = *ret_i->first;
-    TaintSet retTaintSet = ret_i->second;
+    const Value& retval = *ret_i->first;
+    const TaintSet retTaintSet = ret_i->second;
 
     if (&retval == &arg) {
       debug() << "Skipping detected self-taint\n";
@@ -97,8 +95,7 @@ void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
     debug() << "\n";
 
     TaintSet intersect;
-    set_intersection(argTaintSet.begin(), argTaintSet.end(), retTaintSet.begin(), retTaintSet.end(), 
-                     inserter(intersect, intersect.end()));
+    Helper::intersectSets(argTaintSet, retTaintSet, intersect);
 
     if (intersect.size()) {
       addTaint(arg, retval);
@@ -106,28 +103,28 @@ void FunctionProcessor::intersectSets(Value& arg, TaintSet argTaintSet) {
       debug() << "Values that lead to taint "
               << Helper::getValueNameOrDefault(arg) << " -> "
               << Helper::getValueNameOrDefault(retval) << ":\n";
-      for (TaintSet::iterator i_i = intersect.begin(), i_e = intersect.end(); i_i != i_e; ++i_i)
+      for (TaintSet::const_iterator i_i = intersect.begin(), i_e = intersect.end(); i_i != i_e; ++i_i)
         debug() << **i_i << "\n";
     }
   }
 }
 
 inline
-void FunctionProcessor::addTaintToSet(TaintSet& taintSet, Value& v) {
+void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
   long t = Helper::getTimestamp();
-  pair<TaintSet::iterator, bool> status = taintSet.insert(&v);
-  if (status.second)
+  if (taintSet.insert(&v))
     _taintSetChanged = true;
+
   debug() << " addTaintToSet took: " << Helper::getTimestampDelta(t) << "µs\n";
 }
 
-void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
+void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n";
 
   // Arg trivially taints itself.
   addTaintToSet(taintSet, arg);
 
-  for (Function::iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
+  for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     STOP_ON_CANCEL
 
     BasicBlock& block = cast<BasicBlock>(*b_i);
@@ -139,20 +136,22 @@ void FunctionProcessor::buildTaintSetFor(Value& arg, TaintSet& taintSet) {
   debug() << "\n";
 }
 
-void FunctionProcessor::addTaint(Value& tainter, Value& taintee) {
+void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
   _taints.insert(make_pair(&tainter, &taintee));
 }
 
-void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet) {
-  bool blockTainted = isBlockTaintedByOtherBlock(taintSet, block);
+void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
+  bool blockTainted = isBlockTaintedByOtherBlock(block, taintSet);
 
-  for (BasicBlock::iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
+  for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL
+
+    long t = Helper::getTimestamp();
 
     Instruction& inst = cast<Instruction>(*inst_i);
 
     if (blockTainted)
-      handleBlockTainting(inst, taintSet, block);
+      handleBlockTainting(inst, block, taintSet);
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
@@ -167,6 +166,7 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
     else
       handleInstruction(inst, taintSet);
 
+    debug() << " Processing instruction took " << Helper::getTimestampDelta(t) << " µs\n";
   }
 }
 
@@ -175,7 +175,7 @@ void FunctionProcessor::printTaints() {
   release().write_escaped(F.getName()) << "(";
   bool isFirstTime = true;
 
-  for (ResultSet::iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
+  for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     Value& arg = cast<Value>(*i->first);
     Value& retval = cast<Value>(*i->second);
 
@@ -186,8 +186,8 @@ void FunctionProcessor::printTaints() {
   release() << ")\n";
 }
 
-void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, TaintSet& taintSet) {
-  Value& op = *inst.getPointerOperand();
+void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& inst, TaintSet& taintSet) {
+  const Value& op = *inst.getPointerOperand();
 
   if (Helper::setContains(taintSet, op)) {
     addTaintToSet(taintSet, inst);
@@ -196,7 +196,7 @@ void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, 
   }
   
   for (size_t i = 0; i < inst.getNumIndices(); i++) {
-    Value& idx = *inst.getOperand(i + 1);
+    const Value& idx = *inst.getOperand(i + 1);
 
     if (Helper::setContains(taintSet, idx)) {
       addTaintToSet(taintSet, inst);
@@ -208,9 +208,9 @@ void FunctionProcessor::handleGetElementPtrInstruction(GetElementPtrInst& inst, 
   }
 }
 
-void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet) {
-  Value& source = *storeInst.getOperand(0);
-  Value& target = *storeInst.getOperand(1);
+void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, TaintSet& taintSet) {
+  const Value& source = *storeInst.getOperand(0);
+  const Value& target = *storeInst.getOperand(1);
 
   debug() << " Handle STORE instruction " << storeInst << "\n";
   if (Helper::setContains(taintSet, source) || Helper::setContains(taintSet, storeInst)) {
@@ -220,7 +220,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
     DOT.addRelation(source, target, "store");
     debug() << " + Added STORE taint: " << source << " --> " << target << "\n";
     if (isa<GetElementPtrInst>(target)) {
-      GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
+      const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       recursivelyAddAllGeps(gep, taintSet);
     }
   } else if (Helper::setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
@@ -229,7 +229,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
     debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n";
 
     if (isa<LoadInst>(target)) {
-      Value* load = (cast<LoadInst>(target)).getPointerOperand();
+      const Value* load = (cast<LoadInst>(target)).getPointerOperand();
       taintSet.erase(load);
       debug() << " - Also removed transitive LOAD." << *load << "\n";
     }
@@ -238,30 +238,30 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   }
 }
 
-void FunctionProcessor::recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet) {
-  Value& ptrOp = *gep.getPointerOperand();
+void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet) {
+  const Value& ptrOp = *gep.getPointerOperand();
   debug() << " ++ Added GEP SOURCE:" << ptrOp << "\n";
   addTaintToSet(taintSet, ptrOp);
 
   DOT.addRelation(gep, ptrOp, "gep via store");
 
   if (isa<LoadInst>(ptrOp)) {
-    LoadInst& load = cast<LoadInst>(ptrOp);
-    Value& loadOperand = *load.getOperand(0);
+    const LoadInst& load = cast<LoadInst>(ptrOp);
+    const Value& loadOperand = *load.getOperand(0);
     if (isa<GetElementPtrInst>(loadOperand))
       recursivelyAddAllGeps(cast<GetElementPtrInst>(loadOperand), taintSet);
   }
 }
 
-bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet) {
+bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet) {
 //  debug() << " CFG SUCC: start for " << storeInst << "\n";
-  for (TaintSet::iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
+  for (TaintSet::const_iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
     debug() << " CFG SUCC: inspecting " << **i << "\n";
 
     if (!isa<StoreInst>(*i))
       continue;
 
-    StoreInst& prevStore = *cast<StoreInst>(*i);
+    const StoreInst& prevStore = *cast<StoreInst>(*i);
 
     debug() << " CFG SUCC: testing storeInst Operand: " << *storeInst.getOperand(1) << "\n";
     debug() << " CFG SUCC: testing prevStore Operand: " << *prevStore.getOperand(1) << "\n";
@@ -271,7 +271,7 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, Tai
 
     debug() << " CFG SUCC: testing storeInst: " << storeInst << "\n";
     debug() << " CFG SUCC: testing prev storeInst: " << prevStore << "\n";
-    set<BasicBlock*> usedList;
+    set<const BasicBlock*> usedList;
     if (!isCfgSuccessor(storeInst.getParent(), prevStore.getParent(), usedList)) {
       debug() << " CFG SUCC: in-if: " << prevStore << "\n";
       return false;
@@ -281,7 +281,7 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(StoreInst& storeInst, Tai
   return true;
 }
 
-bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList) {
+bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList) {
   if (NULL == succ || NULL == pred)
     return false;
 
@@ -291,7 +291,7 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
   if (pred == succ)
     return true;
 
-  for (pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
+  for (const_pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
     if (usedList.count(*i))
       continue;
   debug() << **i << "\n";
@@ -304,7 +304,7 @@ bool FunctionProcessor::isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<B
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func) {
+void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func) {
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
@@ -315,7 +315,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
 
   FunctionTaintMap& mapping = taints->getMapping();
 
-  for (FunctionTaintMap::iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
+  for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
 
@@ -358,25 +358,32 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, CallInst& callIns
   delete(taints);
 }
 
-void FunctionProcessor::handleCallInstruction(CallInst& callInst, TaintSet& taintSet) {
+void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
   debug() << " Handle CALL instruction:\n";
-  Function* callee = callInst.getCalledFunction();
+  const Function* callee = callInst.getCalledFunction();
 
   if (callee != NULL) {
     debug() << " * Calling function `" << callee->getName() << "`\n";
 
     // build intermediate taint sets
+    long t = Helper::getTimestamp();
     buildResultSet();
-    TaintFile::writeResult(F, _taints);
+    debug() << " buildResultSet() took " << Helper::getTimestampDelta(t) << "\n";
 
+    t = Helper::getTimestamp();
+    TaintFile::writeResult(F, _taints);
+    debug() << " writeResult() took " << Helper::getTimestampDelta(t) << "\n";
+
+    t = Helper::getTimestamp();
     readTaintsFromFile(taintSet, callInst, *callee);
+    debug() << " readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n";
   } else {
     debug() << " ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n";
   }
 }
 
-void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet) {
-  Value* condition = inst.getCondition();
+void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
+  const Value* condition = inst.getCondition();
   
   if (!Helper::setContains(taintSet, *condition))
     return;
@@ -386,7 +393,7 @@ void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& tain
   debug() << " Handle SWITCH instruction:\n";
   for (size_t i = 0; i < inst.getNumSuccessors(); ++i) {
     // Mark all case-blocks as tainted.
-    BasicBlock& caseBlock = *inst.getSuccessor(i);
+    const BasicBlock& caseBlock = *inst.getSuccessor(i);
     DOT.addBlockNode(caseBlock);
     DOT.addRelation(inst, caseBlock, "case");
     addTaintToSet(taintSet, caseBlock);
@@ -394,21 +401,26 @@ void FunctionProcessor::handleSwitchInstruction(SwitchInst& inst, TaintSet& tain
   }
 }
 
-void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& taintSet) {
+void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet) {
   debug() << " Handle BRANCH instruction: " << inst << "\n";
   
   if (inst.isConditional()) {
-    Instruction& cmp = cast<Instruction>(*inst.getCondition());
+    const Instruction& cmp = cast<Instruction>(*inst.getCondition());
     debug() << " = Compare instruction is: " << cmp << "\n";
 
     bool isConditionTainted = Helper::setContains(taintSet, cmp);
     if (isConditionTainted) {
       DOT.addRelation(cmp, inst, "condition");
      
-      BasicBlock& brTrue = *inst.getSuccessor(0);
-      BasicBlock& brFalse = *inst.getSuccessor(1);
+      const BasicBlock& brTrue = *inst.getSuccessor(0);
+      //BasicBlock* brTrue2 = inst.getSuccessor(0);
+      const BasicBlock& brFalse = *inst.getSuccessor(1);
+      //BasicBlock* brFalse2 = inst.getSuccessor(1);
 
-      BasicBlock& join = *PDT.findNearestCommonDominator(&brFalse, &brTrue);
+      const BasicBlock& join = *PDT.findNearestCommonDominator(&brFalse, &brTrue);
+      //const BasicBlock* join2 = PDT.findNearestCommonDominator(brFalse2, brTrue2);
+      //const BasicBlock& join = *join2;
+
       debug() << "   Nearest Common Post-Dominator for tr/fa: " << join << "\n";
       
       // true branch is always tainted
@@ -435,12 +447,14 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
   }
 }
 
-void FunctionProcessor::followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet) {
-  TerminatorInst& brTerminator = *br.getTerminator();
-  BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
+void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) {
+  const TerminatorInst& brTerminator = *br.getTerminator();
+  const BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
+
   if (brTerminator.getNumSuccessors() == 1 &&
       PDT.dominates(&join, &brSuccessor) && 
       &brSuccessor != &join) {
+
     addTaintToSet(taintSet, brSuccessor);
     DOT.addBlockNode(brSuccessor);
     DOT.addRelation(brTerminator, brSuccessor, "br");
@@ -451,12 +465,12 @@ void FunctionProcessor::followTransientBranchPaths(BasicBlock& br, BasicBlock& j
   }
 }
 
-void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet) {
+void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
 //  debug() << " Handle OTHER instruction:\n";
 
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
  //    debug() << " ~ Inspecting operand #" << o_i << "\n";
-     Value& operand = *inst.getOperand(o_i);
+     const Value& operand = *inst.getOperand(o_i);
      if (Helper::setContains(taintSet, operand)) {
        addTaintToSet(taintSet, inst);
        DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
@@ -466,13 +480,13 @@ void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet)
   }
 }
 
-bool FunctionProcessor::isBlockTaintedByOtherBlock(TaintSet& taintSet, BasicBlock& currentBlock) {
+bool FunctionProcessor::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) {
   bool result = false;
-  for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
+  for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     if (! isa<BasicBlock>(*s_i))
       continue;
 
-    BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
+    const BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
 
     if (DT.dominates(&taintedBlock, &currentBlock)) {
       debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
@@ -490,7 +504,7 @@ bool FunctionProcessor::isBlockTaintedByOtherBlock(TaintSet& taintSet, BasicBloc
   return result;
 }
 
-void FunctionProcessor::handleBlockTainting(Instruction& inst, TaintSet& taintSet, BasicBlock& currentBlock) {
+void FunctionProcessor::handleBlockTainting(const Instruction& inst, const BasicBlock& currentBlock, TaintSet& taintSet) {
   debug() << " Handle BLOCK-tainting for `" << inst << "`\n";
 
   // Loads should not be tained by parenting block
@@ -517,18 +531,16 @@ void FunctionProcessor::handleBlockTainting(Instruction& inst, TaintSet& taintSe
 }
 
 void FunctionProcessor::findArguments() {
-  for (Function::arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
-    Argument& arg = *a_i;
-    handleFoundArgument(arg);
+  for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
+    handleFoundArgument(*a_i);
   }
 
-  for (Module::global_iterator m_i = M.global_begin(), m_e = M.global_end(); m_i != m_e; ++m_i) {
-    GlobalVariable& g = *m_i;
-    handleFoundArgument(g);
+  for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
+    handleFoundArgument(*g_i);
   }
 }
 
-void FunctionProcessor::handleFoundArgument(Value& arg) {
+void FunctionProcessor::handleFoundArgument(const Value& arg) {
   bool isInOutNode = false;
 
   debug() << " -- Inspecting argument or global `" << arg.getName() << "`\n";
@@ -555,11 +567,10 @@ void FunctionProcessor::handleFoundArgument(Value& arg) {
   debug() << "added arg `" << arg.getName() << "` to arg-list\n";
 }
 
-void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, ReturnSet& returnSet) {
+void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& returnSet) {
+    const Value* newArg = &arg;
 
-    Value* newArg = &arg;
-
-    for (User::use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
+    for (User::const_use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
       if (isa<StoreInst>(*u_i)) {
         returnSet.insert(*u_i);
         debug() << " Added ARG STORE: " << **u_i << "\n";
@@ -571,7 +582,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& ar
     recursivelyFindAliases(*newArg, returnSet, alreadyProcessed);
 }
 
-void FunctionProcessor::recursivelyFindAliases(Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
+void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
 
   debug() << "Recursively find: " << arg << "\n";
 
@@ -580,7 +591,7 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, ReturnSet& returnSet,
 
   alreadyProcessed.insert(&arg);
 
-  for (User::use_iterator i = arg.use_begin(), e = arg.use_end(); i != e; ++i) {
+  for (User::const_use_iterator i = arg.use_begin(), e = arg.use_end(); i != e; ++i) {
     if (!isa<Instruction>(**i)) {
       // Necessary, as constant string literals also come 
       // as GlobalVariables, but do not point to an instruction.
@@ -589,12 +600,12 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, ReturnSet& returnSet,
       continue;
     }
 
-    Instruction& I = cast<Instruction>(**i);
+    const Instruction& I = cast<Instruction>(**i);
     
     debug() << "Inspecting: " << I << "\n";
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
-      Value& load = cast<LoadInst>(I);
+      const Value& load = cast<LoadInst>(I);
       returnSet.insert(&load);
       DOT.addRelation(arg, load, "load");
       debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n";
@@ -604,20 +615,20 @@ void FunctionProcessor::recursivelyFindAliases(Value& arg, ReturnSet& returnSet,
   }
 }
 
-void FunctionProcessor::printSet(set<Value*>& s) {
-  for (TaintSet::iterator i = s.begin(), e = s.end(); i != e; ++i) {
+void FunctionProcessor::printSet(const TaintSet& s) {
+  for (TaintSet::const_iterator i = s.begin(), e = s.end(); i != e; ++i) {
     debug() << **i << " | ";
   }
 } 
 
 void FunctionProcessor::findReturnStatements() {
-  for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+  for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     if (isa<ReturnInst>(*i)) {
-      ReturnInst& r = cast<ReturnInst>(*i);
+      const ReturnInst& r = cast<ReturnInst>(*i);
       TaintSet taintSet;
       
       // skip 'return void'
-      Value* retval = r.getReturnValue();
+      const Value* retval = r.getReturnValue();
       if (retval) {
         if (isa<Constant>(retval)) {
           addTaintToSet(taintSet, r);
@@ -628,7 +639,7 @@ void FunctionProcessor::findReturnStatements() {
         }
 
         if (isa<PHINode>(retval)) {
-          PHINode& phi = cast<PHINode>(*retval);
+          const PHINode& phi = cast<PHINode>(*retval);
           for (size_t j = 0; j < phi.getNumIncomingValues(); ++j) {
             debug() << " + Added PHI block" << *phi.getIncomingBlock(j) << "\n";
             addTaintToSet(taintSet, *phi.getIncomingBlock(j));
@@ -646,7 +657,7 @@ void FunctionProcessor::findReturnStatements() {
 void FunctionProcessor::printInstructions() {
   debug() << "Instructions: \n";
 
-  for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+  for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     debug() << i->getParent() << " | " << &*i << " | " << (*i) << "\n";
   }
 }

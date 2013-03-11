@@ -24,11 +24,11 @@ using namespace std;
 
 
 class FunctionProcessor {
-  Function& F;
-  DominatorTree& DT;
+  const Function& F;
+  const DominatorTree& DT;
   PostDominatorTree& PDT;
   GraphExporter DOT;
-  Module& M;
+  const Module& M;
 
   TaintMap _returnStatements;
   TaintMap _arguments;
@@ -52,35 +52,35 @@ public:
   bool didFinish();
 
 private:
-  void intersectSets(Value& arg, TaintSet argTaintSet);
+  void intersectSets(const Value& arg, const TaintSet argTaintSet);
   void buildResultSet();
-  void buildTaintSetFor(Value& arg, TaintSet& taintSet);
-  void addTaint(Value& tainter, Value& taintee);
-  void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
+  void buildTaintSetFor(const Value& arg, TaintSet& taintSet);
+  void addTaint(const Value& tainter, const Value& taintee);
+  void processBasicBlock(const BasicBlock& block, TaintSet& taintSet);
   void printTaints();
 
-  void handleGetElementPtrInstruction(GetElementPtrInst& storeInst, TaintSet& taintSet);
-  void handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet);
-  void handleCallInstruction(CallInst& callInst, TaintSet& taintSet);
-  void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet);
-  void handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet);
-  void handleInstruction(Instruction& inst, TaintSet& taintSet);
-  void handleBlockTainting(Instruction& inst, TaintSet& taintSet, BasicBlock& currentblock);
+  void handleGetElementPtrInstruction(const GetElementPtrInst& storeInst, TaintSet& taintSet);
+  void handleStoreInstruction(const StoreInst& storeInst, TaintSet& taintSet);
+  void handleCallInstruction(const CallInst& callInst, TaintSet& taintSet);
+  void handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet);
+  void handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet);
+  void handleInstruction(const Instruction& inst, TaintSet& taintSet);
+  void handleBlockTainting(const Instruction& inst, const BasicBlock& currentblock, TaintSet& taintSet);
 
   void findArguments();
-  void handleFoundArgument(Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, ReturnSet& retlist);
-  void printSet(TaintSet& s);
+  void handleFoundArgument(const Value& arg);
+  void findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& retlist);
+  void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(TaintSet& taintSet, CallInst& callInst, Function& func);
-  bool isCfgSuccessor(BasicBlock* succ, BasicBlock* pred, set<BasicBlock*>& usedList);
-  bool isCfgSuccessorOfPreviousStores(StoreInst& storeInst, TaintSet& taintSet);
-  void recursivelyAddAllGeps(GetElementPtrInst& gep, TaintSet& taintSet);
-  void recursivelyFindAliases(Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
-  void followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet);
-  void addTaintToSet(TaintSet& taintSet, Value& v);
-  bool isBlockTaintedByOtherBlock(TaintSet& taintSet, BasicBlock& currentBlock);
+  void readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func);
+  bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
+  bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
+  void recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet);
+  void recursivelyFindAliases(const Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
+  void followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet);
+  void addTaintToSet(TaintSet& taintSet, const Value& v);
+  bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
 
   raw_ostream& debug() {
     return _stream;

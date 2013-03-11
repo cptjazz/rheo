@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdio.h>
 
-TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
+TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   string filename = getFilename(func);
   ifstream file(filename.c_str(), ios::in);
 
@@ -44,7 +44,7 @@ TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
     if( !(convert1 >> paramPos)) {
       paramPos = -1;
       debugStream << "Searching for param " << paramName << "\n";
-      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
           debugStream << "Found at #" << i << "\n";
@@ -62,7 +62,7 @@ TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
     if( !(convert2 >> retvalPos)) {
       retvalPos = -1;
       debugStream << "Searching for retval " << valName << "\n";
-      for (Function::arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == valName) {
           retvalPos = i;
           debugStream << "Found at #" << i << "\n";
@@ -91,26 +91,26 @@ TaintFile* TaintFile::read(Function& func, raw_ostream& debugStream) {
   return taints;
 }
 
-bool TaintFile::exists(Function& f) {
+bool TaintFile::exists(const Function& f) {
   ifstream file(getFilename(f).c_str());
   return file.good();
 }
 
-void TaintFile::remove(Function& f) {
+void TaintFile::remove(const Function& f) {
   ::remove(getFilename(f).c_str());
 }
 
-string TaintFile::getFilename(Function& f) {
+string TaintFile::getFilename(const Function& f) {
   return f.getName().str() + ".taints";
 }
 
-void TaintFile::writeResult(Function& f, ResultSet result) {
+void TaintFile::writeResult(const Function& f, const ResultSet result) {
   ofstream file;
   file.open((f.getName().str() + ".taints").c_str(), ios::out);
 
-  for (ResultSet::iterator i = result.begin(), e = result.end(); i != e; ++i) {
-    Value& arg = *i->first;
-    Value& retval = *i->second;
+  for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
+    const Value& arg = *i->first;
+    const Value& retval = *i->second;
 
     file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
   }

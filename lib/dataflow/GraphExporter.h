@@ -20,26 +20,26 @@ public:
 
   ~GraphExporter();
 
-  void addInOutNode(Value& inout);
-  void addInNode(Value& in);
-  void addOutNode(Value& out);
-  void addBlockNode(Value& b);
-  void addCallNode(Function& f);
-  void addRelation(Value& from, Value& to, string reason = "");
+  void addInOutNode(const Value& inout);
+  void addInNode(const Value& in);
+  void addOutNode(const Value& out);
+  void addBlockNode(const Value& b);
+  void addCallNode(const Function& f);
+  void addRelation(const Value& from, const Value& to, string reason = "");
 
 private:
   const string _functionName;
   ofstream _file;
-  set<pair<Value*, Value*> > _pairs;
-  set<Value*> _nodes;
+  set<pair<const Value*, const Value*> > _pairs;
+  set<const Value*> _nodes;
 
   void initialiseFile();
-  string getShape(Value& v) const;
-  string getInOutNodeShape(Value& v) const;
-  string getInNodeShape(Value& v) const;
-  string getOutNodeShape(Value& v) const;
-  string getNodeName(Value& i) const;
-  string getNodeCaption(Value& v) const;
+  string getShape(const Value& v) const;
+  string getInOutNodeShape(const Value& v) const;
+  string getInNodeShape(const Value& v) const;
+  string getOutNodeShape(const Value& v) const;
+  string getNodeName(const Value& i) const;
+  string getNodeCaption(const Value& v) const;
   string getLineStyle(string reason) const;
   string getLabel(string reason) const;
 };
