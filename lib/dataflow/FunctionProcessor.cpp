@@ -90,12 +90,16 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
       continue;
     }
 
+    long t = Helper::getTimestamp();
     debug() << "Ret-set for `" << retval << "`:\n",
     printSet(retTaintSet);
     debug() << "\n";
+    debug() << "printSet() took " << Helper::getTimestampDelta(t) << " µs\n";
 
+    t = Helper::getTimestamp();
     TaintSet intersect;
     Helper::intersectSets(argTaintSet, retTaintSet, intersect);
+    debug() << "intersect() took " << Helper::getTimestampDelta(t) << " µs\n";
 
     if (intersect.size()) {
       addTaint(arg, retval);
