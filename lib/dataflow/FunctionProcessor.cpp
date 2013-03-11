@@ -144,11 +144,15 @@ void FunctionProcessor::addTaint(Value& tainter, Value& taintee) {
 }
 
 void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet) {
+  bool blockTainted = isBlockTaintedByOtherBlock(taintSet, block);
+
   for (BasicBlock::iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL
 
     Instruction& inst = cast<Instruction>(*inst_i);
-//    debug() << "Inspecting instruction: " << inst << "\n";
+
+    if (blockTainted)
+      handleBlockTainting(inst, taintSet, block);
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
@@ -162,6 +166,7 @@ void FunctionProcessor::processBasicBlock(BasicBlock& block, TaintSet& taintSet)
       handleSwitchInstruction(cast<SwitchInst>(inst), taintSet);
     else
       handleInstruction(inst, taintSet);
+
   }
 }
 
@@ -208,7 +213,7 @@ void FunctionProcessor::handleStoreInstruction(StoreInst& storeInst, TaintSet& t
   Value& target = *storeInst.getOperand(1);
 
   debug() << " Handle STORE instruction " << storeInst << "\n";
-  if (Helper::setContains(taintSet, source) || handleBlockTainting(taintSet, storeInst)) {
+  if (Helper::setContains(taintSet, source) || Helper::setContains(taintSet, storeInst)) {
     addTaintToSet(taintSet, target);
     addTaintToSet(taintSet, storeInst);
 
@@ -428,8 +433,6 @@ void FunctionProcessor::handleBranchInstruction(BranchInst& inst, TaintSet& tain
      }
     }
   }
-
-  handleBlockTainting(taintSet, inst);
 }
 
 void FunctionProcessor::followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet) {
@@ -461,34 +464,15 @@ void FunctionProcessor::handleInstruction(Instruction& inst, TaintSet& taintSet)
        debug() << " + Added " << operand << " --> " << inst << "\n";
     }
   }
-
-  handleBlockTainting(taintSet, inst);
 }
 
-bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& inst) {
-  debug() << " Handle BLOCK-tainting for " << inst << "\n";
+bool FunctionProcessor::isBlockTaintedByOtherBlock(TaintSet& taintSet, BasicBlock& currentBlock) {
   bool result = false;
-
-  // Loads should not be tained by parenting block
-  // because otherwise a block would taint a load of
-  // a global variable what makes no sense -- it would
-  // introduce a taint that does not exist.
-  if (isa<LoadInst>(inst)) {
-    debug() << " Ignoring LOAD\n";
-    return false;
-  }
-
-  if (isa<GetElementPtrInst>(inst)) {
-    debug() << " Ignoring GEP\n";
-    return false;
-  }
-
   for (TaintSet::iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     if (! isa<BasicBlock>(*s_i))
       continue;
 
     BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
-    BasicBlock& currentBlock = *inst.getParent();
 
     if (DT.dominates(&taintedBlock, &currentBlock)) {
       debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
@@ -499,18 +483,37 @@ bool FunctionProcessor::handleBlockTainting(TaintSet& taintSet, Instruction& ins
         DOT.addRelation(taintedBlock, currentBlock, "block-taint");
       }
 
-      addTaintToSet(taintSet, inst);
-      if (isa<StoreInst>(inst))
-        DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint");
-      else
-        DOT.addRelation(currentBlock, inst, "block-taint");
-
-      debug() << " + Instruction tainted by dirty block: " << inst << "\n";
       result = true;
     }
   }
 
   return result;
+}
+
+void FunctionProcessor::handleBlockTainting(Instruction& inst, TaintSet& taintSet, BasicBlock& currentBlock) {
+  debug() << " Handle BLOCK-tainting for `" << inst << "`\n";
+
+  // Loads should not be tained by parenting block
+  // because otherwise a block would taint a load of
+  // a global variable what makes no sense -- it would
+  // introduce a taint that does not exist.
+  if (isa<LoadInst>(inst)) {
+    debug() << " Ignoring LOAD\n";
+    return;
+  }
+
+  if (isa<GetElementPtrInst>(inst)) {
+    debug() << " Ignoring GEP\n";
+    return;
+  }
+
+  addTaintToSet(taintSet, inst);
+  if (isa<StoreInst>(inst))
+    DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint");
+  else
+    DOT.addRelation(currentBlock, inst, "block-taint");
+
+  debug() << " + Instruction tainted by dirty block: " << inst << "\n";
 }
 
 void FunctionProcessor::findArguments() {
@@ -527,6 +530,8 @@ void FunctionProcessor::findArguments() {
 
 void FunctionProcessor::handleFoundArgument(Value& arg) {
   bool isInOutNode = false;
+
+  debug() << " -- Inspecting argument or global `" << arg.getName() << "`\n";
 
   if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
     TaintSet returnSet;

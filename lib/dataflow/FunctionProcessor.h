@@ -58,13 +58,15 @@ private:
   void addTaint(Value& tainter, Value& taintee);
   void processBasicBlock(BasicBlock& block, TaintSet& taintSet);
   void printTaints();
+
   void handleGetElementPtrInstruction(GetElementPtrInst& storeInst, TaintSet& taintSet);
   void handleStoreInstruction(StoreInst& storeInst, TaintSet& taintSet);
   void handleCallInstruction(CallInst& callInst, TaintSet& taintSet);
   void handleBranchInstruction(BranchInst& inst, TaintSet& taintSet);
   void handleSwitchInstruction(SwitchInst& inst, TaintSet& taintSet);
   void handleInstruction(Instruction& inst, TaintSet& taintSet);
-  bool handleBlockTainting(TaintSet& taintSet, Instruction& inst);
+  void handleBlockTainting(Instruction& inst, TaintSet& taintSet, BasicBlock& currentblock);
+
   void findArguments();
   void handleFoundArgument(Value& arg);
   void findAllStoresAndLoadsForOutArgumentAndAddToSet(Value& arg, ReturnSet& retlist);
@@ -78,6 +80,7 @@ private:
   void recursivelyFindAliases(Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
   void followTransientBranchPaths(BasicBlock& br, BasicBlock& join, TaintSet& taintSet);
   void addTaintToSet(TaintSet& taintSet, Value& v);
+  bool isBlockTaintedByOtherBlock(TaintSet& taintSet, BasicBlock& currentBlock);
 
   raw_ostream& debug() {
     return _stream;
