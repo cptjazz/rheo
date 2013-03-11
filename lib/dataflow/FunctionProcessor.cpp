@@ -424,13 +424,9 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
       DOT.addRelation(cmp, inst, "condition");
      
       const BasicBlock& brTrue = *inst.getSuccessor(0);
-      //BasicBlock* brTrue2 = inst.getSuccessor(0);
       const BasicBlock& brFalse = *inst.getSuccessor(1);
-      //BasicBlock* brFalse2 = inst.getSuccessor(1);
 
-      const BasicBlock& join = *PDT.findNearestCommonDominator(&brFalse, &brTrue);
-      //const BasicBlock* join2 = PDT.findNearestCommonDominator(brFalse2, brTrue2);
-      //const BasicBlock& join = *join2;
+      const BasicBlock& join = *const_cast<const BasicBlock*>(PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
 
       debug() << "   Nearest Common Post-Dominator for tr/fa: " << join << "\n";
       
