@@ -265,7 +265,6 @@ void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, Tain
 }
 
 bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet) {
-//  debug() << " CFG SUCC: start for " << storeInst << "\n";
   for (TaintSet::const_iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
     debug() << " CFG SUCC: inspecting " << **i << "\n";
 
@@ -274,17 +273,11 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeIns
 
     const StoreInst& prevStore = *cast<StoreInst>(*i);
 
-    debug() << " CFG SUCC: testing storeInst Operand: " << *storeInst.getOperand(1) << "\n";
-    debug() << " CFG SUCC: testing prevStore Operand: " << *prevStore.getOperand(1) << "\n";
-
     if (prevStore.getOperand(1) != storeInst.getOperand(1))
       continue;
 
-    debug() << " CFG SUCC: testing storeInst: " << storeInst << "\n";
-    debug() << " CFG SUCC: testing prev storeInst: " << prevStore << "\n";
     set<const BasicBlock*> usedList;
     if (!isCfgSuccessor(storeInst.getParent(), prevStore.getParent(), usedList)) {
-      debug() << " CFG SUCC: in-if: " << prevStore << "\n";
       return false;
     }
   }
@@ -435,7 +428,7 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
       DOT.addBlockNode(brTrue);
       DOT.addRelation(inst, brTrue, "br-true");
       debug() << " + Added TRUE branch to taint set:\n";
-      debug() << brTrue << "\n";
+      debug() << brTrue.getName() << "\n";
 
       followTransientBranchPaths(brTrue, join, taintSet);
 
@@ -446,7 +439,7 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
         DOT.addBlockNode(brFalse);
         DOT.addRelation(inst, brFalse, "br-false");
         debug() << " + Added FALSE branch to taint set:\n";
-        debug() << brFalse << "\n";
+        debug() << brFalse.getName() << "\n";
 
         followTransientBranchPaths(brFalse, join, taintSet);
      }
@@ -456,10 +449,13 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
 
 void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) {
   const TerminatorInst& brTerminator = *br.getTerminator();
+
+  if (brTerminator.getNumSuccessors() != 1)
+    return;
+
   const BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
 
-  if (brTerminator.getNumSuccessors() == 1 &&
-      PDT.dominates(&join, &brSuccessor) && 
+  if (PDT.dominates(&join, &brSuccessor) && 
       &brSuccessor != &join) {
 
     addTaintToSet(taintSet, brSuccessor);
@@ -473,10 +469,8 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
 }
 
 void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
-//  debug() << " Handle OTHER instruction:\n";
 
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
- //    debug() << " ~ Inspecting operand #" << o_i << "\n";
      const Value& operand = *inst.getOperand(o_i);
      if (Helper::setContains(taintSet, operand)) {
        addTaintToSet(taintSet, inst);

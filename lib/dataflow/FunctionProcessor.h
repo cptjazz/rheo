@@ -83,11 +83,11 @@ private:
   void addTaintToSet(TaintSet& taintSet, const Value& v);
   bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
 
-  raw_ostream& debug() {
+  inline raw_ostream& debug() {
     return _stream;
   }
 
-  raw_ostream& release() {
+  inline raw_ostream& release() {
     return _stream;
   }
 };
