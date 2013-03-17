@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdio.h>
+#include <llvm/Instructions.h>
 
 TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   string filename = getFilename(func);
@@ -77,8 +78,9 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
 
     if (paramPos == -1) {
       debugStream << "  - Skipping `" << paramName << "` -- not found.\n";
-      delete(taints);
-      return NULL;
+      //delete(taints);
+      //return NULL;
+      break;
     }
 
     FunctionTaintMap& mapping = taints->getMapping();
@@ -113,6 +115,18 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
     const Value& retval = *i->second;
 
     file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
+
+    // Specify the taint a second time in numeric form, eg 0 => -1
+    if (isa<Argument>(arg)) {
+      file << cast<Argument>(arg).getArgNo() << " => "; 
+
+      if (isa<ReturnInst>(retval))
+        file << "-1\n";
+      else if (isa<Argument>(retval))
+        file << cast<Argument>(retval).getArgNo() << "\n"; 
+      else
+        file << Helper::getValueNameOrDefault(retval) << "\n";
+    }
   }
 
   file.close();
