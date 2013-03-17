@@ -81,6 +81,7 @@ namespace {
 
       if (pff.getState() == Deferred) {
         errs() << "__log:defer:" << func.getName() << ": Deferring `" << func.getName() << "`\n";
+        TaintFile::remove(func);
         _functionQueue.push(&func); 
         return;
       }
