@@ -54,7 +54,7 @@ namespace {
         Function* f = _functionQueue.front();
 
         if (_occurrenceCount[f]++ > 10) {
-          errs() << "!!! PANIC: detected endless loop. Aborting.\n";
+          errs() << "__error:PANIC: detected endless loop. Aborting.\n";
           return false;
         }
 
@@ -71,6 +71,7 @@ namespace {
         return;
 
       errs() << "# Run per function pass on `" << func.getName() << "`\n";
+      errs() << "__log:start:" << func.getName() << "\n";
 
       PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
       if (pff.getState() == Skip) {
@@ -79,7 +80,7 @@ namespace {
       }
 
       if (pff.getState() == Deferred) {
-        errs() << "Deferring `" << func.getName() << "`\n";
+        errs() << "__log:defer:" << func.getName() << ": Deferring `" << func.getName() << "`\n";
         _functionQueue.push(&func); 
         return;
       }
