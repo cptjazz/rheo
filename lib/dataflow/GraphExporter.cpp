@@ -10,7 +10,7 @@ void GraphExporter::initialiseFile() {
   _file.open((_functionName + ".dot").c_str(), ios::out);
 
   _file << "digraph \"" << _functionName << "\" { \n";
-  _file << "  graph [";
+  _file << "  graph [\n";
   _file << "    splines=\"true\",\n";
   _file << "    label=\"" << _functionName << "\"\n";
   _file << "  ];\n";
@@ -24,7 +24,9 @@ GraphExporter::~GraphExporter() {
 } 
 
 void GraphExporter::addInOutNode(const Value& inout) {
-  _nodes.erase(&inout);
+  if (_nodes.count(&inout))
+    return;
+
   _file << "  { rank=source;\n";
   _file << "    " << getNodeName(inout) << " [label=\"" << getNodeCaption(inout) 
         << "\"" << getInOutNodeShape(inout) << "];\n";
@@ -33,7 +35,9 @@ void GraphExporter::addInOutNode(const Value& inout) {
 }
 
 void GraphExporter::addInNode(const Value& in) {
-  _nodes.erase(&in);
+  if (_nodes.count(&in))
+    return;
+
   _file << "  { rank=source;\n";
   _file << "    " << getNodeName(in) << " [label=\"" << getNodeCaption(in) << "\"" 
         << getInNodeShape(in) << "];\n";
@@ -42,7 +46,9 @@ void GraphExporter::addInNode(const Value& in) {
 }
 
 void GraphExporter::addOutNode(const Value& out) {
-  _nodes.erase(&out);
+  if (_nodes.count(&out))
+    return;
+
   _file << "  { rank=sink;\n";
   _file << "    " << getNodeName(out) << " [label=\"" << getNodeCaption(out) << "\"" 
         << getOutNodeShape(out) << "];\n";
@@ -51,14 +57,18 @@ void GraphExporter::addOutNode(const Value& out) {
 }
 
 void GraphExporter::addBlockNode(const Value& b) {
-  _nodes.erase(&b);
+  if (_nodes.count(&b))
+    return;
+
   _file << "    " << getNodeName(b) << " [label=\"" << getNodeCaption(b) << "\"" 
         << ", weight=3];\n";
   _nodes.insert(&b);
 }
 
 void GraphExporter::addCallNode(const Function& f) {
-  _nodes.erase(&f);
+  if (_nodes.count(&f))
+    return;
+
   _file << "    " << getNodeName(f) << " [label=\"" << getNodeCaption(f) << "\"" 
         << ", weight=3, shape=polygon, skew=0.5];\n";
   _nodes.insert(&f);
