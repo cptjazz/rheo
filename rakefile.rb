@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'rainbow'
 require 'rake/clean'
+require 'pty'
 
 OPTS = ["", "-mem2reg", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp", "-lowerswitch", "-reassociate"]
 
@@ -21,6 +22,52 @@ end
 desc "Run all tests"
 task :test, [:pattern] do |t, args|
   run_tests(:all, args)
+end
+
+task :analyse, [:dir] do |t, args|
+  analyse(args)
+end
+
+def analyse(args)
+  `make`
+
+  dir = args.dir || "."
+  file = "/tmp/taint-flow.bc"
+
+  FileUtils.cd(dir) do 
+    `llvm-link *.bc -o #{file}`
+  end
+  
+  opt_cmd = "opt -load Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
+  begin
+    PTY.spawn(opt_cmd) do |r, w, pid|
+      begin
+        r.each do |line|
+          #puts line
+
+          if line =~ /__log:start:(.*)/
+            print " * Analysing " + $1.strip.bright + " ... "
+          end
+
+          if line =~ /__taints:(.*)\(.*\)/
+            taints = ($2 || "").strip
+            puts "done".color(:green) +  "#{taints}"
+          end
+
+          if line =~ /__log:defer:(.*):/
+            puts "deferring".color(:yellow)
+          end
+
+          if line =~ /__error:(.*)/
+            puts "error: #{$1.strip}".color(:red)
+          end
+        end
+      rescue Errno::EIO  
+      end  
+    end
+  rescue PTY::ChildExited => e  
+  end  
+
 end
 
 def run_tests(show_only, args)
