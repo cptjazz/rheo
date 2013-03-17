@@ -38,35 +38,41 @@ def analyse(args)
     `llvm-link *.bc -o #{file}`
   end
   
-  opt_cmd = "opt -load Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
-  begin
-    PTY.spawn(opt_cmd) do |r, w, pid|
-      begin
-        r.each do |line|
-          #puts line
+  FileUtils.rm_rf("output")
+  sleep 0.5
+  FileUtils.mkdir("output")
 
-          if line =~ /__log:start:(.*)/
-            print " * Analysing " + $1.strip.bright + " ... "
-          end
+  FileUtils.cd("output") do
+    opt_cmd = "opt -load ../Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
+    begin
+      PTY.spawn(opt_cmd) do |r, w, pid|
+        begin
+          r.each do |line|
+            #puts line
 
-          if line =~ /__taints:(.*)\(.*\)/
-            taints = ($2 || "").strip
-            puts "done".color(:green) +  "#{taints}"
-          end
+            if line =~ /__log:start:(.*)/
+              print " * Analysing " + $1.strip.bright + " ... "
+            end
 
-          if line =~ /__log:defer:(.*):/
-            puts "deferring".color(:yellow)
-          end
+            if line =~ /__taints:(.*)\((.*)\)/
+              taints = ($2 || "").strip
+              puts "done".color(:green) +  "  #{taints}".color("#aaaaaa")
+            end
 
-          if line =~ /__error:(.*)/
-            puts "error: #{$1.strip}".color(:red)
+            if line =~ /__log:defer:(.*):/
+              puts "deferring".color(:yellow)
+            end
+
+            if line =~ /__error:(.*)/
+              puts "error: #{$1.strip}".color(:red)
+            end
           end
-        end
-      rescue Errno::EIO  
-      end  
-    end
-  rescue PTY::ChildExited => e  
-  end  
+        rescue Errno::EIO  
+        end  
+      end
+    rescue PTY::ChildExited => e  
+    end  
+  end
 
 end
 
