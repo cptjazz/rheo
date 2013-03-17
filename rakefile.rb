@@ -29,7 +29,7 @@ task :analyse, [:dir] do |t, args|
 end
 
 def analyse(args)
-  `make`
+  `make ENABLE_OPTIMIZED=1`
 
   dir = args.dir || "."
   file = "/tmp/taint-flow.bc"
@@ -43,7 +43,7 @@ def analyse(args)
   FileUtils.mkdir("output")
 
   FileUtils.cd("output") do
-    opt_cmd = "opt -load ../Debug+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
+    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin

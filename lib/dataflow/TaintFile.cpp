@@ -13,7 +13,7 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
     file.open(("taintlib/" + filename).c_str(), ios::in);
 
     if (!file.is_open()) {
-      debugStream << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
+      DEBUG(debugStream << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
       return NULL;
     }
   }
@@ -44,47 +44,47 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
     stringstream convert1(paramName);
     if( !(convert1 >> paramPos)) {
       paramPos = -1;
-      debugStream << "Searching for param " << paramName << "\n";
+      DEBUG(debugStream << "Searching for param " << paramName << "\n");
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
-          debugStream << "Found at #" << i << "\n";
+          DEBUG(debugStream << "Found at #" << i << "\n");
           break;
         }
 
         i++;
       }
     } else {
-      debugStream << "Param-info from file: seem to be at #" << paramPos << "\n";
+      DEBUG(debugStream << "Param-info from file: seem to be at #" << paramPos << "\n");
     }
 
     i = 0;
     stringstream convert2(valName);
     if( !(convert2 >> retvalPos)) {
       retvalPos = -1;
-      debugStream << "Searching for retval " << valName << "\n";
+      DEBUG(debugStream << "Searching for retval " << valName << "\n");
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == valName) {
           retvalPos = i;
-          debugStream << "Found at #" << i << "\n";
+          DEBUG(debugStream << "Found at #" << i << "\n");
           break;
         }
 
         i++;
       }
     } else {
-      debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n";
+      DEBUG(debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n");
     }
 
     if (paramPos == -1) {
-      debugStream << "  - Skipping `" << paramName << "` -- not found.\n";
+      DEBUG(debugStream << "  - Skipping `" << paramName << "` -- not found.\n");
       //delete(taints);
       //return NULL;
       break;
     }
 
     FunctionTaintMap& mapping = taints->getMapping();
-    debugStream << " Insert mapping: " << paramPos << " => " << retvalPos << "\n";
+    DEBUG(debugStream << " Insert mapping: " << paramPos << " => " << retvalPos << "\n");
     mapping.insert(make_pair(paramPos, retvalPos));
   }
 

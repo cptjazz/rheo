@@ -11,3 +11,4 @@ Debug+Profile+Asserts
 Release+Asserts
 Release+Profile+Asserts
 configure.out
+output/**

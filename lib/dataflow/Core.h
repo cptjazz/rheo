@@ -5,6 +5,7 @@
 #include <map>
 #include <llvm/Value.h>
 #include <llvm/ADT/SmallPtrSet.h>
+#include "llvm/Support/Debug.h"
 
 using namespace std;
 using namespace llvm;
