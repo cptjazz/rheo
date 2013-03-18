@@ -77,7 +77,7 @@ def analyse(args)
 end
 
 def run_tests(show_only, args)
-  `make`
+  `make ENABLE_OPTIMIZED=1`
 
   FileUtils.cd("test") do
     overall_result = true
@@ -107,7 +107,7 @@ def run_tests(show_only, args)
         out_map = {}
         out_logs = {}
 
-        opt_out = `opt -load ../Debug+Asserts/lib/dataflow.so #{opt} -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+        opt_out = `opt -load ../Release+Asserts/lib/dataflow.so #{opt} -debug -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
         opt_out.scan(/__logtime:(.*):(.*)/) { |m| out_logs[m[0]] = m[1] }
