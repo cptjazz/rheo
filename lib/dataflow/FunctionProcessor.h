@@ -82,6 +82,7 @@ private:
   void followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet);
   void addTaintToSet(TaintSet& taintSet, const Value& v);
   bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
+  void applyMeet(const BasicBlock& block, map<const BasicBlock*, TaintSet>& blockList);
 
   inline raw_ostream& debug() {
     return _stream;

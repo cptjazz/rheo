@@ -47,23 +47,11 @@ void FunctionProcessor::processFunction() {
       const Value& arg = *arg_i->first;
       TaintSet& taintSet = arg_i->second;
 
-      int iteration = 0;
+      _taintSetChanged = false;
 
-      do {
-        _taintSetChanged = false;
-
-        DEBUG_LOG(" ** Begin Iteration #" << iteration << "\n");
-        buildTaintSetFor(arg, taintSet);
-        STOP_ON_CANCEL
-        DEBUG_LOG(" ** End Iteration #" << iteration << "\n")
-
-        DEBUG_LOG(" ** Taint set length:" << taintSet.size() << "\n")
-
-        iteration++;
-      } while (iteration < 10 && _taintSetChanged);
-
+      buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL
-        resultIteration++;
+      resultIteration++;
     }
   } while (resultIteration < 10 && _resultSetChanged);
 
@@ -133,17 +121,55 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   // Arg trivially taints itself.
   addTaintToSet(taintSet, arg);
+  map<const BasicBlock*, TaintSet> blockList;
 
   for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
+    const BasicBlock& block = cast<BasicBlock>(*b_i);
+    TaintSet blockTaintSet;
+    addTaintToSet(blockTaintSet, arg);
+    blockList.insert(make_pair(&block, blockTaintSet));
+  }
+
+  do {
     STOP_ON_CANCEL
 
-    BasicBlock& block = cast<BasicBlock>(*b_i);
-    processBasicBlock(block, taintSet);
+    for (map<const BasicBlock*, TaintSet>::const_iterator m_i = blockList.begin(), m_e = blockList.end(); m_i != m_e; ++m_i) {
+      const BasicBlock& block = *m_i->first;
+
+      applyMeet(block, blockList);
+
+      _taintSetChanged = false;
+      processBasicBlock(block, blockList[&block]);
+    }
+
+  } while(_taintSetChanged);
+
+  for (map<const BasicBlock*, TaintSet>::const_iterator j_i = blockList.begin(), j_e = blockList.end(); j_i != j_e; ++j_i) {
+    TaintSet& set = blockList[j_i->first];
+
+    for (TaintSet::const_iterator t_i = set.begin(), t_e = set.end(); t_i != t_e; ++t_i) {
+      taintSet.insert(*t_i);
+    }
   }
 
   DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n")
   printSet(taintSet);
   DEBUG_LOG("\n")
+}
+
+void FunctionProcessor::applyMeet(const BasicBlock& block, map<const BasicBlock*, TaintSet>& blockList) {
+  TaintSet& blockSet = blockList[&block];
+  
+  for (const_pred_iterator i = pred_begin(&block), e = pred_end(&block); i != e; ++i) {
+    const BasicBlock& pred = **i;
+    DEBUG_LOG("Meeting block: " << pred << "\n");
+
+    TaintSet& predSet = blockList[&pred];
+    for (TaintSet::const_iterator s_i = predSet.begin(), s_e = predSet.end(); s_i != s_e; ++s_i) {
+      blockSet.insert(*s_i);
+      DEBUG_LOG("Inserting " << **s_i << "\n");
+    }
+  }
 }
 
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
