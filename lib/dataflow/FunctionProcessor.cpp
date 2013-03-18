@@ -19,8 +19,9 @@
 #include "FunctionProcessor.h"
 #include "TaintFile.h" 
 
-#define STOP_ON_CANCEL if (canceledInspection) return;
-#define DEBUG_LOG(x) DEBUG(debug() << x);
+#define STOP_ON_CANCEL if (canceledInspection) return
+#define DEBUG_LOG(x) DEBUG(debug() << x)
+#define PROFILE_LOG(x) /* DEBUG(debug() << x) */
 
 using namespace llvm;
 using namespace std;
@@ -50,12 +51,13 @@ void FunctionProcessor::processFunction() {
       _taintSetChanged = false;
 
       buildTaintSetFor(arg, taintSet);
-      STOP_ON_CANCEL
+      STOP_ON_CANCEL;
       resultIteration++;
     }
+
+    buildResultSet();
   } while (resultIteration < 10 && _resultSetChanged);
 
-  buildResultSet();
   printTaints();
 }
 
@@ -81,29 +83,27 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
     const TaintSet retTaintSet = ret_i->second;
 
     if (&retval == &arg) {
-      DEBUG_LOG("Skipping detected self-taint\n")
+      DEBUG_LOG("Skipping detected self-taint\n");
       continue;
     }
 
     long t = Helper::getTimestamp();
-    DEBUG_LOG("Ret-set for `" << retval << "`:\n")
+    DEBUG_LOG("Ret-set for `" << retval << "`:\n");
     printSet(retTaintSet);
-    DEBUG_LOG("\n")
-    DEBUG_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n")
+    DEBUG_LOG("\n");
+    PROFILE_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     t = Helper::getTimestamp();
     TaintSet intersect;
     Helper::intersectSets(argTaintSet, retTaintSet, intersect);
-    DEBUG_LOG("intersect() took " << Helper::getTimestampDelta(t) << " µs\n")
+    PROFILE_LOG("intersect() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     if (intersect.size()) {
       addTaint(arg, retval);
 
-      DEBUG_LOG("Values that lead to taint "
-              << Helper::getValueNameOrDefault(arg) << " -> "
+      DEBUG_LOG("Values that lead to taint " << Helper::getValueNameOrDefault(arg) << " -> "
               << Helper::getValueNameOrDefault(retval) << ":\n");
-      for (TaintSet::const_iterator i_i = intersect.begin(), i_e = intersect.end(); i_i != i_e; ++i_i)
-        DEBUG_LOG(**i_i << "\n")
+      printSet(intersect);
     }
   }
 }
@@ -113,11 +113,11 @@ inline void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v)
   if (taintSet.insert(&v))
     _taintSetChanged = true;
 
-  DEBUG_LOG(" addTaintToSet took: " << Helper::getTimestampDelta(t) << "µs\n")
+  PROFILE_LOG(" addTaintToSet took: " << Helper::getTimestampDelta(t) << "µs\n");
 }
 
 void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
-  DEBUG_LOG(" *** Creating taint set for argument `" << arg.getName() << "`\n")
+  DEBUG_LOG(" *** Creating taint set for argument `" << arg.getName() << "`\n");
 
   // Arg trivially taints itself.
   addTaintToSet(taintSet, arg);
@@ -134,7 +134,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   }
 
   do {
-    STOP_ON_CANCEL
+    STOP_ON_CANCEL;
 
     _taintSetChanged = false;
 
@@ -158,9 +158,9 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
     }
   }
 
-  DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n")
+  DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n");
   printSet(taintSet);
-  DEBUG_LOG("\n")
+  DEBUG_LOG("\n");
 }
 
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
@@ -184,13 +184,14 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
   _taints.insert(make_pair(&tainter, &taintee));
   _resultSetChanged = true;
+  DEBUG_LOG("Added taint. Result set changed.\n");
 }
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
   bool blockTainted = isBlockTaintedByOtherBlock(block, taintSet);
 
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
-    STOP_ON_CANCEL
+    STOP_ON_CANCEL;
 
     long t = Helper::getTimestamp();
 
@@ -212,7 +213,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     else
       handleInstruction(inst, taintSet);
 
-    DEBUG_LOG(" Processing instruction took " << Helper::getTimestampDelta(t) << " µs\n")
+    PROFILE_LOG(" Processing instruction took " << Helper::getTimestampDelta(t) << " µs\n");
   }
 }
 
@@ -238,7 +239,7 @@ void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& 
   if (Helper::setContains(taintSet, op)) {
     addTaintToSet(taintSet, inst);
     DOT.addRelation(op, inst, "indexer");
-    DEBUG_LOG(" + Added GEP taint: `" << inst << "`\n")
+    DEBUG_LOG(" + Added GEP taint: `" << inst << "`\n");
   }
   
   for (size_t i = 0; i < inst.getNumIndices(); i++) {
@@ -249,7 +250,7 @@ void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& 
       stringstream reason("");
       reason << "index #" << i;
       DOT.addRelation(idx, inst, reason.str());
-      DEBUG_LOG(" ++ Added GEP INDEX: `" << idx << "`\n")
+      DEBUG_LOG(" ++ Added GEP INDEX: `" << idx << "`\n");
     }
   }
 }
@@ -258,13 +259,13 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
   const Value& source = *storeInst.getOperand(0);
   const Value& target = *storeInst.getOperand(1);
 
-  DEBUG_LOG(" Handle STORE instruction " << storeInst << "\n")
+  DEBUG_LOG(" Handle STORE instruction " << storeInst << "\n");
   if (Helper::setContains(taintSet, source) || Helper::setContains(taintSet, storeInst)) {
     addTaintToSet(taintSet, target);
     addTaintToSet(taintSet, storeInst);
 
     DOT.addRelation(source, target, "store");
-    DEBUG_LOG(" + Added STORE taint: " << source << " --> " << target << "\n")
+    DEBUG_LOG(" + Added STORE taint: " << source << " --> " << target << "\n");
     if (isa<GetElementPtrInst>(target)) {
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       recursivelyAddAllGeps(gep, taintSet);
@@ -272,12 +273,12 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
   } else if (Helper::setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
-    DEBUG_LOG(" - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n")
+    DEBUG_LOG(" - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n");
 
     if (isa<LoadInst>(target)) {
       const Value* load = (cast<LoadInst>(target)).getPointerOperand();
       taintSet.erase(load);
-      DEBUG_LOG(" - Also removed transitive LOAD." << *load << "\n")
+      DEBUG_LOG(" - Also removed transitive LOAD." << *load << "\n");
     }
 
     DOT.addRelation(source, target, "non-taint overwrite");
@@ -286,7 +287,7 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
 
 void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet) {
   const Value& ptrOp = *gep.getPointerOperand();
-  DEBUG_LOG(" ++ Added GEP SOURCE:" << ptrOp << "\n")
+  DEBUG_LOG(" ++ Added GEP SOURCE:" << ptrOp << "\n");
   addTaintToSet(taintSet, ptrOp);
 
   DOT.addRelation(gep, ptrOp, "gep via store");
@@ -301,7 +302,7 @@ void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, Tain
 
 bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet) {
   for (TaintSet::const_iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
-    DEBUG_LOG(" CFG SUCC: inspecting " << **i << "\n")
+    DEBUG_LOG(" CFG SUCC: inspecting " << **i << "\n");
 
     if (!isa<StoreInst>(*i))
       continue;
@@ -333,7 +334,7 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   for (const_pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
     if (usedList.count(*i))
       continue;
-  DEBUG_LOG(**i << "\n")
+  DEBUG_LOG(**i << "\n");
 
     usedList.insert(*i);
     if (isCfgSuccessor(*i, pred, usedList))
@@ -347,7 +348,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
-    DEBUG_LOG(" -- Cannot get information about `" << func.getName() << "` -- cancel.\n")
+    DEBUG_LOG(" -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
     canceledInspection = true;
     return;
   }
@@ -358,7 +359,7 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
     int paramPos = i->first;
     int retvalPos = i->second;
 
-    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n")
+    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
     Value* arg = callInst.getArgOperand(paramPos);
 
     if (Helper::setContains(taintSet, *arg)) {
@@ -369,13 +370,13 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
       DOT.addRelation(*arg, func, reas.str());
 
       if (retvalPos == -1) {
-        DEBUG_LOG(" + Added retval taint `" << callInst << "`\n")
+        DEBUG_LOG(" + Added retval taint `" << callInst << "`\n");
         addTaintToSet(taintSet, callInst);
         DOT.addRelation(func, callInst, "ret");
       }
       else {
         Value* returnTarget = callInst.getArgOperand(retvalPos);
-        DEBUG_LOG(" + Added out-argument taint `" << returnTarget->getName() << "`\n")
+        DEBUG_LOG(" + Added out-argument taint `" << returnTarget->getName() << "`\n");
         addTaintToSet(taintSet, *returnTarget);
         stringstream outReas("");
         outReas << "out, arg#" << retvalPos;
@@ -385,12 +386,12 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
         if (isa<LoadInst>(returnTarget)) {
           Value* op = (cast<LoadInst>(returnTarget))->getOperand(0);
           addTaintToSet(taintSet, *op);
-          DEBUG_LOG(" ++ Added previous load: " << *returnTarget << "\n")
+          DEBUG_LOG(" ++ Added previous load: " << *returnTarget << "\n");
           DOT.addRelation(*op, *returnTarget, "load");
         }
       }
 
-      DEBUG_LOG("  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n")
+      DEBUG_LOG("  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n");
     }
   }
 
@@ -398,26 +399,26 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
 }
 
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
-  DEBUG_LOG(" Handle CALL instruction:\n")
+  DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
 
   if (callee != NULL) {
-    DEBUG_LOG(" * Calling function `" << callee->getName() << "`\n")
+    DEBUG_LOG(" * Calling function `" << callee->getName() << "`\n");
 
     // build intermediate taint sets
     long t = Helper::getTimestamp();
     buildResultSet();
-    DEBUG_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n")
+    PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     t = Helper::getTimestamp();
     TaintFile::writeResult(F, _taints);
-    DEBUG_LOG(" writeResult() took " << Helper::getTimestampDelta(t) << "\n")
+    PROFILE_LOG(" writeResult() took " << Helper::getTimestampDelta(t) << "\n");
 
     t = Helper::getTimestamp();
     readTaintsFromFile(taintSet, callInst, *callee);
-    DEBUG_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n")
+    PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
   } else {
-    DEBUG_LOG(" ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n")
+    DEBUG_LOG(" ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n");
   }
 }
 
@@ -429,23 +430,23 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
 
   DOT.addRelation(*condition, inst, "switch");
 
-  DEBUG_LOG(" Handle SWITCH instruction:\n")
+  DEBUG_LOG(" Handle SWITCH instruction:\n");
   for (size_t i = 0; i < inst.getNumSuccessors(); ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
     DOT.addBlockNode(caseBlock);
     DOT.addRelation(inst, caseBlock, "case");
     addTaintToSet(taintSet, caseBlock);
-    DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n")
+    DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
   }
 }
 
 void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet) {
-  DEBUG_LOG(" Handle BRANCH instruction: " << inst << "\n")
+  DEBUG_LOG(" Handle BRANCH instruction: " << inst << "\n");
   
   if (inst.isConditional()) {
     const Instruction& cmp = cast<Instruction>(*inst.getCondition());
-    DEBUG_LOG(" = Compare instruction is: " << cmp << "\n")
+    DEBUG_LOG(" = Compare instruction is: " << cmp << "\n");
 
     bool isConditionTainted = Helper::setContains(taintSet, cmp);
     if (isConditionTainted) {
@@ -456,14 +457,14 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
 
       const BasicBlock& join = *const_cast<const BasicBlock*>(PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
 
-      DEBUG_LOG("   Nearest Common Post-Dominator for tr/fa: " << join << "\n")
+      DEBUG_LOG("   Nearest Common Post-Dominator for tr/fa: " << join << "\n");
       
       // true branch is always tainted
       addTaintToSet(taintSet, brTrue);
       DOT.addBlockNode(brTrue);
       DOT.addRelation(inst, brTrue, "br-true");
-      DEBUG_LOG(" + Added TRUE branch to taint set:\n")
-      DEBUG_LOG(brTrue.getName() << "\n")
+      DEBUG_LOG(" + Added TRUE branch to taint set:\n");
+      DEBUG_LOG(brTrue.getName() << "\n");
 
       followTransientBranchPaths(brTrue, join, taintSet);
 
@@ -473,8 +474,8 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
         addTaintToSet(taintSet, brFalse);
         DOT.addBlockNode(brFalse);
         DOT.addRelation(inst, brFalse, "br-false");
-        DEBUG_LOG(" + Added FALSE branch to taint set:\n")
-        DEBUG_LOG(brFalse.getName() << "\n")
+        DEBUG_LOG(" + Added FALSE branch to taint set:\n");
+        DEBUG_LOG(brFalse.getName() << "\n");
 
         followTransientBranchPaths(brFalse, join, taintSet);
      }
@@ -506,8 +507,8 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
     addTaintToSet(taintSet, brSuccessor);
     DOT.addBlockNode(brSuccessor);
     DOT.addRelation(brTerminator, brSuccessor, "br");
-    DEBUG_LOG(" ++ Added TRANSIENT branch:\n")
-    DEBUG_LOG(brSuccessor << "\n")
+    DEBUG_LOG(" ++ Added TRANSIENT branch:\n");
+    DEBUG_LOG(brSuccessor << "\n");
 
     followTransientBranchPaths(brSuccessor, join, taintSet);
   }
@@ -521,7 +522,7 @@ void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& tai
        addTaintToSet(taintSet, inst);
        DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
 
-       DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n")
+       DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n");
     }
   }
 }
@@ -535,7 +536,7 @@ bool FunctionProcessor::isBlockTaintedByOtherBlock(const BasicBlock& currentBloc
     const BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
 
     if (DT.dominates(&taintedBlock, &currentBlock)) {
-      DEBUG_LOG(" ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n")
+      DEBUG_LOG(" ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n");
 
       if (&taintedBlock != &currentBlock) {
         addTaintToSet(taintSet, currentBlock);
@@ -551,19 +552,19 @@ bool FunctionProcessor::isBlockTaintedByOtherBlock(const BasicBlock& currentBloc
 }
 
 void FunctionProcessor::handleBlockTainting(const Instruction& inst, const BasicBlock& currentBlock, TaintSet& taintSet) {
-  DEBUG_LOG(" Handle BLOCK-tainting for `" << inst << "`\n")
+  DEBUG_LOG(" Handle BLOCK-tainting for `" << inst << "`\n");
 
   // Loads should not be tained by parenting block
   // because otherwise a block would taint a load of
   // a global variable what makes no sense -- it would
   // introduce a taint that does not exist.
   if (isa<LoadInst>(inst)) {
-    DEBUG_LOG(" Ignoring LOAD\n")
+    DEBUG_LOG(" Ignoring LOAD\n");
     return;
   }
 
   if (isa<GetElementPtrInst>(inst)) {
-    DEBUG_LOG(" Ignoring GEP\n")
+    DEBUG_LOG(" Ignoring GEP\n");
     return;
   }
 
@@ -573,7 +574,7 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   else
     DOT.addRelation(currentBlock, inst, "block-taint");
 
-  DEBUG_LOG(" + Instruction tainted by dirty block: " << inst << "\n")
+  DEBUG_LOG(" + Instruction tainted by dirty block: " << inst << "\n");
 }
 
 void FunctionProcessor::findArguments() {
@@ -589,7 +590,7 @@ void FunctionProcessor::findArguments() {
 void FunctionProcessor::handleFoundArgument(const Value& arg) {
   bool isInOutNode = false;
 
-  DEBUG_LOG(" -- Inspecting argument or global `" << arg.getName() << "`\n")
+  DEBUG_LOG(" -- Inspecting argument or global `" << arg.getName() << "`\n");
 
   if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
     TaintSet returnSet;
@@ -601,7 +602,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     DOT.addInOutNode(arg);
     isInOutNode = true;
 
-    DEBUG_LOG("added arg `" << arg.getName() << "` to out-list\n")
+    DEBUG_LOG("added arg `" << arg.getName() << "` to out-list\n");
   }
 
   TaintSet taintSet;
@@ -610,7 +611,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     DOT.addInNode(arg);
 
   _arguments.insert(make_pair(&arg, taintSet));
-  DEBUG_LOG("added arg `" << arg.getName() << "` to arg-list\n")
+  DEBUG_LOG("added arg `" << arg.getName() << "` to arg-list\n");
 }
 
 void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& returnSet) {
@@ -619,7 +620,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Val
     for (User::const_use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
       if (isa<StoreInst>(*u_i)) {
         returnSet.insert(*u_i);
-        DEBUG_LOG(" Added ARG STORE: " << **u_i << "\n")
+        DEBUG_LOG(" Added ARG STORE: " << **u_i << "\n");
         newArg = u_i->getOperand(1);
       }
     }
@@ -630,7 +631,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Val
 
 void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
 
-  DEBUG_LOG("Recursively find: " << arg << "\n")
+  DEBUG_LOG("Recursively find: " << arg << "\n");
 
   if (Helper::setContains(alreadyProcessed, arg))
     return;
@@ -642,19 +643,19 @@ void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& retu
       // Necessary, as constant string literals also come 
       // as GlobalVariables, but do not point to an instruction.
       // They point to an operand of a GEP.
-      DEBUG_LOG("Skip: " << **i << "\n")
+      DEBUG_LOG("Skip: " << **i << "\n");
       continue;
     }
 
     const Instruction& I = cast<Instruction>(**i);
     
-    DEBUG_LOG("Inspecting: " << I << "\n")
+    DEBUG_LOG("Inspecting: " << I << "\n");
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       const Value& load = cast<LoadInst>(I);
       returnSet.insert(&load);
       DOT.addRelation(arg, load, "load");
-      DEBUG_LOG(" + Found LOAD for `" << arg.getName() << "` @ " << load << "\n")
+      DEBUG_LOG(" + Found LOAD for `" << arg.getName() << "` @ " << load << "\n");
       
       recursivelyFindAliases(load, returnSet, alreadyProcessed);
     }
@@ -663,7 +664,7 @@ void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& retu
 
 void FunctionProcessor::printSet(const TaintSet& s) {
   for (TaintSet::const_iterator i = s.begin(), e = s.end(); i != e; ++i) {
-    DEBUG_LOG(**i << " | ")
+    DEBUG_LOG(**i << " | ");
   }
 } 
 
@@ -678,32 +679,32 @@ void FunctionProcessor::findReturnStatements() {
       if (retval) {
         if (isa<Constant>(retval)) {
           addTaintToSet(taintSet, r);
-          DEBUG_LOG(" + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n")
+          DEBUG_LOG(" + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
         } else {
           addTaintToSet(taintSet, *retval);
-          DEBUG_LOG(" + Added NON-CONST RETURN VALUE `" << retval << "`\n")
+          DEBUG_LOG(" + Added NON-CONST RETURN VALUE `" << retval << "`\n");
         }
 
         if (isa<PHINode>(retval)) {
           const PHINode& phi = cast<PHINode>(*retval);
           for (size_t j = 0; j < phi.getNumIncomingValues(); ++j) {
-            DEBUG_LOG(" + Added PHI block" << *phi.getIncomingBlock(j) << "\n")
+            DEBUG_LOG(" + Added PHI block" << *phi.getIncomingBlock(j) << "\n");
             addTaintToSet(taintSet, *phi.getIncomingBlock(j));
           }
         }
 
         _returnStatements.insert(make_pair(&r, taintSet));
         DOT.addOutNode(r);
-        DEBUG_LOG("Found ret-stmt: " << r << "\n")
+        DEBUG_LOG("Found ret-stmt: " << r << "\n");
       }
     }
   }
 }
 
 void FunctionProcessor::printInstructions() {
-  DEBUG_LOG("Instructions: \n")
+  DEBUG_LOG("Instructions: \n");
 
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    DEBUG_LOG(i->getParent() << " | " << &*i << " | " << (*i) << "\n")
+    DEBUG_LOG(i->getParent() << " | " << &*i << " | " << (*i) << "\n");
   }
 }
