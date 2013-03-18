@@ -121,31 +121,37 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   // Arg trivially taints itself.
   addTaintToSet(taintSet, arg);
-  map<const BasicBlock*, TaintSet> blockList;
+
+  _blockList.clear();
+  _workList.clear();
 
   for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     const BasicBlock& block = cast<BasicBlock>(*b_i);
     TaintSet blockTaintSet;
     addTaintToSet(blockTaintSet, arg);
-    blockList.insert(make_pair(&block, blockTaintSet));
+    _blockList.insert(make_pair(&block, blockTaintSet));
+    _workList.push_back(&block);
   }
 
   do {
     STOP_ON_CANCEL
 
-    for (map<const BasicBlock*, TaintSet>::const_iterator m_i = blockList.begin(), m_e = blockList.end(); m_i != m_e; ++m_i) {
-      const BasicBlock& block = *m_i->first;
+    _taintSetChanged = false;
 
-      applyMeet(block, blockList);
+    while (!_workList.empty()) {
+      const BasicBlock& block = *_workList.front();
+      _workList.pop_front();
 
-      _taintSetChanged = false;
-      processBasicBlock(block, blockList[&block]);
+      DEBUG_LOG(" ----- PROCESS BLOCK " << block.getName() << " -----\n");
+      applyMeet(block);
+
+      processBasicBlock(block, _blockList[&block]);
     }
 
   } while(_taintSetChanged);
 
-  for (map<const BasicBlock*, TaintSet>::const_iterator j_i = blockList.begin(), j_e = blockList.end(); j_i != j_e; ++j_i) {
-    TaintSet& set = blockList[j_i->first];
+  for (map<const BasicBlock*, TaintSet>::const_iterator j_i = _blockList.begin(), j_e = _blockList.end(); j_i != j_e; ++j_i) {
+    TaintSet& set = _blockList[j_i->first];
 
     for (TaintSet::const_iterator t_i = set.begin(), t_e = set.end(); t_i != t_e; ++t_i) {
       taintSet.insert(*t_i);
@@ -157,19 +163,22 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   DEBUG_LOG("\n")
 }
 
-void FunctionProcessor::applyMeet(const BasicBlock& block, map<const BasicBlock*, TaintSet>& blockList) {
-  TaintSet& blockSet = blockList[&block];
+void FunctionProcessor::applyMeet(const BasicBlock& block) {
+  TaintSet& blockSet = _blockList[&block];
+  DEBUG_LOG("Applying meet for: " << block.getName() << "\n");
   
   for (const_pred_iterator i = pred_begin(&block), e = pred_end(&block); i != e; ++i) {
     const BasicBlock& pred = **i;
-    DEBUG_LOG("Meeting block: " << pred << "\n");
+    DEBUG_LOG("Meeting block: " << pred.getName() << "\n");
 
-    TaintSet& predSet = blockList[&pred];
+    TaintSet& predSet = _blockList[&pred];
     for (TaintSet::const_iterator s_i = predSet.begin(), s_e = predSet.end(); s_i != s_e; ++s_i) {
       blockSet.insert(*s_i);
       DEBUG_LOG("Inserting " << **s_i << "\n");
     }
   }
+
+  DEBUG_LOG("End meet\n");
 }
 
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
@@ -470,7 +479,17 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
         followTransientBranchPaths(brFalse, join, taintSet);
      }
     }
+  } else {
+    if (_taintSetChanged) {
+      const BasicBlock* target = inst.getSuccessor(0);
+      enqueueBlockToWorklist(target);
+      DEBUG_LOG("Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP");
+    }
   }
+}
+
+void FunctionProcessor::enqueueBlockToWorklist(const BasicBlock* block) {
+  _workList.push_front(block);
 }
 
 void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) {

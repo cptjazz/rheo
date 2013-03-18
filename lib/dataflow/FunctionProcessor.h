@@ -12,6 +12,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/InstrTypes.h"
 #include <algorithm>
+#include <deque>
 #include <cstring>
 #include <stdio.h>
 #include "GraphExporter.h"
@@ -33,6 +34,8 @@ class FunctionProcessor {
   TaintMap _returnStatements;
   TaintMap _arguments;
   ResultSet& _taints;
+  map<const BasicBlock*, TaintSet> _blockList;
+  deque<const BasicBlock*> _workList;
 
   raw_ostream& _stream;
 
@@ -82,7 +85,8 @@ private:
   void followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet);
   void addTaintToSet(TaintSet& taintSet, const Value& v);
   bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
-  void applyMeet(const BasicBlock& block, map<const BasicBlock*, TaintSet>& blockList);
+  void applyMeet(const BasicBlock& block);
+  void enqueueBlockToWorklist(const BasicBlock* block);
 
   inline raw_ostream& debug() {
     return _stream;
