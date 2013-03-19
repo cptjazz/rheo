@@ -21,7 +21,7 @@
 
 #define STOP_ON_CANCEL if (canceledInspection) return
 #define DEBUG_LOG(x) DEBUG(debug() << x)
-#define PROFILE_LOG(x) /* DEBUG(debug() << x) */
+#define PROFILE_LOG(x) DEBUG(debug() << x)
 
 using namespace llvm;
 using namespace std;
@@ -90,7 +90,6 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
     long t = Helper::getTimestamp();
     DEBUG_LOG("Ret-set for `" << retval << "`:\n");
     printSet(retTaintSet);
-    DEBUG_LOG("\n");
     PROFILE_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     t = Helper::getTimestamp();
@@ -160,7 +159,6 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n");
   printSet(taintSet);
-  DEBUG_LOG("\n");
 }
 
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
@@ -202,6 +200,8 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
+    if (isa<PHINode>(inst))
+      handlePhiNode(cast<PHINode>(inst), taintSet);
     else if (isa<StoreInst>(inst))
       handleStoreInstruction(cast<StoreInst>(inst), taintSet);
     else if (isa<CallInst>(inst))
@@ -213,7 +213,8 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     else
       handleInstruction(inst, taintSet);
 
-    PROFILE_LOG(" Processing instruction took " << Helper::getTimestampDelta(t) << " µs\n");
+    PROFILE_LOG(" Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode()) 
+        << "' took " << Helper::getTimestampDelta(t) << " µs\n");
   }
 }
 
@@ -441,6 +442,31 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
   }
 }
 
+void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
+  for (size_t j = 0; j < inst.getNumIncomingValues(); ++j) {
+    BasicBlock& incomingBlock = *inst.getIncomingBlock(j);
+    Value& incomingValue = *inst.getIncomingValue(j);
+
+    // We need to handle block-tainting here, because
+    // with PHI nodes, the effective assignment is no
+    // longer in the previous block, but in the PHI.
+    // If you assign constants in the block and the block
+    // is tainted by an if, we would not see this taint,
+    // because our logic would say: "is <const 7> tainted. "no".
+    // Without phi we would have an explicit (block tainted) assignment
+    // or store in the block.
+    if (Helper::setContains(taintSet, incomingBlock)) {
+      DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
+      addTaintToSet(taintSet, inst);
+      DOT.addRelation(incomingBlock, inst, "phi-block");
+    } else if (Helper::setContains(taintSet, incomingValue)) {
+      DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
+      addTaintToSet(taintSet, inst);
+      DOT.addRelation(incomingValue, inst, "phi-value");
+    }
+  }
+}
+
 void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet) {
   DEBUG_LOG(" Handle BRANCH instruction: " << inst << "\n");
   
@@ -484,7 +510,7 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
     if (_taintSetChanged) {
       const BasicBlock* target = inst.getSuccessor(0);
       enqueueBlockToWorklist(target);
-      DEBUG_LOG("Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP");
+      DEBUG_LOG("Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP\n");
     }
   }
 }
@@ -666,6 +692,8 @@ void FunctionProcessor::printSet(const TaintSet& s) {
   for (TaintSet::const_iterator i = s.begin(), e = s.end(); i != e; ++i) {
     DEBUG_LOG(**i << " | ");
   }
+  
+  DEBUG_LOG("\n");
 } 
 
 void FunctionProcessor::findReturnStatements() {
@@ -683,14 +711,6 @@ void FunctionProcessor::findReturnStatements() {
         } else {
           addTaintToSet(taintSet, *retval);
           DEBUG_LOG(" + Added NON-CONST RETURN VALUE `" << retval << "`\n");
-        }
-
-        if (isa<PHINode>(retval)) {
-          const PHINode& phi = cast<PHINode>(*retval);
-          for (size_t j = 0; j < phi.getNumIncomingValues(); ++j) {
-            DEBUG_LOG(" + Added PHI block" << *phi.getIncomingBlock(j) << "\n");
-            addTaintToSet(taintSet, *phi.getIncomingBlock(j));
-          }
         }
 
         _returnStatements.insert(make_pair(&r, taintSet));

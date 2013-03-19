@@ -70,6 +70,7 @@ private:
   void handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet);
   void handleInstruction(const Instruction& inst, TaintSet& taintSet);
   void handleBlockTainting(const Instruction& inst, const BasicBlock& currentblock, TaintSet& taintSet);
+  void handlePhiNode(const PHINode& inst, TaintSet& taintSet);
 
   void findArguments();
   void handleFoundArgument(const Value& arg);
