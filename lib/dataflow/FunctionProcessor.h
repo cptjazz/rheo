@@ -79,7 +79,7 @@ private:
   void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func, ResultSet& taintResults);
+  void readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
   void recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet);
@@ -90,6 +90,8 @@ private:
   void applyMeet(const BasicBlock& block);
   void enqueueBlockToWorklist(const BasicBlock* block);
   int getArgumentPosition(const CallInst& c, const Value& v);
+  int getArgumentPosition(const Function& f, const Value& v);
+  void buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
 
   inline raw_ostream& debug() {
     return _stream;

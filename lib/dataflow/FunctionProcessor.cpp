@@ -345,7 +345,7 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
@@ -363,22 +363,28 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
     DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
     const Value* arg = callInst.getArgOperand(paramPos);
 
-    if (Helper::setContains(taintSet, *arg)) {
-      if (retvalPos == -1) {
-        DEBUG_LOG(" + Added retval taint `" << callInst << "`\n");
-        taintResults.insert(make_pair(arg, &callInst));
-      }
-      else {
-        const Value* returnTarget = callInst.getArgOperand(retvalPos);
-        DEBUG_LOG(" + Added out-argument taint `" << returnTarget->getName() << "`\n");
-        taintResults.insert(make_pair(arg, returnTarget));
-      }
-
-      DEBUG_LOG("  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n");
+    if (retvalPos == -1) {
+      taintResults.insert(make_pair(arg, &callInst));
+    }
+    else {
+      const Value* returnTarget = callInst.getArgOperand(retvalPos);
+      taintResults.insert(make_pair(arg, returnTarget));
     }
   }
 
   delete(taints);
+}
+
+void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+  for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
+    int inPos = getArgumentPosition(func, *i->first);
+    int outPos = getArgumentPosition(func, *i->second);
+
+    Value* inVal = callInst.getArgOperand(inPos);
+    const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
+
+    taintResults.insert(make_pair(inVal, outVal));
+  }
 }
 
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
@@ -399,13 +405,14 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       buildResultSet();
       PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
-      taintResults = _taints;
+      buildMappingForRecursiveCall(callInst, *callee, taintResults);
 
-    } else if (_circularReferences.count(callee)) {
+    } else if (_circularReferences.count(make_pair(&F, callee))) {
+      DEBUG_LOG("callin with circular reference: " << F.getName() << " <--> " << callee->getName() << "\n");
 
     } else {
       t = Helper::getTimestamp();
-      readTaintsFromFile(taintSet, callInst, *callee, taintResults);
+      readTaintsFromFile(callInst, *callee, taintResults);
       PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
     }
 
@@ -446,6 +453,17 @@ int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
   for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
     if (c.getArgOperand(0) == &v)
       return i;
+  }
+
+  return -1;
+}
+
+int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
+
+  int j = 0;
+  for (Function::const_arg_iterator i = f.arg_begin(), e = f.arg_end(); i != e; ++i, ++j) {
+    if (&*i == &v)
+      return j;
   }
 
   return -1;

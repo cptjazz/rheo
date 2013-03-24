@@ -43,7 +43,13 @@ namespace {
     }
 
     void findCallGraphChildren(const CallGraphNode* node, const CallGraphNode* startNode) {
-      DEBUG(errs() << "find children: " << node->getFunction()->getName() << " -- " << startNode->getFunction()->getName() << "\n");
+      DEBUG(errs() << "find children: " << node->getFunction()->getName() 
+          << " -- " << startNode->getFunction()->getName() << "\n");
+
+      // Detected self-recursion
+      if (node == startNode)
+        return;
+
       for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
         const CallGraphNode* kid = i->second;
 
@@ -128,16 +134,9 @@ namespace {
     bool runOnFunction(Function& func, ResultSet& result) {
       errs() << "## Running analysis for `" << func.getName() << "`\n";
 
-      //DominatorTree* dt = getAnalysisIfAvailable<DominatorTree>(func);
       DominatorTree& dt = getAnalysis<DominatorTree>(func);
       PostDominatorTree& pdt = getAnalysis<PostDominatorTree>(func);
-      //PostDominatorTree* pdt = getAnalysisIfAvailable<PostDominatorTree>(func);
 
-      /*if (!dt || !pdt) {
-        errs() << "Skipping `" << func.getName() << "`\n";
-	      return false;
-      }*/
-      
       long time = Helper::getTimestamp();
 
       FunctionProcessor proc(func, _circularReferences, *func.getParent(), dt, pdt, result, errs());
