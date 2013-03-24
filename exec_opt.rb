@@ -8,7 +8,7 @@ opt_args = ARGV[1..ARGV.length].join " " if ARGV.length > 1
 puts "\n"
 puts file
 puts "###########################################"
-`opt -load Debug+Asserts/lib/dataflow.so -o /dev/null #{opt_args} -instnamer -dataflow < #{file}`
+`opt -load Debug+Asserts/lib/dataflow.so -o /dev/null #{opt_args} -debug -instnamer -dataflow < #{file}`
 
 Dir.glob("*.dot") do |dot|
   `dot -Tpdf #{dot} > #{dot}.pdf`
