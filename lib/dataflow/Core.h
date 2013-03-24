@@ -15,5 +15,6 @@ typedef SmallPtrSet<const Value*, 256> ReturnSet;
 typedef map<const Value*, TaintSet> TaintMap;
 typedef pair<const Value*, const Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
+typedef map<const Function*, const Function*> FunctionMap;
 
 #endif // CORE_H

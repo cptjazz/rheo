@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include "GraphExporter.h"
 #include "FunctionProcessor.h"
-#include "PerFunctionFlow.cpp"
 #include "TaintFile.h"
 
 using namespace llvm;
@@ -32,14 +31,15 @@ namespace {
     static char ID;
     queue<Function*> _functionQueue;
     map<Function*, int> _occurrenceCount;
-    map<Function*, Function*> _circularReferences;
+    FunctionMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
 
     Dataflow() : ModulePass(ID) { }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<PerFunctionFlow>();
       AU.addRequired<CallGraph>();
+      AU.addRequired<DominatorTree>();
+      AU.addRequired<PostDominatorTree>();
     }
 
     void findCallGraphChildren(const CallGraphNode* node, const CallGraphNode* startNode) {
@@ -87,7 +87,7 @@ namespace {
         _occurrenceCount.insert(pair<Function*, int>(f, 1));
       }
 
-      for (map<Function*, Function*>::iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
+      for (FunctionMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
         errs() << "Founc circ-ref: " << f_i->first->getName() << " <--> " << f_i->second->getName() << "\n";
       }
 
@@ -114,21 +114,41 @@ namespace {
       errs() << "# Run per function pass on `" << func.getName() << "`\n";
       errs() << "__log:start:" << func.getName() << "\n";
 
-      PerFunctionFlow& pff = getAnalysis<PerFunctionFlow>(func);
-      if (pff.getState() == Skip) {
+      ResultSet result;
+      bool state = runOnFunction(func, result);
+
+      if (!state) {
         errs() << "Skipping `" << func.getName() << "`\n";
         return;
       }
 
-      if (pff.getState() == Deferred) {
-        errs() << "__log:defer:" << func.getName() << ": Deferring `" << func.getName() << "`\n";
-        TaintFile::remove(func);
-        _functionQueue.push(&func); 
-        return;
-      }
-
-      ResultSet& result = pff.getResult();
       TaintFile::writeResult(func, result);
+    }
+    
+    bool runOnFunction(Function& func, ResultSet& result) {
+      errs() << "## Running analysis for `" << func.getName() << "`\n";
+
+      //DominatorTree* dt = getAnalysisIfAvailable<DominatorTree>(func);
+      DominatorTree& dt = getAnalysis<DominatorTree>(func);
+      PostDominatorTree& pdt = getAnalysis<PostDominatorTree>(func);
+      //PostDominatorTree* pdt = getAnalysisIfAvailable<PostDominatorTree>(func);
+
+      /*if (!dt || !pdt) {
+        errs() << "Skipping `" << func.getName() << "`\n";
+	      return false;
+      }*/
+      
+      long time = Helper::getTimestamp();
+
+      FunctionProcessor proc(func, _circularReferences, *func.getParent(), dt, pdt, result, errs());
+      proc.processFunction();
+      bool finished = proc.didFinish();
+
+      time = Helper::getTimestampDelta(time);
+      
+      errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
+
+      return finished;
     }
   };
 }
@@ -136,5 +156,4 @@ namespace {
 char Dataflow::ID = 0;
 
 static RegisterPass<Dataflow> Y("dataflow", "Data-flow analysis", true, true);
-static RegisterPass<PerFunctionFlow> X("per-function-flow", "Data-flow analysis for one function", true, true);
 

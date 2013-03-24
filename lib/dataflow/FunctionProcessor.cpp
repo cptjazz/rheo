@@ -345,7 +345,7 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func) {
+void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func, ResultSet& taintResults) {
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
@@ -361,35 +361,17 @@ void FunctionProcessor::readTaintsFromFile(TaintSet& taintSet, const CallInst& c
     int retvalPos = i->second;
 
     DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
-    Value* arg = callInst.getArgOperand(paramPos);
+    const Value* arg = callInst.getArgOperand(paramPos);
 
     if (Helper::setContains(taintSet, *arg)) {
-      stringstream reas("");
-      reas << "in, arg#" << paramPos;
-
-      DOT.addCallNode(func);
-      DOT.addRelation(*arg, func, reas.str());
-
       if (retvalPos == -1) {
         DEBUG_LOG(" + Added retval taint `" << callInst << "`\n");
-        addTaintToSet(taintSet, callInst);
-        DOT.addRelation(func, callInst, "ret");
+        taintResults.insert(make_pair(arg, &callInst));
       }
       else {
-        Value* returnTarget = callInst.getArgOperand(retvalPos);
+        const Value* returnTarget = callInst.getArgOperand(retvalPos);
         DEBUG_LOG(" + Added out-argument taint `" << returnTarget->getName() << "`\n");
-        addTaintToSet(taintSet, *returnTarget);
-        stringstream outReas("");
-        outReas << "out, arg#" << retvalPos;
-        DOT.addRelation(func, *returnTarget, outReas.str());
-
-        // Value is a pointer, so the previous load is also tainted.
-        if (isa<LoadInst>(returnTarget)) {
-          Value* op = (cast<LoadInst>(returnTarget))->getOperand(0);
-          addTaintToSet(taintSet, *op);
-          DEBUG_LOG(" ++ Added previous load: " << *returnTarget << "\n");
-          DOT.addRelation(*op, *returnTarget, "load");
-        }
+        taintResults.insert(make_pair(arg, returnTarget));
       }
 
       DEBUG_LOG("  - Argument `" << *arg << "` taints f-param at pos #" << paramPos << "\n");
@@ -406,21 +388,67 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
   if (callee != NULL) {
     DEBUG_LOG(" * Calling function `" << callee->getName() << "`\n");
 
-    // build intermediate taint sets
-    long t = Helper::getTimestamp();
-    buildResultSet();
-    PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
+    ResultSet taintResults;
+    long t;
 
-    t = Helper::getTimestamp();
-    TaintFile::writeResult(F, _taints);
-    PROFILE_LOG(" writeResult() took " << Helper::getTimestampDelta(t) << "\n");
+    DOT.addCallNode(*callee);
 
-    t = Helper::getTimestamp();
-    readTaintsFromFile(taintSet, callInst, *callee);
-    PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
+    if (callee == &F) {
+      // build intermediate taint sets
+      t = Helper::getTimestamp();
+      buildResultSet();
+      PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
+
+      taintResults = _taints;
+
+    } else if (_circularReferences.count(callee)) {
+
+    } else {
+      t = Helper::getTimestamp();
+      readTaintsFromFile(taintSet, callInst, *callee, taintResults);
+      PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
+    }
+
+    for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
+      const Value& in = *i->first;
+      const Value& out = *i->second;
+
+      stringstream reas("");
+      reas << "in, arg#" << getArgumentPosition(callInst, in);
+      DOT.addRelation(in, *callee, reas.str());
+
+      if (Helper::setContains(taintSet, in)) {
+        addTaintToSet(taintSet, out);
+        if (&out == &callInst) {
+          DOT.addRelation(*callee, callInst, "ret");
+        } else {
+          stringstream outReas("");
+          outReas << "out, arg#" << getArgumentPosition(callInst, out);
+          DOT.addRelation(*callee, out, outReas.str());
+        }
+
+        // Value is a pointer, so the previous load is also tainted.
+        if (isa<LoadInst>(out)) {
+          Value* op = (cast<LoadInst>(out)).getOperand(0);
+          addTaintToSet(taintSet, *op);
+          DEBUG_LOG(" ++ Added previous load: " << out << "\n");
+          DOT.addRelation(*op, out, "load");
+        }
+      }
+    }
+
   } else {
     DEBUG_LOG(" ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n");
   }
+}
+
+int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
+  for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
+    if (c.getArgOperand(0) == &v)
+      return i;
+  }
+
+  return -1;
 }
 
 void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {

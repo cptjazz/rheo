@@ -36,6 +36,7 @@ class FunctionProcessor {
   ResultSet& _taints;
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
+  FunctionMap& _circularReferences;
 
   raw_ostream& _stream;
 
@@ -44,8 +45,8 @@ class FunctionProcessor {
   bool _resultSetChanged;
 
 public:
-  FunctionProcessor(Function& f, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), M(m), _taints(result), _stream(stream)  { 
+  FunctionProcessor(Function& f, FunctionMap& circRef, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
+  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), M(m), _taints(result), _circularReferences(circRef), _stream(stream) { 
     canceledInspection = false;
   }
 
@@ -78,7 +79,7 @@ private:
   void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func);
+  void readTaintsFromFile(TaintSet& taintSet, const CallInst& callInst, const Function& func, ResultSet& taintResults);
   bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
   void recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet);
@@ -88,6 +89,7 @@ private:
   bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
   void applyMeet(const BasicBlock& block);
   void enqueueBlockToWorklist(const BasicBlock* block);
+  int getArgumentPosition(const CallInst& c, const Value& v);
 
   inline raw_ostream& debug() {
     return _stream;
