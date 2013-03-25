@@ -33,6 +33,7 @@ namespace {
     map<Function*, int> _occurrenceCount;
     FunctionMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
+    set<Function*> _avoidInfiniteLoopHelper;
 
     Dataflow() : ModulePass(ID) { }
 
@@ -42,63 +43,88 @@ namespace {
       AU.addRequired<PostDominatorTree>();
     }
 
-    void findCallGraphChildren(const CallGraphNode* node, const CallGraphNode* startNode) {
-      DEBUG(errs() << "find children: " << node->getFunction()->getName() 
-          << " -- " << startNode->getFunction()->getName() << "\n");
-
-      // Detected self-recursion
-      if (node == startNode)
-        return;
+    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node) {
+      Function* f = node->getFunction();
 
       for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
         const CallGraphNode* kid = i->second;
 
+        if (!kid->getFunction())
+          continue;
+
+        if (_avoidInfiniteLoopHelper.count(kid->getFunction())) {
+          continue;
+        }
+
+        _avoidInfiniteLoopHelper.insert(kid->getFunction());
+        enqueueFunctionsInCorrectOrder(kid);
+      }
+
+      // Skip external (library) functions
+      if (f && f->size()) {
+        addFunctionForProcessing(f);
+      }
+    }
+
+    void buildCircularReferenceInfo(const CallGraphNode* node, const CallGraphNode* startNode) {
+      for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
+        const CallGraphNode* kid = i->second;
+       
         if (kid == startNode) {
           // Found circle.
-
           _circularReferences.insert(make_pair(node->getFunction(), startNode->getFunction()));
           continue;
         }
 
-        if (kid->getFunction())
-          findCallGraphChildren(kid, startNode);
-      }
+        Function* f = kid->getFunction();
+        if (_avoidInfiniteLoopHelper.count(f))
+          // Already processed
+          continue;
 
-      Function* f = node->getFunction();
-      addFunctionForProcessing(f);
+        _avoidInfiniteLoopHelper.insert(f);
+        buildCircularReferenceInfo(kid, startNode);
+      }
     }
 
     void addFunctionForProcessing(Function* f) {
       if (!_queuedFunctionHelper.count(f)) {
         _functionQueue.push(f);
         _queuedFunctionHelper.insert(f);
+        DEBUG(errs() << "Enqueued: " << f->getName() << "\n");
       }
     }
 
     virtual bool runOnModule(Module &module) {
       CallGraph& CG = getAnalysis<CallGraph>();
 
+      _queuedFunctionHelper.clear();
+      _avoidInfiniteLoopHelper.clear();
+
+      enqueueFunctionsInCorrectOrder(CG.getRoot());
+
+      _avoidInfiniteLoopHelper.clear();
       for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
         Function* f = &*i;
-
-        // Skip if function was already processed.
-        if (TaintFile::exists(*f))
-          continue;
-
-        const CallGraphNode* node = CG[f];
-
-        findCallGraphChildren(node, node);
-        addFunctionForProcessing(f);
-        
         _occurrenceCount.insert(pair<Function*, int>(f, 1));
       }
 
+      for (CallGraphNode::const_iterator i = CG.getRoot()->begin(), e = CG.getRoot()->end(); i != e; ++i) { 
+        const CallGraphNode* kid = i->second;
+        buildCircularReferenceInfo(kid, kid);
+      }
+
       for (FunctionMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
-        errs() << "Founc circ-ref: " << f_i->first->getName() << " <--> " << f_i->second->getName() << "\n";
+        DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " <--> " << f_i->second->getName() << "\n");
       }
 
       while (!_functionQueue.empty()) {
         Function* f = _functionQueue.front();
+
+        // Skip if function was already processed.
+        if (TaintFile::exists(*f)) {
+          _functionQueue.pop();
+          continue;
+        }
 
         if (_occurrenceCount[f]++ > 3) {
           errs() << "__error:PANIC: detected endless loop. Aborting.\n";
@@ -113,10 +139,6 @@ namespace {
     }
 
     void processFunction(Function& func) {
-      // Skip external (library) functions
-      if (!func.size())
-        return;
-
       errs() << "# Run per function pass on `" << func.getName() << "`\n";
       errs() << "__log:start:" << func.getName() << "\n";
 
@@ -132,8 +154,6 @@ namespace {
     }
     
     bool runOnFunction(Function& func, ResultSet& result) {
-      errs() << "## Running analysis for `" << func.getName() << "`\n";
-
       DominatorTree& dt = getAnalysis<DominatorTree>(func);
       PostDominatorTree& pdt = getAnalysis<PostDominatorTree>(func);
 
