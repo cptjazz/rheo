@@ -41,9 +41,14 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node) {
     enqueueFunctionsInCorrectOrder(kid);
   }
 
+  if (!f)
+    return;
+
   // Skip external (library) functions
-  if (f && f->size()) {
+  if (f->size()) {
     addFunctionForProcessing(f);
+  } else {
+    DEBUG(errs() << "Skip enqueue (external): " << f->getName() << "\n");
   }
 }
 

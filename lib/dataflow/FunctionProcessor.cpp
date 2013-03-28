@@ -351,7 +351,7 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
-    DEBUG_LOG(" -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
+    _stream << "__error:Cannot find definition of `" << func.getName() << "`.\n";
     _canceledInspection = true;
     return;
   }
