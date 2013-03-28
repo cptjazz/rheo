@@ -18,6 +18,7 @@
 #include "GraphExporter.h"
 #include "Helper.h"
 #include "Core.h"
+#include "TaintFlowPass.h" 
 
 
 using namespace llvm;
@@ -45,8 +46,10 @@ class FunctionProcessor {
   bool _resultSetChanged;
 
 public:
-  FunctionProcessor(Function& f, FunctionMap& circRef, Module& m, DominatorTree& dt, PostDominatorTree& pdt, ResultSet& result, raw_ostream& stream) 
-  : F(f), DT(dt), PDT(pdt), DOT(f.getName()), M(m), _taints(result), _circularReferences(circRef), _stream(stream) { 
+  FunctionProcessor(TaintFlowPass& pass, Function& f, FunctionMap& circRef, Module& m, ResultSet& result, raw_ostream& stream) 
+  : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), DOT(f.getName()), M(m),
+    _taints(result), _circularReferences(circRef), _stream(stream)
+  { 
     canceledInspection = false;
   }
 
