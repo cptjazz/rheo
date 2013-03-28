@@ -19,7 +19,7 @@
 #include "FunctionProcessor.h"
 #include "TaintFile.h" 
 
-#define STOP_ON_CANCEL if (canceledInspection) return
+#define STOP_ON_CANCEL if (_canceledInspection) return
 #define DEBUG_LOG(x) DEBUG(debug() << x)
 #define PROFILE_LOG(x) DEBUG(debug() << x)
 
@@ -27,7 +27,7 @@ using namespace llvm;
 using namespace std;
 
 bool FunctionProcessor::didFinish() {
-  return !canceledInspection;
+  return !_canceledInspection;
 }
 
 void FunctionProcessor::processFunction() {
@@ -56,9 +56,10 @@ void FunctionProcessor::processFunction() {
     }
 
     buildResultSet();
-  } while (resultIteration < 10 && _resultSetChanged);
+  } while (resultIteration < 100 && _resultSetChanged);
 
-  printTaints();
+  if (!_suppressPrintTaints)
+    printTaints();
 }
 
 void FunctionProcessor::buildResultSet() {
@@ -180,9 +181,10 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 }
 
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
-  _taints.insert(make_pair(&tainter, &taintee));
-  _resultSetChanged = true;
-  DEBUG_LOG("Added taint. Result set changed.\n");
+  if (_taints.insert(make_pair(&tainter, &taintee)).second) {
+    _resultSetChanged = true;
+    DEBUG_LOG("Added taint. Result set changed.\n");
+  }
 }
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
@@ -350,7 +352,7 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
 
   if (!taints) {
     DEBUG_LOG(" -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
-    canceledInspection = true;
+    _canceledInspection = true;
     return;
   }
 
@@ -390,6 +392,7 @@ void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, c
 void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
   ResultSet refResult;
   FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
+  refFp._suppressPrintTaints = true;
   refFp.processFunction();
 
   for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
@@ -433,6 +436,8 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
         TaintFile::writeResult(F, _taints);
 
         buildMappingForCircularReferenceCall(callInst, *callee, taintResults);
+
+        TaintFile::remove(F);
       }
     } else {
       t = Helper::getTimestamp();

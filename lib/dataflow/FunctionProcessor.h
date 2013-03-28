@@ -42,16 +42,18 @@ class FunctionProcessor {
 
   raw_ostream& _stream;
 
-  bool canceledInspection;
+  bool _canceledInspection;
   bool _taintSetChanged;
   bool _resultSetChanged;
+  bool _suppressPrintTaints;
 
 public:
   FunctionProcessor(TaintFlowPass& pass, const Function& f, FunctionMap& circRef, const Module& m, ResultSet& result, raw_ostream& stream) 
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), DOT(f.getName()), M(m),
     PASS(pass), _taints(result), _circularReferences(circRef), _stream(stream)
   { 
-    canceledInspection = false;
+    _canceledInspection = false;
+    _suppressPrintTaints = false;
   }
 
   ~FunctionProcessor() {
