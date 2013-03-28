@@ -387,6 +387,22 @@ void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, c
   }
 }
 
+void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+  ResultSet refResult;
+  FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
+  refFp.processFunction();
+
+  for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
+    int inPos = getArgumentPosition(func, *i->first);
+    int outPos = getArgumentPosition(func, *i->second);
+
+    Value* inVal = callInst.getArgOperand(inPos);
+    const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
+
+    taintResults.insert(make_pair(inVal, outVal));
+  }
+}
+
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
@@ -408,8 +424,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       buildMappingForRecursiveCall(callInst, *callee, taintResults);
 
     } else if (_circularReferences.count(make_pair(&F, callee))) {
-      DEBUG_LOG("callin with circular reference: " << F.getName() << " <--> " << callee->getName() << "\n");
+      DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee->getName() << "\n");
 
+      if (TaintFile::exists(*callee)) {
+        readTaintsFromFile(callInst, *callee, taintResults);
+      } else {
+        buildResultSet();
+        TaintFile::writeResult(F, _taints);
+
+        buildMappingForCircularReferenceCall(callInst, *callee, taintResults);
+      }
     } else {
       t = Helper::getTimestamp();
       readTaintsFromFile(callInst, *callee, taintResults);

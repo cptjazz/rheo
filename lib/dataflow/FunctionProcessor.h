@@ -31,6 +31,7 @@ class FunctionProcessor {
   PostDominatorTree& PDT;
   GraphExporter DOT;
   const Module& M;
+  TaintFlowPass& PASS;
 
   TaintMap _returnStatements;
   TaintMap _arguments;
@@ -46,9 +47,9 @@ class FunctionProcessor {
   bool _resultSetChanged;
 
 public:
-  FunctionProcessor(TaintFlowPass& pass, Function& f, FunctionMap& circRef, Module& m, ResultSet& result, raw_ostream& stream) 
+  FunctionProcessor(TaintFlowPass& pass, const Function& f, FunctionMap& circRef, const Module& m, ResultSet& result, raw_ostream& stream) 
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), DOT(f.getName()), M(m),
-    _taints(result), _circularReferences(circRef), _stream(stream)
+    PASS(pass), _taints(result), _circularReferences(circRef), _stream(stream)
   { 
     canceledInspection = false;
   }
@@ -95,6 +96,7 @@ private:
   int getArgumentPosition(const CallInst& c, const Value& v);
   int getArgumentPosition(const Function& f, const Value& v);
   void buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
+  void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
 
   inline raw_ostream& debug() {
     return _stream;

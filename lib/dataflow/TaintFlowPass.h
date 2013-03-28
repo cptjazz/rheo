@@ -44,8 +44,8 @@ public:
     TaintFlowPass() : ModulePass(ID) { }
 
     template<class TDep>
-    TDep& getDependency(Function& f) {
-      return getAnalysis<TDep>(f);
+    TDep& getDependency(const Function& f) {
+      return getAnalysis<TDep>(const_cast<Function&>(f));
     }
 
   };
