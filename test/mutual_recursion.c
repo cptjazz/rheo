@@ -12,6 +12,9 @@ char isOdd(int number);
 char isEven_2(int number);
 char isOdd_2(int number);
 
+int mutual_first(int a, int b, int* c);
+int mutual_second(int a, int* b, int c);
+
 // __expected:isEven(number => $_retval)
 char isEven(int number) {
   if (number == 0)
@@ -31,7 +34,7 @@ char isOdd(int number) {
 // __expected:isEven_2(number => $_retval)
 char isEven_2(int number) {
   if (number)
-    isOdd_2(abs(number) - 1);
+    return isOdd_2(abs(number) - 1);
 
   return 0;
 }
@@ -39,7 +42,30 @@ char isEven_2(int number) {
 // __expected:isOdd_2(number => $_retval)
 char isOdd_2(int number) {
   if (number)
-    isEven_2(abs(number) - 1);
+    return isEven_2(abs(number) - 1);
 
   return 0;
+}
+
+// __expected:mutual_first(a => $_retval, b => c, a => c)
+int mutual_first(int a, int b, int* c) {
+
+  if (a)
+    return mutual_second(a % 5, c, b);
+  else
+    return 0;
+
+}
+
+// __expected:mutual_second(c => $_retval, a => b, c => b)
+int mutual_second(int a, int* b, int c) {
+
+  if (c) {
+    int x = mutual_first(c, a, b);
+    *b = a + x;
+    return x;
+  }
+  else
+    return 0;
+
 }
