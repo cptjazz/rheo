@@ -35,7 +35,7 @@ def analyse(args)
   file = "/tmp/taint-flow.bc"
 
   FileUtils.cd(dir) do 
-    `llvm-link *.bc -o #{file}`
+    #`llvm-link *.bc -o #{file}`
   end
   
   FileUtils.rm_rf("output")
