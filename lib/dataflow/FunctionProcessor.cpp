@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include "FunctionProcessor.h"
 #include "TaintFile.h" 
+#include "IntrinsicHelper.h" 
 
 #define STOP_ON_CANCEL if (_canceledInspection) return
 #define DEBUG_LOG(x) DEBUG(debug() << x)
@@ -357,7 +358,11 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
   }
 
   FunctionTaintMap& mapping = taints->getMapping();
+  createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+  delete(taints);
+}
 
+void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults) {
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
@@ -373,8 +378,6 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
       taintResults.insert(make_pair(arg, returnTarget));
     }
   }
-
-  delete(taints);
 }
 
 void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
@@ -425,6 +428,17 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
       buildMappingForRecursiveCall(callInst, *callee, taintResults);
+
+    } else if (callee->isIntrinsic()) {
+      DEBUG_LOG("handle intrinsic call: " << F.getName() << "\n");
+
+      FunctionTaintMap mapping;
+      if (IntrinsicHelper::getMapping(*callee, mapping)) {
+        createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+      } else {
+        _stream << "__error:Cannot find definition of `" << callee->getName() << "`.\n";
+        _canceledInspection = true;
+      }
 
     } else if (_circularReferences.count(make_pair(&F, callee))) {
       DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee->getName() << "\n");

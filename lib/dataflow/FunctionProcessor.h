@@ -99,6 +99,7 @@ private:
   int getArgumentPosition(const Function& f, const Value& v);
   void buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
+  void createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults);
 
   inline raw_ostream& debug() {
     return _stream;

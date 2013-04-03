@@ -10,7 +10,6 @@
 using namespace std;
 using namespace llvm;
 
-typedef map<int, int> FunctionTaintMap;
 
 class TaintFile {
 public:
