@@ -63,8 +63,8 @@ public:
   bool didFinish();
 
 private:
-  void intersectSets(const Value& arg, const TaintSet argTaintSet);
-  void buildResultSet();
+  void intersectSets(const Value& arg, const TaintSet argTaintSet, const bool debugPrintSet);
+  void buildResultSet(const bool debugPrintSet);
   void buildTaintSetFor(const Value& arg, TaintSet& taintSet);
   void addTaint(const Value& tainter, const Value& taintee);
   void processBasicBlock(const BasicBlock& block, TaintSet& taintSet);

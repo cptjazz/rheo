@@ -56,14 +56,14 @@ void FunctionProcessor::processFunction() {
       resultIteration++;
     }
 
-    buildResultSet();
+    buildResultSet(true);
   } while (resultIteration < 100 && _resultSetChanged);
 
   if (!_suppressPrintTaints)
     printTaints();
 }
 
-void FunctionProcessor::buildResultSet() {
+void FunctionProcessor::buildResultSet(const bool debugPrintSet) {
 
   TaintMap::const_iterator arg_i = _arguments.begin();
   TaintMap::const_iterator arg_e = _arguments.end();
@@ -72,11 +72,11 @@ void FunctionProcessor::buildResultSet() {
     const Value& arg = *arg_i->first;
     const TaintSet& taintSet = arg_i->second;
 
-    intersectSets(arg, taintSet);
+    intersectSets(arg, taintSet, debugPrintSet);
   }
 }
 
-void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintSet) {
+void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintSet, const bool debugPrintSet) {
   TaintMap::const_iterator ret_i = _returnStatements.begin();
   TaintMap::const_iterator ret_e = _returnStatements.end();
 
@@ -91,7 +91,8 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
 
     long t = Helper::getTimestamp();
     DEBUG_LOG("Ret-set for `" << retval << "`:\n");
-    printSet(retTaintSet);
+    if (debugPrintSet)
+      printSet(retTaintSet);
     PROFILE_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     t = Helper::getTimestamp();
@@ -329,8 +330,8 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   if (NULL == succ || NULL == pred)
     return false;
 
-  DEBUG_LOG("CFG SUCC recursion for succ = `" << *succ
-          << "` and pred = `" << *pred << "`\n");
+  DEBUG_LOG("CFG SUCC recursion for succ = `" << succ->getName()
+          << "` and pred = `" << pred->getName() << "`\n");
 
   if (pred == succ)
     return true;
@@ -338,7 +339,8 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   for (const_pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
     if (usedList.count(*i))
       continue;
-  DEBUG_LOG(**i << "\n");
+
+    DEBUG_LOG(**i << "\n");
 
     usedList.insert(*i);
     if (isCfgSuccessor(*i, pred, usedList))
@@ -363,6 +365,8 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
 }
 
 void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults) {
+  long t = Helper::getTimestamp();
+
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
@@ -378,9 +382,13 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
       taintResults.insert(make_pair(arg, returnTarget));
     }
   }
+
+  PROFILE_LOG("createResultSetFromFunctionMapping() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+  long t = Helper::getTimestamp();
+
   for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
@@ -390,9 +398,13 @@ void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, c
 
     taintResults.insert(make_pair(inVal, outVal));
   }
+
+  PROFILE_LOG("buildMappingForRecursiveCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+  long t = Helper::getTimestamp();
+
   ResultSet refResult;
   FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
   refFp._suppressPrintTaints = true;
@@ -407,6 +419,8 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
 
     taintResults.insert(make_pair(inVal, outVal));
   }
+
+  PROFILE_LOG("buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
@@ -424,7 +438,7 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     if (callee == &F) {
       // build intermediate taint sets
       t = Helper::getTimestamp();
-      buildResultSet();
+      buildResultSet(false);
       PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
       buildMappingForRecursiveCall(callInst, *callee, taintResults);
@@ -446,7 +460,7 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       if (TaintFile::exists(*callee)) {
         readTaintsFromFile(callInst, *callee, taintResults);
       } else {
-        buildResultSet();
+        buildResultSet(false);
         TaintFile::writeResult(F, _taints);
 
         buildMappingForCircularReferenceCall(callInst, *callee, taintResults);
@@ -698,7 +712,9 @@ void FunctionProcessor::findArguments() {
   }
 
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
-    handleFoundArgument(*g_i);
+    // Skip constants (eg. string literals)
+    if (!g_i->isConstant())
+      handleFoundArgument(*g_i);
   }
 }
 
