@@ -8,5 +8,6 @@ int ternary_1(int a) {
 
 // __expected:ternary_2(a => $_retval)
 int ternary_2(int a) {
+  // __define:rand()
   return rand() > 0.5 ? a : 0; 
 }

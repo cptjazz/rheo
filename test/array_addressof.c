@@ -8,6 +8,7 @@ int get_some_index(int i, int j) {
 // __expected:create_2d_array(l => neighbours, values => neighbours)
 void create_2d_array(short* values, short*** neighbours, int l) {
   for (int i = 0; i < l * l; i++) {
+    // __define:malloc()
     neighbours[i] = (short**) malloc(sizeof(short*) * 4);
 
     for (int j = 0; j < 4; j++)

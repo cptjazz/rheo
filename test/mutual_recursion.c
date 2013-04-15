@@ -15,6 +15,8 @@ char isOdd_2(int number);
 int mutual_first(int a, int b, int* c);
 int mutual_second(int a, int* b, int c);
 
+// __define:abs(0 => $_retval)
+
 // __expected:isEven(number => $_retval)
 char isEven(int number) {
   if (number == 0)
@@ -47,7 +49,7 @@ char isOdd_2(int number) {
   return 0;
 }
 
-// __expected:mutual_first(a => $_retval, b => c, a => c)
+// __expected:mutual_first(a => $_retval, b => $_retval, b => c, a => c)
 int mutual_first(int a, int b, int* c) {
 
   if (a)

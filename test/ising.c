@@ -126,6 +126,7 @@ void measure(short* spins, short*** neighbours, int l, double j, double h, doubl
 	m /= (double) MEAS;
 	m2 /= (double) MEAS;
 	
+  // __define:sqrt(0 => $_retval)
 	(*energy) = e;
 	(*energy2) = sqrt(e2 - e * e);
 	(*magnetization) = m;
@@ -141,6 +142,7 @@ void create_lattice(short* spins, int l) {
 // __expected:create_neighbours(l => neighbours, spins => neighbours)
 void create_neighbours(short* spins, short*** neighbours, int l) {
 	for (int i = 0; i < l * l; i++) {
+    // __define:malloc()
 		neighbours[i] = (short**) malloc(sizeof(short*) * 4);
 		
 		for (int j = 0; j < 4; j++)
@@ -153,12 +155,16 @@ void write_file(double j, double* kT, double* energies, double* magnetization, d
 	char filename[255];
 	FILE *fp;
 	
+  // __define:sprintf()
+  // __define:fopen()
 	sprintf(filename, "ising_l%d_j%2.1f.dat", l, j);
 	fp = fopen(filename, "w");
 	
 	for(int i = 0; i < RUNLENGTH; i++)
+  // __define:fprintf()
 		fprintf(fp, "%f %f %f %f %f\n", kT[i], energies[i], energies2[i], magnetization[i], magnetization2[i]);
 	
+  // __define:fclose()
 	fclose(fp);
 }
 
@@ -176,6 +182,8 @@ void run_ising(double j, int l) {
 	double h = 0.0;
 	
 	// Init prng
+  // __define:srand()
+  // __define:time()
 	srand ( time(NULL) );
 	
 	create_neighbours(spins, neighbours, l);
@@ -192,6 +200,7 @@ void run_ising(double j, int l) {
 	
 	write_file(j, kT, energies, magnetization, energies2, magnetization2, l);
 	
+  // __define:free()
 	free(energies);
 	free(magnetization);
 	free(kT);

@@ -25,6 +25,7 @@ int tree_contains(struct node* tree_node, int i) {
 void tree_print(struct node* tree_node) {
   if (tree_node != NULL) {            // base case
     tree_print(tree_node->left);      // go left
+    // __define:printf()
     printf("%d ", tree_node->data);   // print the integer followed by a space
     tree_print(tree_node->right);     // go right
   }
