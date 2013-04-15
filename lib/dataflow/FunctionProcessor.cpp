@@ -579,7 +579,7 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
   DEBUG_LOG(" Handle BRANCH instruction: " << inst << "\n");
   
   if (inst.isConditional()) {
-    const Instruction& cmp = cast<Instruction>(*inst.getCondition());
+    const Value& cmp = *inst.getCondition();
     DEBUG_LOG(" = Compare instruction is: " << cmp << "\n");
 
     bool isConditionTainted = Helper::setContains(taintSet, cmp);
