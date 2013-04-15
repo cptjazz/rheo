@@ -66,6 +66,9 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::lifetime_end:
     case Intrinsic::invariant_start:
     case Intrinsic::invariant_end:
+    case Intrinsic::vastart:
+    case Intrinsic::vacopy:
+    case Intrinsic::vaend:
       // no mapping required
       return true;
 

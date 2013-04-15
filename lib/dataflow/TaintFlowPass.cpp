@@ -23,22 +23,26 @@ char TaintFlowPass::ID = 0;
 
 static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", true, true);
 
-
-void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node) {
+void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, FunctionMap& circleHelper) {
   Function* f = node->getFunction();
 
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
     const CallGraphNode* kid = i->second;
 
+    // Skip dummy nodes
     if (!kid->getFunction())
       continue;
 
-    if (_avoidInfiniteLoopHelper.count(kid->getFunction())) {
-      continue;
+    // Skip already processed functions
+    if (f) {
+      if (circleHelper.count(make_pair(f, kid->getFunction()))) {
+        continue;
+      } else {
+        circleHelper.insert(make_pair(f, kid->getFunction()));
+      }
     }
 
-    _avoidInfiniteLoopHelper.insert(kid->getFunction());
-    enqueueFunctionsInCorrectOrder(kid);
+    enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
 
   if (!f)
@@ -83,25 +87,26 @@ void TaintFlowPass::addFunctionForProcessing(Function* f) {
 bool TaintFlowPass::runOnModule(Module &module) {
   CallGraph& CG = getAnalysis<CallGraph>();
 
-  _queuedFunctionHelper.clear();
-  _avoidInfiniteLoopHelper.clear();
-
-  enqueueFunctionsInCorrectOrder(CG.getRoot());
-
   _avoidInfiniteLoopHelper.clear();
   for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
     Function* f = &*i;
     _occurrenceCount.insert(pair<Function*, int>(f, 1));
   }
 
-  for (CallGraphNode::const_iterator i = CG.getRoot()->begin(), e = CG.getRoot()->end(); i != e; ++i) { 
-    const CallGraphNode* kid = i->second;
-    buildCircularReferenceInfo(kid, kid);
+  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i) { 
+    _avoidInfiniteLoopHelper.clear();
+    const CallGraphNode* n = i->second;
+    buildCircularReferenceInfo(n, n);
   }
 
   for (FunctionMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
     DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " <--> " << f_i->second->getName() << "\n");
   }
+
+  _queuedFunctionHelper.clear();
+  _avoidInfiniteLoopHelper.clear();
+  FunctionMap circleHelper;
+  enqueueFunctionsInCorrectOrder(CG.getRoot(), circleHelper);
 
   while (!_functionQueue.empty()) {
     Function* f = _functionQueue.front();

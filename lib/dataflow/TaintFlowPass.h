@@ -32,7 +32,7 @@ using namespace std;
     }
 
     bool runOnModule(Module &module); 
-    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node); 
+    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node, FunctionMap& circleHelper); 
     void buildCircularReferenceInfo(const CallGraphNode* node, const CallGraphNode* startNode); 
     void addFunctionForProcessing(Function* f); 
     void processFunction(Function& func);

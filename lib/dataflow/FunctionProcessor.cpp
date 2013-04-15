@@ -410,6 +410,11 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   refFp._suppressPrintTaints = true;
   refFp.processFunction();
 
+  if (!refFp.didFinish()) {
+    _canceledInspection = true;
+    return;
+  }
+
   for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
