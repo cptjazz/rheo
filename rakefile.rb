@@ -42,6 +42,8 @@ def analyse(args)
   sleep 0.5
   FileUtils.mkdir("output")
 
+  `cp -R taintlib output/`
+
   FileUtils.cd("output") do
     opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
     begin
