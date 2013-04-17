@@ -69,6 +69,7 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::vastart:
     case Intrinsic::vacopy:
     case Intrinsic::vaend:
+    case Intrinsic::flt_rounds:
       // no mapping required
       return true;
 
