@@ -648,4 +648,7 @@ def compile(file)
 end
 
 files.each { |f| compile(f) }
-#`llvm-link **/*`
+
+FileUtils.cd("output") do
+  `llvm-link **/*.bc **/**/*.bc > libc.bc`
+end
