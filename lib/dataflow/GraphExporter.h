@@ -18,14 +18,17 @@ public:
     initialiseFile();
   }
 
-  ~GraphExporter();
+  virtual ~GraphExporter();
 
-  void addInOutNode(const Value& inout);
-  void addInNode(const Value& in);
-  void addOutNode(const Value& out);
-  void addBlockNode(const Value& b);
-  void addCallNode(const Function& f);
-  void addRelation(const Value& from, const Value& to, string reason = "");
+  void virtual addInOutNode(const Value& inout);
+  void virtual addInNode(const Value& in);
+  void virtual addOutNode(const Value& out);
+  void virtual addBlockNode(const Value& b);
+  void virtual addCallNode(const Function& f);
+  void virtual addRelation(const Value& from, const Value& to, string reason = "");
+
+protected:
+  GraphExporter() { }
 
 private:
   const string _functionName;

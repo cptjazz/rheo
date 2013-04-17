@@ -16,6 +16,7 @@
 #include <cstring>
 #include <stdio.h>
 #include "GraphExporter.h"
+#include "NullGraphExporter.h"
 #include "Helper.h"
 #include "Core.h"
 #include "TaintFlowPass.h" 
@@ -29,7 +30,7 @@ class FunctionProcessor {
   const Function& F;
   const DominatorTree& DT;
   PostDominatorTree& PDT;
-  GraphExporter DOT;
+  GraphExporter* DOT;
   const Module& M;
   TaintFlowPass& PASS;
 
@@ -49,14 +50,21 @@ class FunctionProcessor {
 
 public:
   FunctionProcessor(TaintFlowPass& pass, const Function& f, FunctionMap& circRef, const Module& m, ResultSet& result, raw_ostream& stream) 
-  : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), DOT(f.getName()), M(m),
+  : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
     PASS(pass), _taints(result), _circularReferences(circRef), _stream(stream)
   { 
     _canceledInspection = false;
     _suppressPrintTaints = false;
+
+    DOT = new NullGraphExporter();
+
+    _stream << "BLUBB?";
+    DEBUG(delete DOT);
+    DEBUG(DOT = new GraphExporter(f.getName()));
   }
 
   ~FunctionProcessor() {
+    delete DOT;
   }
 
   void processFunction();

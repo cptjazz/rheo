@@ -243,7 +243,7 @@ void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& 
 
   if (Helper::setContains(taintSet, op)) {
     addTaintToSet(taintSet, inst);
-    DOT.addRelation(op, inst, "indexer");
+    DOT->addRelation(op, inst, "indexer");
     DEBUG_LOG(" + Added GEP taint: `" << inst << "`\n");
   }
   
@@ -254,7 +254,7 @@ void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& 
       addTaintToSet(taintSet, inst);
       stringstream reason("");
       reason << "index #" << i;
-      DOT.addRelation(idx, inst, reason.str());
+      DOT->addRelation(idx, inst, reason.str());
       DEBUG_LOG(" ++ Added GEP INDEX: `" << idx << "`\n");
     }
   }
@@ -269,7 +269,7 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
     addTaintToSet(taintSet, target);
     addTaintToSet(taintSet, storeInst);
 
-    DOT.addRelation(source, target, "store");
+    DOT->addRelation(source, target, "store");
     DEBUG_LOG(" + Added STORE taint: " << source << " --> " << target << "\n");
     if (isa<GetElementPtrInst>(target)) {
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
@@ -286,7 +286,7 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
       DEBUG_LOG(" - Also removed transitive LOAD." << *load << "\n");
     }
 
-    DOT.addRelation(source, target, "non-taint overwrite");
+    DOT->addRelation(source, target, "non-taint overwrite");
   }
 }
 
@@ -295,7 +295,7 @@ void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, Tain
   DEBUG_LOG(" ++ Added GEP SOURCE:" << ptrOp << "\n");
   addTaintToSet(taintSet, ptrOp);
 
-  DOT.addRelation(gep, ptrOp, "gep via store");
+  DOT->addRelation(gep, ptrOp, "gep via store");
 
   if (isa<LoadInst>(ptrOp)) {
     const LoadInst& load = cast<LoadInst>(ptrOp);
@@ -438,7 +438,7 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     ResultSet taintResults;
     long t;
 
-    DOT.addCallNode(*callee);
+    DOT->addCallNode(*callee);
 
     if (callee == &F) {
       // build intermediate taint sets
@@ -484,16 +484,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
 
       stringstream reas("");
       reas << "in, arg#" << getArgumentPosition(callInst, in);
-      DOT.addRelation(in, *callee, reas.str());
+      DOT->addRelation(in, *callee, reas.str());
 
       if (Helper::setContains(taintSet, in)) {
         addTaintToSet(taintSet, out);
         if (&out == &callInst) {
-          DOT.addRelation(*callee, callInst, "ret");
+          DOT->addRelation(*callee, callInst, "ret");
         } else {
           stringstream outReas("");
           outReas << "out, arg#" << getArgumentPosition(callInst, out);
-          DOT.addRelation(*callee, out, outReas.str());
+          DOT->addRelation(*callee, out, outReas.str());
         }
 
         // Value is a pointer, so the previous load is also tainted.
@@ -501,7 +501,7 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
           Value* op = (cast<LoadInst>(out)).getOperand(0);
           addTaintToSet(taintSet, *op);
           DEBUG_LOG(" ++ Added previous load: " << out << "\n");
-          DOT.addRelation(*op, out, "load");
+          DOT->addRelation(*op, out, "load");
         }
       }
     }
@@ -537,14 +537,14 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
   if (!Helper::setContains(taintSet, *condition))
     return;
 
-  DOT.addRelation(*condition, inst, "switch");
+  DOT->addRelation(*condition, inst, "switch");
 
   DEBUG_LOG(" Handle SWITCH instruction:\n");
   for (size_t i = 0; i < inst.getNumSuccessors(); ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
-    DOT.addBlockNode(caseBlock);
-    DOT.addRelation(inst, caseBlock, "case");
+    DOT->addBlockNode(caseBlock);
+    DOT->addRelation(inst, caseBlock, "case");
     addTaintToSet(taintSet, caseBlock);
     DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
   }
@@ -566,11 +566,11 @@ void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
     if (Helper::setContains(taintSet, incomingBlock)) {
       DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
       addTaintToSet(taintSet, inst);
-      DOT.addRelation(incomingBlock, inst, "phi-block");
+      DOT->addRelation(incomingBlock, inst, "phi-block");
     } else if (Helper::setContains(taintSet, incomingValue)) {
       DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
       addTaintToSet(taintSet, inst);
-      DOT.addRelation(incomingValue, inst, "phi-value");
+      DOT->addRelation(incomingValue, inst, "phi-value");
     }
   }
 }
@@ -584,7 +584,7 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
 
     bool isConditionTainted = Helper::setContains(taintSet, cmp);
     if (isConditionTainted) {
-      DOT.addRelation(cmp, inst, "condition");
+      DOT->addRelation(cmp, inst, "condition");
      
       const BasicBlock& brTrue = *inst.getSuccessor(0);
       const BasicBlock& brFalse = *inst.getSuccessor(1);
@@ -595,8 +595,8 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
       
       // true branch is always tainted
       addTaintToSet(taintSet, brTrue);
-      DOT.addBlockNode(brTrue);
-      DOT.addRelation(inst, brTrue, "br-true");
+      DOT->addBlockNode(brTrue);
+      DOT->addRelation(inst, brTrue, "br-true");
       DEBUG_LOG(" + Added TRUE branch to taint set:\n");
       DEBUG_LOG(brTrue.getName() << "\n");
 
@@ -606,8 +606,8 @@ void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet
       // is not the same as jump target after true branch
       if (&join != &brFalse) {
         addTaintToSet(taintSet, brFalse);
-        DOT.addBlockNode(brFalse);
-        DOT.addRelation(inst, brFalse, "br-false");
+        DOT->addBlockNode(brFalse);
+        DOT->addRelation(inst, brFalse, "br-false");
         DEBUG_LOG(" + Added FALSE branch to taint set:\n");
         DEBUG_LOG(brFalse.getName() << "\n");
 
@@ -639,8 +639,8 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
       &brSuccessor != &join) {
 
     addTaintToSet(taintSet, brSuccessor);
-    DOT.addBlockNode(brSuccessor);
-    DOT.addRelation(brTerminator, brSuccessor, "br");
+    DOT->addBlockNode(brSuccessor);
+    DOT->addRelation(brTerminator, brSuccessor, "br");
     DEBUG_LOG(" ++ Added TRANSIENT branch:\n");
     DEBUG_LOG(brSuccessor << "\n");
 
@@ -654,7 +654,7 @@ void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& tai
      const Value& operand = *inst.getOperand(o_i);
      if (Helper::setContains(taintSet, operand)) {
        addTaintToSet(taintSet, inst);
-       DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
+       DOT->addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
 
        DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n");
     }
@@ -674,8 +674,8 @@ bool FunctionProcessor::isBlockTaintedByOtherBlock(const BasicBlock& currentBloc
 
       if (&taintedBlock != &currentBlock) {
         addTaintToSet(taintSet, currentBlock);
-        DOT.addBlockNode(currentBlock);
-        DOT.addRelation(taintedBlock, currentBlock, "block-taint");
+        DOT->addBlockNode(currentBlock);
+        DOT->addRelation(taintedBlock, currentBlock, "block-taint");
       }
 
       result = true;
@@ -704,9 +704,9 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 
   addTaintToSet(taintSet, inst);
   if (isa<StoreInst>(inst))
-    DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint");
+    DOT->addRelation(currentBlock, *inst.getOperand(0), "block-taint");
   else
-    DOT.addRelation(currentBlock, inst, "block-taint");
+    DOT->addRelation(currentBlock, inst, "block-taint");
 
   DEBUG_LOG(" + Instruction tainted by dirty block: " << inst << "\n");
 }
@@ -735,7 +735,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, returnSet);
 
     _returnStatements.insert(make_pair(&arg, returnSet));
-    DOT.addInOutNode(arg);
+    DOT->addInOutNode(arg);
     isInOutNode = true;
 
     DEBUG_LOG("added arg `" << arg.getName() << "` to out-list\n");
@@ -744,7 +744,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
   TaintSet taintSet;
   addTaintToSet(taintSet, arg);
   if (!isInOutNode)
-    DOT.addInNode(arg);
+    DOT->addInNode(arg);
 
   _arguments.insert(make_pair(&arg, taintSet));
   DEBUG_LOG("added arg `" << arg.getName() << "` to arg-list\n");
@@ -790,7 +790,7 @@ void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& retu
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       const Value& load = cast<LoadInst>(I);
       returnSet.insert(&load);
-      DOT.addRelation(arg, load, "load");
+      DOT->addRelation(arg, load, "load");
       DEBUG_LOG(" + Found LOAD for `" << arg.getName() << "` @ " << load << "\n");
       
       recursivelyFindAliases(load, returnSet, alreadyProcessed);
@@ -824,7 +824,7 @@ void FunctionProcessor::findReturnStatements() {
         }
 
         _returnStatements.insert(make_pair(&r, taintSet));
-        DOT.addOutNode(r);
+        DOT->addOutNode(r);
         DEBUG_LOG("Found ret-stmt: " << r << "\n");
       }
     }
