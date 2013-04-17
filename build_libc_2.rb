@@ -563,6 +563,8 @@ libc_common_cflags = [
 		"-DSOFTFLOAT", 
 		"-DFLOATING_POINT	", 
 		"-DINET6", 
+		"-DNO_MALLINFO", 
+		"-I.", 
 		"-Iprivate", 
 		"-Iinclude", 
 		"-I../libm/include", 
@@ -622,7 +624,7 @@ libc_common_c_includes = [ "stdlib", "string", "stdio" ]
 libc_common_cflags << [ "-DLIBC_STATIC", "-DPTHREAD_DEBUG",  "-DPTHREAD_DEBUG_ENABLED=0" ]
 
 files = libc_common_src_files + libc_arch_static_src_files + libc_static_common_src_files +
-  [ "bionic/malloc_debug_common.c", "bionic/libc_init_static.c" ]
+  [ "bionic/dlmalloc.c", "bionic/libc_init_static.c" ]
 
 
 @flags = (libc_common_cflags + libc_common_c_includes.map { |x| "-I#{x}/include"}).join(" ")
@@ -646,3 +648,4 @@ def compile(file)
 end
 
 files.each { |f| compile(f) }
+#`llvm-link **/*`
