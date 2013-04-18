@@ -275,6 +275,7 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       recursivelyAddAllGeps(gep, taintSet);
     }
+
   } else if (Helper::setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
     // Only do removal if value is really in set
     taintSet.erase(&target);
@@ -419,6 +420,18 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
 
+    if (inPos >= (int) callInst.getNumArgOperands() || inPos < 0) {
+      _stream << "__error:argument position " << inPos << " invalid for call to `" << callInst.getCalledFunction()->getName() << "`\n";
+      _canceledInspection = true;
+      return;
+    }
+
+    if (outPos >= (int) callInst.getNumArgOperands() || outPos < -1) {
+      _stream << "__error:argument position " << outPos << " invalid for call to `" << callInst.getCalledFunction()->getName() << "`\n";
+      _canceledInspection = true;
+      return;
+    }
+
     Value* inVal = callInst.getArgOperand(inPos);
     const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
 
@@ -426,6 +439,29 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   }
 
   PROFILE_LOG("buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
+}
+
+void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
+  for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
+    const Value* arg = callInst.getArgOperand(i);
+
+    // Every argument taints the return value
+    taintResults.insert(make_pair(arg, &callInst));
+    DEBUG_LOG("undef-ext call: " << arg->getName() << " -> $_retval\n");
+
+    size_t k = 0;
+    for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; a_i++) {
+      const Argument& param = *a_i;
+      Value* out = callInst.getArgOperand(k);
+      k++;
+
+      if (param.getType()->isPointerTy() && out != arg) {
+        // Since it is a pointer it is a possible out-argument
+        taintResults.insert(make_pair(arg, out));
+        DEBUG_LOG("undef-ext call: " << arg->getName() << " -> " << out->getName() << "\n");
+      }
+    }
+  }
 }
 
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
@@ -472,6 +508,10 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
 
         TaintFile::remove(F);
       }
+    } else if (callee->size() == 0) {
+      // External functions
+      DEBUG_LOG("calling to undefined external. using heuristic.\n");
+      buildMappingForUndefinedExternalCall(callInst, *callee, taintResults);
     } else {
       t = Helper::getTimestamp();
       readTaintsFromFile(callInst, *callee, taintResults);
