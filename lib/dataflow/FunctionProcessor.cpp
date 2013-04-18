@@ -271,9 +271,9 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
 
     DOT->addRelation(source, target, "store");
     DEBUG_LOG(" + Added STORE taint: " << source << " --> " << target << "\n");
-    if (isa<GetElementPtrInst>(target)) {
-      const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
-      recursivelyAddAllGeps(gep, taintSet);
+    if (isa<GetElementPtrInst>(target) || isa<LoadInst>(target)) {
+      const Instruction& inst = cast<Instruction>(target);
+      recursivelyAddAllGepsAndLoads(inst, taintSet);
     }
 
   } else if (Helper::setContains(taintSet, target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
@@ -291,18 +291,27 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
   }
 }
 
-void FunctionProcessor::recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet) {
-  const Value& ptrOp = *gep.getPointerOperand();
-  DEBUG_LOG(" ++ Added GEP SOURCE:" << ptrOp << "\n");
-  addTaintToSet(taintSet, ptrOp);
+void FunctionProcessor::recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet) {
+  if (isa<GetElementPtrInst>(target)) {
+    const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
+    const Value& ptrOp = *gep.getPointerOperand();
+    DEBUG_LOG(" ++ Added GEP SOURCE:" << ptrOp << "\n");
+    addTaintToSet(taintSet, ptrOp);
 
-  DOT->addRelation(gep, ptrOp, "gep via store");
+    DOT->addRelation(gep, ptrOp, "gep via store");
 
-  if (isa<LoadInst>(ptrOp)) {
-    const LoadInst& load = cast<LoadInst>(ptrOp);
-    const Value& loadOperand = *load.getOperand(0);
-    if (isa<GetElementPtrInst>(loadOperand))
-      recursivelyAddAllGeps(cast<GetElementPtrInst>(loadOperand), taintSet);
+    if (isa<Instruction>(ptrOp))
+      recursivelyAddAllGepsAndLoads(cast<Instruction>(ptrOp), taintSet);
+  } else if (isa<LoadInst>(target)) {
+    const LoadInst& load = cast<LoadInst>(target);
+    const Value& ptrOp = *load.getOperand(0);
+    DEBUG_LOG(" ++ Added LOAD SOURCE:" << ptrOp << "\n");
+    addTaintToSet(taintSet, ptrOp);
+
+    DOT->addRelation(load, ptrOp, "load via store");
+
+    if (isa<Instruction>(ptrOp))
+      recursivelyAddAllGepsAndLoads(cast<Instruction>(ptrOp), taintSet);
   }
 }
 

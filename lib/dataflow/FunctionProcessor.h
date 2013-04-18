@@ -95,7 +95,7 @@ private:
   void readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
-  void recursivelyAddAllGeps(const GetElementPtrInst& gep, TaintSet& taintSet);
+  void recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet);
   void recursivelyFindAliases(const Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
   void followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet);
   void addTaintToSet(TaintSet& taintSet, const Value& v);
