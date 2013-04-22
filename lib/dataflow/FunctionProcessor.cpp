@@ -516,12 +516,14 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
           StoreInst& store = *cast<StoreInst>(*i);
           if (isa<Function>(store.getOperand(0))) {
             possibleCallees.insert(cast<Function>(store.getOperand(0)));
+          } else {
+            ERROR_LOG("Cannot de-reference function pointer\n");
+            _canceledInspection = true;
+            _processingState = Error;
           }
         }
       }
-    }
-
-    if (isa<PHINode>(callInst.getCalledValue())) {
+    } else if (isa<PHINode>(callInst.getCalledValue())) {
       const PHINode& phi = cast<PHINode>(*callInst.getCalledValue());
 
       for (size_t j = 0; j < phi.getNumIncomingValues(); j++) {
@@ -529,7 +531,13 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
         if (isa<Function>(incoming))
           possibleCallees.insert(cast<Function>(incoming));
       }
+    } else {
+      ERROR_LOG("Cannot de-reference function pointer\n");
+      _canceledInspection = true;
+      _processingState = Error;
     }
+
+    STOP_ON_CANCEL;
 
     for (set<const Function*>::iterator c_i = possibleCallees.begin(), c_e = possibleCallees.end(); c_i != c_e; ++c_i) {
       const Function& callee = **c_i;
@@ -548,6 +556,8 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
         DOT->addRelation(*callInst.getCalledValue(), callee, "function indirection");
       }
 
+      // Handling all indirect calls produces a union of the taints
+      // transferred for all possibly called functions.
       handleFunctionCall(callInst, callee, taintSet);
     }
   }
@@ -580,7 +590,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     }
 
   } else if (Helper::circleListContains(_circularReferences[&F], callee)) {
-    ERROR_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
+    DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
 
     if (TaintFile::exists(callee)) {
       readTaintsFromFile(callInst, callee, taintResults);
