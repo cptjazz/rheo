@@ -1,5 +1,5 @@
 #include <stdio.h>
-/*
+
 int (*operation)(int x, int y);
 
 // __expected:op1(x => $_retval, y => $_retval)
@@ -15,7 +15,7 @@ int op2(int x, int y)
 }
 
 
-// __expected:variable_operation(foo => $_retval, bar => $_retval)
+// __expected:variable_operation(foo => $_retval, bar => $_retval, fu => $_retval, baz => $_retval)
 int variable_operation(int foo, int bar, int fu, int baz)
 {
   operation = op1;
@@ -26,7 +26,7 @@ int variable_operation(int foo, int bar, int fu, int baz)
 
   return x + y;
 }
-*/
+
 // __expected:op3(x => $_retval)
 int op3(int x, int y)
 {

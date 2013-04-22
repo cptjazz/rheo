@@ -514,8 +514,9 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       for (Value::use_iterator i = delegate.use_begin(), e = delegate.use_end(); i != e; ++i) {
         if (isa<StoreInst>(*i)) {
           StoreInst& store = *cast<StoreInst>(*i);
-          if (isa<Function>(store.getOperand(0)))
+          if (isa<Function>(store.getOperand(0))) {
             possibleCallees.insert(cast<Function>(store.getOperand(0)));
+          }
         }
       }
     }
@@ -533,6 +534,20 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     for (set<const Function*>::iterator c_i = possibleCallees.begin(), c_e = possibleCallees.end(); c_i != c_e; ++c_i) {
       const Function& callee = **c_i;
       DEBUG_LOG("Possible function: " << callee.getName() << "\n");
+
+      // If the indirect function itself is tainted (eg. function pointer)
+      // add the return value to taints.       
+      if (Helper::setContains(taintSet, callee)) {
+        addTaintToSet(taintSet, callInst);
+        DOT->addRelation(*callInst.getCalledValue(), callee, "function indirection");
+      }
+
+      // If the function pointer is tainted, add the callees.
+      if (Helper::setContains(taintSet, *callInst.getCalledValue())) {
+        addTaintToSet(taintSet, callee);
+        DOT->addRelation(*callInst.getCalledValue(), callee, "function indirection");
+      }
+
       handleFunctionCall(callInst, callee, taintSet);
     }
   }
@@ -602,6 +617,11 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
       reas << "in, arg#" << getArgumentPosition(callInst, in);
       DOT->addRelation(in, callee, reas.str());
 
+      if (Helper::setContains(taintSet, callee) && out.getType()->isPointerTy()) {
+        DOT->addRelation(callee, out, "function-indirection");
+        addTaintToSet(taintSet, out);
+      }
+
       addTaintToSet(taintSet, out);
       if (&out == &callInst) {
         DOT->addRelation(callee, callInst, "ret");
@@ -620,6 +640,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
       }
     }
   }
+
 
   if (needToAddGraphNodeForFunction)
     DOT->addCallNode(callee);
@@ -680,16 +701,19 @@ void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
     if (Helper::setContains(taintSet, incomingBlock)) {
       DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
       addTaintToSet(taintSet, inst);
-      DOT->addRelation(incomingBlock, inst, "phi-block");
+      DOT->addRelation(incomingBlock, inst, "block-taint");
+
+      // If the block is tainted, also every instruction in
+      // the block is tainted. 
+      // The values that will be assigned to the target were
+      // in this block but are now in the PHI, so we have to mark 
+      // them as tainted.
+      addTaintToSet(taintSet, incomingValue);
+      DOT->addRelation(incomingBlock, incomingValue, "block-taint");
     } else if (Helper::setContains(taintSet, incomingValue)) {
       DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
       addTaintToSet(taintSet, inst);
-
-      // If incoming value is a Function (eg. selection for a function pointer)
-      // we do not create a graph node here -- it will later be created in the
-      // function call handling.
-      if (!isa<Function>(incomingValue))
-        DOT->addRelation(incomingValue, inst, "phi-value");
+      DOT->addRelation(incomingValue, inst, "phi-value");
     }
   }
 }

@@ -101,7 +101,7 @@ string GraphExporter::getLabel(string reason) const {
 
 string GraphExporter::getLineStyle(string reason) const {
   return reason == "block-taint" ? "dotted" :
-         reason == "load" ? "dashed" : "solid";
+         reason == "function indirection" ? "dashed" : "solid";
 }
 
 string GraphExporter::getShape(const Value& v) const {
