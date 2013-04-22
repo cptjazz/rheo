@@ -23,23 +23,29 @@ char TaintFlowPass::ID = 0;
 
 static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", true, true);
 
-void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, FunctionMap& circleHelper) {
+void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper) {
   Function* f = node->getFunction();
 
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
     const CallGraphNode* kid = i->second;
-
+    const Function* kf = kid->getFunction();
     // Skip dummy nodes
-    if (!kid->getFunction())
+    if (!kf)
       continue;
 
     // Skip already processed functions
-    if (f) {
-      if (circleHelper.count(make_pair(f, kid->getFunction()))) {
-        continue;
-      } else {
-        circleHelper.insert(make_pair(f, kid->getFunction()));
-      }
+    if (circleHelper.count(kf)) {
+      continue;
+    } else {
+      circleHelper.insert(kf);
+    }
+
+    NodeVector& circle = _circularReferences[kf];
+    for (vector<const CallGraphNode*>::iterator f_i = circle.begin(), f_e = circle.end(); f_i != f_e; f_i++) {
+      const CallGraphNode* circleElem = *f_i;
+
+      if (circleElem->getFunction())
+        enqueueFunctionsInCorrectOrder(circleElem, circleHelper);
     }
 
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
@@ -56,14 +62,14 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, Fu
   }
 }
 
-void TaintFlowPass::buildCircularReferenceInfo(const CallGraphNode* node, const CallGraphNode* startNode) {
+bool TaintFlowPass::buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences) {
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
     const CallGraphNode* kid = i->second;
 
     if (kid == startNode) {
       // Found circle.
-      _circularReferences.insert(make_pair(node->getFunction(), startNode->getFunction()));
-      continue;
+      circularReferences.push_back(node);
+      return true;
     }
 
     Function* f = kid->getFunction();
@@ -72,7 +78,24 @@ void TaintFlowPass::buildCircularReferenceInfo(const CallGraphNode* node, const 
       continue;
 
     _avoidInfiniteLoopHelper.insert(f);
-    buildCircularReferenceInfo(kid, startNode);
+
+    if (buildCircularReferenceInfoRecursion(kid, startNode, circularReferences)) {
+      circularReferences.push_back(node);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+inline void TaintFlowPass::buildCircularReferenceInfo(CallGraph& CG) {
+  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i) { 
+    _avoidInfiniteLoopHelper.clear();
+    const CallGraphNode* n = i->second;
+
+    NodeVector refList;
+    _circularReferences.insert(make_pair(n->getFunction(), refList));
+    buildCircularReferenceInfoRecursion(n, n, _circularReferences[n->getFunction()]);
   }
 }
 
@@ -90,22 +113,31 @@ bool TaintFlowPass::runOnModule(Module &module) {
   _avoidInfiniteLoopHelper.clear();
   for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
     Function* f = &*i;
-    _occurrenceCount.insert(pair<Function*, int>(f, 1));
+    _occurrenceCount.insert(make_pair(f, 1));
   }
 
-  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i) { 
-    _avoidInfiniteLoopHelper.clear();
-    const CallGraphNode* n = i->second;
-    buildCircularReferenceInfo(n, n);
-  }
+  buildCircularReferenceInfo(CG);
 
-  for (FunctionMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
-    DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " <--> " << f_i->second->getName() << "\n");
+
+  for (CircleMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
+    const NodeVector& list = _circularReferences[f_i->first];
+
+    if (!f_i->first)
+      continue;
+
+    if (! list.size())
+      continue;
+
+    DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " --> ");
+    for (NodeVector::const_iterator c_i = list.begin(), c_e = list.end(); c_i != c_e; c_i++) { 
+      DEBUG(errs() << "  " << (*c_i)->getFunction()->getName());
+    }
+    DEBUG(errs() << "\n");
   }
 
   _queuedFunctionHelper.clear();
   _avoidInfiniteLoopHelper.clear();
-  FunctionMap circleHelper;
+  set<const Function*> circleHelper;
   enqueueFunctionsInCorrectOrder(CG.getRoot(), circleHelper);
 
   while (!_functionQueue.empty()) {
@@ -134,26 +166,33 @@ void TaintFlowPass::processFunction(Function& func) {
   errs() << "__log:start:" << func.getName() << "\n";
 
   ResultSet result;
-  bool state = runOnFunction(func, result);
+  ProcessingState state = runOnFunction(func, result);
 
-  if (!state) {
-    errs() << "Skipping `" << func.getName() << "`\n";
-    return;
+  switch (state) {
+    case Deferred:
+      errs() << "__defer:" << func.getName() << "\n";
+      _functionQueue.push(&func);
+      break;
+
+    case Success:
+      TaintFile::writeResult(func, result);
+      break;
+
+    default:
+      errs() << "Skipping `" << func.getName() << "`\n";
+      break;
   }
-
-  TaintFile::writeResult(func, result);
 }
 
-bool TaintFlowPass::runOnFunction(Function& func, ResultSet& result) {
+ProcessingState TaintFlowPass::runOnFunction(Function& func, ResultSet& result) {
   long time = Helper::getTimestamp();
 
   FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), result, errs());
   proc.processFunction();
-  bool finished = proc.didFinish();
 
   time = Helper::getTimestampDelta(time);
 
   errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
 
-  return finished;
+  return proc.getState();
 }

@@ -9,6 +9,28 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
   unsigned int intrinsicId = f.getIntrinsicID();
 
   switch (intrinsicId) {
+    /**
+     * The following intrinsics do not taint anything 
+     * and do not need a mapping
+     */
+    case Intrinsic::donothing:
+    case Intrinsic::expect:
+    case Intrinsic::pcmarker:
+    case Intrinsic::prefetch:
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::invariant_start:
+    case Intrinsic::invariant_end:
+    case Intrinsic::vastart:
+    case Intrinsic::vacopy:
+    case Intrinsic::vaend:
+    case Intrinsic::flt_rounds:
+      return true;
+
+    /**
+     * The following have tainting behaviour of
+     * 0 => $_retval
+     */
     case Intrinsic::sqrt:
     case Intrinsic::exp:
     case Intrinsic::exp2:
@@ -19,20 +41,27 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::log2:
     case Intrinsic::fabs:
     case Intrinsic::floor:
-    //case Intrinsic::ceil:
-    //case Intrinsic::trunc:
-    //case Intrinsic::rint:
-    //case Intrinsic::nearbyint:
-      // 0 => $_retval
+    case Intrinsic::ctpop:
+    case Intrinsic::ctlz:
+    case Intrinsic::cttz:
+    case Intrinsic::bswap:
       mapping.insert(make_pair(0, -1));
       return true;
 
+    /**
+     * The following have tainting behaviour of
+     * 0 => $_retval, 1 => $_retval
+     */
     case Intrinsic::pow:
     case Intrinsic::powi:
-      // 0 => $_retval, 1 => $_retval
       mapping.insert(make_pair(0, -1));
       mapping.insert(make_pair(1, -1));
       return true;
+
+    /**
+     * Special intrinsics with special handling
+     *
+     */
 
     case Intrinsic::memcpy:
       // 1 (src) => 0 (dst), 2 (len) => 0 (dst)
@@ -56,21 +85,6 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
       mapping.insert(make_pair(0, -1));
       mapping.insert(make_pair(1, -1));
       mapping.insert(make_pair(2, -1));
-      return true;
-
-    case Intrinsic::donothing:
-    case Intrinsic::expect:
-    case Intrinsic::pcmarker:
-    case Intrinsic::prefetch:
-    case Intrinsic::lifetime_start:
-    case Intrinsic::lifetime_end:
-    case Intrinsic::invariant_start:
-    case Intrinsic::invariant_end:
-    case Intrinsic::vastart:
-    case Intrinsic::vacopy:
-    case Intrinsic::vaend:
-    case Intrinsic::flt_rounds:
-      // no mapping required
       return true;
 
     default:

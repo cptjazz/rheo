@@ -20,7 +20,7 @@ using namespace std;
 
     queue<Function*> _functionQueue;
     map<Function*, int> _occurrenceCount;
-    FunctionMap _circularReferences;
+    CircleMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
     set<Function*> _avoidInfiniteLoopHelper;
 
@@ -32,11 +32,12 @@ using namespace std;
     }
 
     bool runOnModule(Module &module); 
-    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node, FunctionMap& circleHelper); 
-    void buildCircularReferenceInfo(const CallGraphNode* node, const CallGraphNode* startNode); 
+    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper); 
+    void buildCircularReferenceInfo(CallGraph& CG);
+    bool buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences);
     void addFunctionForProcessing(Function* f); 
     void processFunction(Function& func);
-    bool runOnFunction(Function& func, ResultSet& result);
+    ProcessingState runOnFunction(Function& func, ResultSet& result);
 
 public:
     static char ID;

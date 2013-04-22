@@ -20,16 +20,19 @@
 #include "TaintFile.h" 
 #include "IntrinsicHelper.h" 
 
+
 #define STOP_ON_CANCEL if (_canceledInspection) return
 #define DEBUG_LOG(x) DEBUG(debug() << x)
+#define ERROR_LOG(x) if (_shouldWriteErrors) debug() << "__error:" << x 
+#ifdef PROFILING
 #define PROFILE_LOG(x) DEBUG(debug() << x)
+#else
+#define PROFILE_LOG(x) 
+#endif
 
 using namespace llvm;
 using namespace std;
 
-bool FunctionProcessor::didFinish() {
-  return !_canceledInspection;
-}
 
 void FunctionProcessor::processFunction() {
   printInstructions();
@@ -58,6 +61,8 @@ void FunctionProcessor::processFunction() {
 
     buildResultSet(true);
   } while (resultIteration < 100 && _resultSetChanged);
+
+  _processingState = Success;
 
   if (!_suppressPrintTaints)
     printTaints();
@@ -364,8 +369,10 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
   TaintFile* taints = TaintFile::read(func, debug());
 
   if (!taints) {
-    _stream << "__error:Cannot find definition of `" << func.getName() << "`.\n";
+    ERROR_LOG("Cannot find definition of `" << func.getName() << "`.\n");
     _canceledInspection = true;
+    _processingState = ErrorMissingDefinition;
+    delete(taints);
     return;
   }
 
@@ -418,10 +425,19 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   ResultSet refResult;
   FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
   refFp._suppressPrintTaints = true;
+  refFp._shouldWriteErrors = false;
   refFp.processFunction();
+
+  _stream << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n";
+  _stream << "state was: " << refFp.getState() << "\n";
 
   if (!refFp.didFinish()) {
     _canceledInspection = true;
+    if (refFp.getState() == ErrorMissingDefinition)
+      _processingState = Deferred;
+    else
+      _processingState = refFp.getState();
+
     return;
   }
 
@@ -430,14 +446,16 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
     int outPos = getArgumentPosition(func, *i->second);
 
     if (inPos >= (int) callInst.getNumArgOperands() || inPos < 0) {
-      _stream << "__error:argument position " << inPos << " invalid for call to `" << callInst.getCalledFunction()->getName() << "`\n";
+      ERROR_LOG("Argument position " << inPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
+      _processingState = ErrorArguments;
       return;
     }
 
     if (outPos >= (int) callInst.getNumArgOperands() || outPos < -1) {
-      _stream << "__error:argument position " << outPos << " invalid for call to `" << callInst.getCalledFunction()->getName() << "`\n";
+      ERROR_LOG("Argument position " << outPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
+      _processingState = ErrorArguments;
       return;
     }
 
@@ -464,6 +482,11 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
       Value* out = callInst.getArgOperand(k);
       k++;
 
+      if (!out) {
+        ERROR_LOG("arg #" << k << " was NULL\n");
+        continue;
+      }
+
       if (param.getType()->isPointerTy() && out != arg) {
         // Since it is a pointer it is a possible out-argument
         taintResults.insert(make_pair(arg, out));
@@ -476,97 +499,139 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
-
+  DEBUG_LOG(" Callee:" << *callInst.getCalledValue() << "\n");
   if (callee != NULL) {
-    DEBUG_LOG(" * Calling function `" << callee->getName() << "`\n");
+    handleFunctionCall(callInst, *callee, taintSet);
+  } else {
+    set<const Function*> possibleCallees;
 
-    ResultSet taintResults;
-    long t;
+    if (isa<LoadInst>(callInst.getCalledValue())) {
+      const LoadInst& callSource = *cast<LoadInst>(callInst.getCalledValue());
+      DEBUG_LOG("Call source: " << callSource << "\n");
 
-    DOT->addCallNode(*callee);
-
-    if (callee == &F) {
-      // build intermediate taint sets
-      t = Helper::getTimestamp();
-      buildResultSet(false);
-      PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
-
-      buildMappingForRecursiveCall(callInst, *callee, taintResults);
-
-    } else if (callee->isIntrinsic()) {
-      DEBUG_LOG("handle intrinsic call: " << F.getName() << "\n");
-
-      FunctionTaintMap mapping;
-      if (IntrinsicHelper::getMapping(*callee, mapping)) {
-        createResultSetFromFunctionMapping(callInst, mapping, taintResults);
-      } else {
-        _stream << "__error:Cannot find definition of `" << callee->getName() << "`.\n";
-        _canceledInspection = true;
+      Value& delegate = *callSource.getOperand(0);
+      
+      for (Value::use_iterator i = delegate.use_begin(), e = delegate.use_end(); i != e; ++i) {
+        if (isa<StoreInst>(*i)) {
+          StoreInst& store = *cast<StoreInst>(*i);
+          if (isa<Function>(store.getOperand(0)))
+            possibleCallees.insert(cast<Function>(store.getOperand(0)));
+        }
       }
-
-    } else if (_circularReferences.count(make_pair(&F, callee))) {
-      DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee->getName() << "\n");
-
-      if (TaintFile::exists(*callee)) {
-        readTaintsFromFile(callInst, *callee, taintResults);
-      } else {
-        buildResultSet(false);
-        TaintFile::writeResult(F, _taints);
-
-        buildMappingForCircularReferenceCall(callInst, *callee, taintResults);
-
-        TaintFile::remove(F);
-      }
-    } else if (callee->size() == 0) {
-      // External functions
-      DEBUG_LOG("calling to undefined external. using heuristic.\n");
-      buildMappingForUndefinedExternalCall(callInst, *callee, taintResults);
-    } else {
-      t = Helper::getTimestamp();
-      readTaintsFromFile(callInst, *callee, taintResults);
-      PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
     }
 
-    for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
-      const Value& in = *i->first;
-      const Value& out = *i->second;
+    if (isa<PHINode>(callInst.getCalledValue())) {
+      const PHINode& phi = cast<PHINode>(*callInst.getCalledValue());
 
+      for (size_t j = 0; j < phi.getNumIncomingValues(); j++) {
+        Value* incoming = phi.getIncomingValue(j);
+        if (isa<Function>(incoming))
+          possibleCallees.insert(cast<Function>(incoming));
+      }
+    }
+
+    for (set<const Function*>::iterator c_i = possibleCallees.begin(), c_e = possibleCallees.end(); c_i != c_e; ++c_i) {
+      const Function& callee = **c_i;
+      DEBUG_LOG("Possible function: " << callee.getName() << "\n");
+      handleFunctionCall(callInst, callee, taintSet);
+    }
+  }
+}
+
+void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet) {
+  DEBUG_LOG(" * Calling function `" << callee.getName() << "`\n");
+
+  ResultSet taintResults;
+  long t;
+
+  if (&callee == &F) {
+    // build intermediate taint sets
+    t = Helper::getTimestamp();
+    buildResultSet(false);
+    PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
+
+    buildMappingForRecursiveCall(callInst, callee, taintResults);
+
+  } else if (callee.isIntrinsic()) {
+    DEBUG_LOG("handle intrinsic call: " << callee.getName() << "\n");
+
+    FunctionTaintMap mapping;
+    if (IntrinsicHelper::getMapping(callee, mapping)) {
+      createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+    } else {
+      ERROR_LOG("No definition of intrinsic `" << callee.getName() << "`.\n");
+      _canceledInspection = true;
+      _processingState = ErrorMissingIntrinsic;
+    }
+
+  } else if (Helper::circleListContains(_circularReferences[&F], callee)) {
+    ERROR_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
+
+    if (TaintFile::exists(callee)) {
+      readTaintsFromFile(callInst, callee, taintResults);
+    } else {
+      buildResultSet(false);
+      TaintFile::writeResult(F, _taints);
+
+      buildMappingForCircularReferenceCall(callInst, callee, taintResults);
+
+      TaintFile::remove(F);
+    }
+  } else if (callee.size() == 0) {
+    // External functions
+    DEBUG_LOG("calling to undefined external. using heuristic.\n");
+    buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
+  } else {
+    t = Helper::getTimestamp();
+    readTaintsFromFile(callInst, callee, taintResults);
+    PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
+  }
+
+  bool needToAddGraphNodeForFunction = false;
+  for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
+    const Value& in = *i->first;
+    const Value& out = *i->second;
+
+    if (Helper::setContains(taintSet, in)) {
+      // Add graph arrows and function-node only if taints
+      // were found. Otherwise the function-node would be
+      // orphaned in the graph.
+      needToAddGraphNodeForFunction = true;
+      DEBUG_LOG("in is: " << in << "\n");
       stringstream reas("");
       reas << "in, arg#" << getArgumentPosition(callInst, in);
-      DOT->addRelation(in, *callee, reas.str());
+      DOT->addRelation(in, callee, reas.str());
 
-      if (Helper::setContains(taintSet, in)) {
-        addTaintToSet(taintSet, out);
-        if (&out == &callInst) {
-          DOT->addRelation(*callee, callInst, "ret");
-        } else {
-          stringstream outReas("");
-          outReas << "out, arg#" << getArgumentPosition(callInst, out);
-          DOT->addRelation(*callee, out, outReas.str());
-        }
+      addTaintToSet(taintSet, out);
+      if (&out == &callInst) {
+        DOT->addRelation(callee, callInst, "ret");
+      } else {
+        stringstream outReas("");
+        outReas << "out, arg#" << getArgumentPosition(callInst, out);
+        DOT->addRelation(callee, out, outReas.str());
+      }
 
-        // Value is a pointer, so the previous load is also tainted.
-        if (isa<LoadInst>(out)) {
-          Value* op = (cast<LoadInst>(out)).getOperand(0);
-          addTaintToSet(taintSet, *op);
-          DEBUG_LOG(" ++ Added previous load: " << out << "\n");
-          DOT->addRelation(*op, out, "load");
-        }
+      // Value is a pointer, so the previous load is also tainted.
+      if (isa<LoadInst>(out)) {
+        Value* op = (cast<LoadInst>(out)).getOperand(0);
+        addTaintToSet(taintSet, *op);
+        DEBUG_LOG(" ++ Added previous load: " << out << "\n");
+        DOT->addRelation(*op, out, "load");
       }
     }
-
-  } else {
-    DEBUG_LOG(" ! Cannot get information about callee `" << *callInst.getCalledValue() << "`\n");
   }
+
+  if (needToAddGraphNodeForFunction)
+    DOT->addCallNode(callee);
 }
 
 int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
   for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
-    if (c.getArgOperand(0) == &v)
+    if (c.getArgOperand(i) == &v)
       return i;
   }
 
-  return -1;
+  return -2;
 }
 
 int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
@@ -577,7 +642,7 @@ int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
       return j;
   }
 
-  return -1;
+  return -2;
 }
 
 void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
@@ -619,7 +684,12 @@ void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
     } else if (Helper::setContains(taintSet, incomingValue)) {
       DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
       addTaintToSet(taintSet, inst);
-      DOT->addRelation(incomingValue, inst, "phi-value");
+
+      // If incoming value is a Function (eg. selection for a function pointer)
+      // we do not create a graph node here -- it will later be created in the
+      // function call handling.
+      if (!isa<Function>(incomingValue))
+        DOT->addRelation(incomingValue, inst, "phi-value");
     }
   }
 }

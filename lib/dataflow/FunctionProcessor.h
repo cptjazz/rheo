@@ -39,7 +39,7 @@ class FunctionProcessor {
   ResultSet& _taints;
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
-  FunctionMap& _circularReferences;
+  CircleMap& _circularReferences;
 
   raw_ostream& _stream;
 
@@ -47,14 +47,17 @@ class FunctionProcessor {
   bool _taintSetChanged;
   bool _resultSetChanged;
   bool _suppressPrintTaints;
+  bool _shouldWriteErrors;
+  ProcessingState _processingState;
 
 public:
-  FunctionProcessor(TaintFlowPass& pass, const Function& f, FunctionMap& circRef, const Module& m, ResultSet& result, raw_ostream& stream) 
+  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, ResultSet& result, raw_ostream& stream) 
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
     PASS(pass), _taints(result), _circularReferences(circRef), _stream(stream)
   { 
     _canceledInspection = false;
     _suppressPrintTaints = false;
+    _shouldWriteErrors = true;
 
     DOT = new NullGraphExporter();
 
@@ -67,7 +70,18 @@ public:
   }
 
   void processFunction();
-  bool didFinish();
+
+  ProcessingState getState() {
+    return _processingState;
+  }
+
+  bool didFinish() {
+    return !_canceledInspection;
+  }
+
+  void setShouldWriteErrors(bool val) {
+    _shouldWriteErrors = val;
+  }
 
 private:
   void intersectSets(const Value& arg, const TaintSet argTaintSet, const bool debugPrintSet);
@@ -80,6 +94,7 @@ private:
   void handleGetElementPtrInstruction(const GetElementPtrInst& storeInst, TaintSet& taintSet);
   void handleStoreInstruction(const StoreInst& storeInst, TaintSet& taintSet);
   void handleCallInstruction(const CallInst& callInst, TaintSet& taintSet);
+  void handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet);
   void handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet);
   void handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet);
   void handleInstruction(const Instruction& inst, TaintSet& taintSet);

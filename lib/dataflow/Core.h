@@ -6,6 +6,7 @@
 #include <llvm/Value.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include "llvm/Support/Debug.h"
+#include "llvm/Analysis/CallGraph.h"
 
 using namespace std;
 using namespace llvm;
@@ -15,7 +16,21 @@ typedef SmallPtrSet<const Value*, 256> ReturnSet;
 typedef map<const Value*, TaintSet> TaintMap;
 typedef pair<const Value*, const Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
-typedef set<pair<const Function*, const Function*> > FunctionMap;
+typedef vector<const CallGraphNode*> NodeVector;
+typedef map<const Function*, NodeVector> CircleMap;
 typedef map<int, int> FunctionTaintMap;
+
+/**
+ * The ProcessingState enum describes the result of a 
+ * FunctionProcessor run.
+ */
+enum ProcessingState {
+  Success,
+  ErrorMissingDefinition,
+  ErrorMissingIntrinsic,
+  ErrorArguments,
+  Error,
+  Deferred
+};
 
 #endif // CORE_H
