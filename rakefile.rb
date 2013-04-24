@@ -34,23 +34,24 @@ def analyse(args)
   dir = args.dir || "."
   file = "/tmp/taint-flow.bc"
 
-  FileUtils.cd(dir) do 
-    #`llvm-link *.bc -o #{file}`
-  end
-  
   FileUtils.rm_rf("output")
   sleep 0.5
   FileUtils.mkdir("output")
 
-  `cp -R taintlib output/`
+  if Dir.exist?("taintlib")
+    `cp -R taintlib output/` 
+  end
 
   FileUtils.cd("output") do
-    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -instnamer -dataflow < #{file} -o /dev/null 2>&1"
+    log_file = File.open("analysis.log", "w")
+
+    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -dataflow < #{file} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
           r.each do |line|
-            #puts line
+            log_file.puts line
+            log_file.flush
 
             if line =~ /__log:start:(.*)/
               print " * Analysing " + $1.strip.bright + " ... "
@@ -61,8 +62,8 @@ def analyse(args)
               puts "done".color(:green) +  "  #{taints}".color("#aaaaaa")
             end
 
-            if line =~ /__log:defer:(.*):/
-              puts "deferring".color(:yellow)
+            if line =~ /__defer:(.*)/
+              puts "deferred".color(:yellow)
             end
 
             if line =~ /__error:(.*)/
@@ -74,6 +75,8 @@ def analyse(args)
       end
     rescue PTY::ChildExited => e  
     end  
+
+    log_file.close
   end
 
 end
@@ -103,7 +106,7 @@ def run_tests(show_only, args)
 
       @opts.each do |opt|
         `rm *.taints`
-        `cp ../taintlib/*.taints .`
+        `cp ../taintlib/*.taints .` if Dir.exist?("../taintlib")
         create_taint_file(def_map)
 
         out_map = {}
