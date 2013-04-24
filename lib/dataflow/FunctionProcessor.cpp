@@ -481,6 +481,7 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
 
   if (!refFp.didFinish()) {
     _canceledInspection = true;
+
     if (refFp.getState() == ErrorMissingDefinition)
       _processingState = Deferred;
     else
@@ -490,10 +491,11 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   }
 
   for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
+    DEBUG_LOG("found mapping: " << *i->first << " => " << *i->second << "\n");
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
 
-    if (inPos >= (int) callInst.getNumArgOperands() || inPos < 0) {
+    if (inPos >= (int) callInst.getNumArgOperands() || inPos < -2) {
       ERROR_LOG("Argument position " << inPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
       _processingState = ErrorArguments;
