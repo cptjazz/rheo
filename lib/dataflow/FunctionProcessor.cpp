@@ -418,12 +418,13 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
       const Value* arg = callInst.getArgOperand(paramPos);
       sources.insert(arg);
     }
+    DEBUG_LOG("processed source-mappings\n");
 
     // Build set for sinks
     if (retvalPos == -1) {
       // Return value
       sinks.insert(&callInst);
-    } if (retvalPos == -2) {
+    } else if (retvalPos == -2) {
       // Can this happen at all?
       ERROR_LOG("No VarArgs allowed as target.\n");
       _canceledInspection = true;
@@ -437,6 +438,8 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
       const Value* returnTarget = callInst.getArgOperand(retvalPos);
       sinks.insert(returnTarget);
     }
+
+    DEBUG_LOG("processed sink-mappings\n");
 
     for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
       const Value& source = **so_i;
@@ -716,6 +719,9 @@ int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
 }
 
 int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
+
+  if (isa<ReturnInst>(v))
+    return -1;
 
   int j = 0;
   for (Function::const_arg_iterator i = f.arg_begin(), e = f.arg_end(); i != e; ++i, ++j) {
