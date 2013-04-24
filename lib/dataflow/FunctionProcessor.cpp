@@ -768,14 +768,6 @@ void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
       DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
       addTaintToSet(taintSet, inst);
       DOT->addRelation(incomingBlock, inst, "block-taint");
-
-      // If the block is tainted, also every instruction in
-      // the block is tainted. 
-      // The values that will be assigned to the target were
-      // in this block but are now in the PHI, so we have to mark 
-      // them as tainted.
-      addTaintToSet(taintSet, incomingValue);
-      DOT->addRelation(incomingBlock, incomingValue, "block-taint");
     } else if (Helper::setContains(taintSet, incomingValue)) {
       DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
       addTaintToSet(taintSet, inst);
