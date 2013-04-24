@@ -27,8 +27,10 @@
 #define ERROR_LOG(x) if (_shouldWriteErrors) debug() << "__error:" << x 
 #ifdef PROFILING
 #define PROFILE_LOG(x) DEBUG(debug() << x)
+#define IF_PROFILING(x) x
 #else
 #define PROFILE_LOG(x) 
+#define IF_PROFILING(x)
 #endif
 
 using namespace llvm;
@@ -95,13 +97,13 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
       continue;
     }
 
-    long t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
     DEBUG_LOG("Ret-set for `" << retval << "`:\n");
     if (debugPrintSet)
       printSet(retTaintSet);
     PROFILE_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n");
 
-    t = Helper::getTimestamp();
+    IF_PROFILING(t = Helper::getTimestamp());
     TaintSet intersect;
     Helper::intersectSets(argTaintSet, retTaintSet, intersect);
     PROFILE_LOG("intersect() took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -117,7 +119,8 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
 }
 
 inline void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
+  
   if (taintSet.insert(&v))
     _taintSetChanged = true;
 
@@ -201,7 +204,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
 
-    long t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
 
     Instruction& inst = cast<Instruction>(*inst_i);
 
@@ -390,7 +393,7 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
  * -1 on the right hand side of => denotes the return value
  */
 void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
 
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
@@ -449,7 +452,7 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
 }
 
 void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
 
   for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     int inPos = getArgumentPosition(func, *i->first);
@@ -465,7 +468,7 @@ void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, c
 }
 
 void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
 
   ResultSet refResult;
   FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
