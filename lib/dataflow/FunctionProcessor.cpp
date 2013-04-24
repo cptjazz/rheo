@@ -10,6 +10,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Intrinsics.h"
 #include <map>
 #include <set>
 #include <algorithm>
@@ -165,7 +166,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
     }
   }
 
-  DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n");
+  DEBUG_LOG("Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
   printSet(taintSet);
 }
 
@@ -365,11 +366,11 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  TaintFile* taints = TaintFile::read(func, debug());
+void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
+  TaintFile* taints = TaintFile::read(callee, debug());
 
   if (!taints) {
-    ERROR_LOG("Cannot find definition of `" << func.getName() << "`.\n");
+    ERROR_LOG("Cannot find definition of `" << callee.getName() << "`.\n");
     _canceledInspection = true;
     _processingState = ErrorMissingDefinition;
     delete(taints);
@@ -377,26 +378,70 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
   }
 
   FunctionTaintMap& mapping = taints->getMapping();
-  createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+  createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
   delete(taints);
 }
 
-void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults) {
+/**
+ * Transforms a raw mapping in the form of
+ * 0 => 1, 1 => -1, ...
+ * to a mapping where actual Values of the call are used
+ *
+ * -1 on the right hand side of => denotes the return value
+ */
+void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults) {
   long t = Helper::getTimestamp();
 
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
 
-    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
-    const Value* arg = callInst.getArgOperand(paramPos);
+    size_t calleeArgCount = callee.getArgumentList().size();
+    size_t callArgCount = callInst.getNumArgOperands();
 
-    if (retvalPos == -1) {
-      taintResults.insert(make_pair(arg, &callInst));
+    set<const Value*> sources;
+    set<const Value*> sinks;
+
+    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
+
+    // Build set for sources
+    if (paramPos == -2) {
+      // VarArgs
+      for (size_t i = calleeArgCount; i < callArgCount; i++) {
+        sources.insert(callInst.getArgOperand(i));
+      }
+    } else {
+      // Normal arguments
+      const Value* arg = callInst.getArgOperand(paramPos);
+      sources.insert(arg);
     }
-    else {
+
+    // Build set for sinks
+    if (retvalPos == -1) {
+      // Return value
+      sinks.insert(&callInst);
+    } if (retvalPos == -2) {
+      // Can this happen at all?
+      ERROR_LOG("No VarArgs allowed as target.\n");
+      _canceledInspection = true;
+      _processingState = Error;
+      // Varargs
+      //for (int i = calleeArgCount; i < callArgCount; i++) {
+        //sinks.insert(callInst.getArgOperand(i));
+      //}
+    } else {
+      // Out pointer
       const Value* returnTarget = callInst.getArgOperand(retvalPos);
-      taintResults.insert(make_pair(arg, returnTarget));
+      sinks.insert(returnTarget);
+    }
+
+    for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
+      const Value& source = **so_i;
+      for (set<const Value*>::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; si_i++) {
+        const Value& sink = **si_i;
+
+        taintResults.insert(make_pair(&source, &sink));
+      }
     }
   }
 
@@ -582,7 +627,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
 
     FunctionTaintMap mapping;
     if (IntrinsicHelper::getMapping(callee, mapping)) {
-      createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+      createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
     } else {
       ERROR_LOG("No definition of intrinsic `" << callee.getName() << "`.\n");
       _canceledInspection = true;
@@ -662,7 +707,7 @@ int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
       return i;
   }
 
-  return -2;
+  return -3;
 }
 
 int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
@@ -673,7 +718,7 @@ int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
       return j;
   }
 
-  return -2;
+  return -3;
 }
 
 void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
@@ -873,6 +918,28 @@ void FunctionProcessor::findArguments() {
     // Skip constants (eg. string literals)
     if (!g_i->isConstant())
       handleFoundArgument(*g_i);
+  }
+
+  if (F.isVarArg()) {
+    for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+      if (isa<CallInst>(*I)) {
+        const CallInst& call = cast<CallInst>(*I);
+
+        if (!call.getCalledFunction())
+          continue;
+
+        if (call.getCalledFunction()->isIntrinsic() && call.getCalledFunction()->getIntrinsicID() == Intrinsic::vastart) {
+          // Found Value of var-arg list.
+          BitCastInst& bitcast = cast<BitCastInst>(*call.getOperand(0));
+          GetElementPtrInst& gep = cast<GetElementPtrInst>(*bitcast.getOperand(0));
+          Value& alloca = *gep.getOperand(0);
+
+          alloca.setName("...");
+          handleFoundArgument(alloca);
+          break;
+        }
+      }
+    }
   }
 }
 

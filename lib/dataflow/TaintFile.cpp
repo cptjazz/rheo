@@ -45,6 +45,7 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
     if( !(convert1 >> paramPos)) {
       paramPos = -1;
       DEBUG(debugStream << "Searching for param " << paramName << "\n");
+
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
@@ -54,6 +55,10 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
 
         i++;
       }
+
+      if (paramName.compare("...") == 0)
+        paramPos = -2;
+
     } else {
       DEBUG(debugStream << "Param-info from file: seem to be at #" << paramPos << "\n");
     }
@@ -72,14 +77,16 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
 
         i++;
       }
+
+      if (paramName.compare("...") == 0)
+        paramPos = -2;
+
     } else {
       DEBUG(debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n");
     }
 
     if (paramPos == -1) {
       DEBUG(debugStream << "  - Skipping `" << paramName << "` -- not found.\n");
-      //delete(taints);
-      //return NULL;
       break;
     }
 
@@ -114,19 +121,24 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
     const Value& arg = *i->first;
     const Value& retval = *i->second;
 
+    int sourcePos = -3;
+    int sinkPos = -3;
+
     file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
 
     // Specify the taint a second time in numeric form, eg 0 => -1
-    if (isa<Argument>(arg)) {
-      file << cast<Argument>(arg).getArgNo() << " => "; 
+    if (isa<Argument>(arg))
+      sourcePos = cast<Argument>(arg).getArgNo(); 
+    else if (!isa<GlobalVariable>(arg))
+      // Varargs
+      sourcePos = -2;
 
-      if (isa<ReturnInst>(retval))
-        file << "-1\n";
-      else if (isa<Argument>(retval))
-        file << cast<Argument>(retval).getArgNo() << "\n"; 
-      else
-        file << Helper::getValueNameOrDefault(retval) << "\n";
-    }
+    if (isa<ReturnInst>(retval))
+      sinkPos = -1;
+    else if (isa<Argument>(retval))
+      sinkPos = cast<Argument>(retval).getArgNo();
+
+      file << sourcePos << " => " << sinkPos << "\n"; 
   }
 
   file.close();
