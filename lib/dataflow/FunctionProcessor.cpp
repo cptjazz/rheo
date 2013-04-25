@@ -923,6 +923,13 @@ void FunctionProcessor::findArguments() {
       handleFoundArgument(*g_i);
   }
 
+  // In a perfect world, compilers would use the LLVM va_arg instruction
+  // to copy over the current vararg-element. But neither Clang nor gcc-llvm
+  // use this instruction, instead they immediately lower the code to use
+  // some struct magic.
+  // Here, we search for this struct and rename it to "..." to have convenient
+  // output. We simply search for the first @va_start intrinsic and follow its
+  // argument until we reach the struct.
   if (F.isVarArg()) {
     for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
       if (isa<CallInst>(*I)) {
@@ -951,7 +958,8 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
 
   DEBUG_LOG(" -- Inspecting argument or global `" << arg.getName() << "`\n");
 
-  if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
+  // '...' is not allowed on the right hand side.
+  if (arg.getName().compare("...") && (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
     returnSet.insert(&arg);
 
