@@ -1,6 +1,10 @@
 #include <stdarg.h>
  
-// __expected:average(count => $_retval, ... => $_retval)
+// Last expected taint: as we cannot decide if the varargs are
+// pointer or value types, we stay conservative and assume they 
+// are pointers.
+//
+// __expected:average(count => $_retval, ... => $_retval, count => ...)
 double average(int count, ...)
 {
   va_list ap;

@@ -425,14 +425,14 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
       // Return value
       sinks.insert(&callInst);
     } else if (retvalPos == -2) {
-      // Can this happen at all?
-      ERROR_LOG("No VarArgs allowed as target.\n");
-      _canceledInspection = true;
-      _processingState = Error;
       // Varargs
-      //for (int i = calleeArgCount; i < callArgCount; i++) {
-        //sinks.insert(callInst.getArgOperand(i));
-      //}
+      // These can also be taint sinks, namely if pointers
+      // are put as varargs -- because we cannot detect this in
+      // the callee, we have to handle it here.
+      for (size_t i = calleeArgCount; i < callArgCount; i++) {
+        if (callInst.getArgOperand(i)->getType()->isPointerTy())
+          sinks.insert(callInst.getArgOperand(i));
+      }
     } else {
       // Out pointer
       const Value* returnTarget = callInst.getArgOperand(retvalPos);
@@ -958,8 +958,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
 
   DEBUG_LOG(" -- Inspecting argument or global `" << arg.getName() << "`\n");
 
-  // '...' is not allowed on the right hand side.
-  if (arg.getName().compare("...") && (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
+  if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
     returnSet.insert(&arg);
 

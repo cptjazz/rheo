@@ -78,8 +78,10 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
         i++;
       }
 
-      if (paramName.compare("...") == 0)
-        paramPos = -2;
+      if (valName.compare("...") == 0) {
+        retvalPos = -2;
+        DEBUG(debugStream << "Interpreting as varargs\n");
+    }
 
     } else {
       DEBUG(debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n");
@@ -137,6 +139,9 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
       sinkPos = -1;
     else if (isa<Argument>(retval))
       sinkPos = cast<Argument>(retval).getArgNo();
+    else
+      // Varargs
+      sinkPos = -2;
 
       file << sourcePos << " => " << sinkPos << "\n"; 
   }
