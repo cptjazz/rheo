@@ -106,7 +106,7 @@ def run_tests(show_only, args)
 
       @opts.each do |opt|
         `rm *.taints`
-        `cp ../taintlib/*.taints .` if Dir.exist?("../taintlib")
+        FileUtils.cp Dir.glob("../taintlib/*.taints"), "." if Dir.exist?("../taintlib")
         create_taint_file(def_map)
 
         out_map = {}
