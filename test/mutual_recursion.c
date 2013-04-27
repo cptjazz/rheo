@@ -59,7 +59,7 @@ int mutual_first(int a, int b, int* c) {
 
 }
 
-// __expected:mutual_second(c => $_retval, a => b, c => b)
+// __expected:mutual_second(a => $_retval, c => $_retval, a => b, c => b)
 int mutual_second(int a, int* b, int c) {
 
   if (c) {

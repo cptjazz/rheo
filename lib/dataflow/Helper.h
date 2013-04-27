@@ -22,8 +22,10 @@ class Helper {
     inline static string getValueNameOrDefault(const Value& v) {
       if (isa<Argument>(v) || isa<GlobalVariable>(v))
         return v.getName().str();
-      else
+      else if (isa<ReturnInst>(v))
         return "$_retval";
+      else 
+        return "...";
     }
 
     /**

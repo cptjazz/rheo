@@ -10,6 +10,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Intrinsics.h"
 #include <map>
 #include <set>
 #include <algorithm>
@@ -26,8 +27,10 @@
 #define ERROR_LOG(x) if (_shouldWriteErrors) debug() << "__error:" << x 
 #ifdef PROFILING
 #define PROFILE_LOG(x) DEBUG(debug() << x)
+#define IF_PROFILING(x) x
 #else
 #define PROFILE_LOG(x) 
+#define IF_PROFILING(x)
 #endif
 
 using namespace llvm;
@@ -45,6 +48,8 @@ void FunctionProcessor::processFunction() {
   do {
     _resultSetChanged = false;
 
+    DEBUG_LOG("Starting arg iteration " << resultIteration << " for " << F.getName() << "\n");
+
     TaintMap::iterator arg_i = _arguments.begin();
     TaintMap::iterator arg_e = _arguments.end();
       
@@ -56,11 +61,11 @@ void FunctionProcessor::processFunction() {
 
       buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL;
-      resultIteration++;
     }
 
+    resultIteration++;
     buildResultSet(true);
-  } while (resultIteration < 100 && _resultSetChanged);
+  } while (resultIteration < 10 && _resultSetChanged);
 
   _processingState = Success;
 
@@ -94,13 +99,13 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
       continue;
     }
 
-    long t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
     DEBUG_LOG("Ret-set for `" << retval << "`:\n");
     if (debugPrintSet)
       printSet(retTaintSet);
     PROFILE_LOG("printSet() took " << Helper::getTimestampDelta(t) << " µs\n");
 
-    t = Helper::getTimestamp();
+    IF_PROFILING(t = Helper::getTimestamp());
     TaintSet intersect;
     Helper::intersectSets(argTaintSet, retTaintSet, intersect);
     PROFILE_LOG("intersect() took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -115,8 +120,13 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
   }
 }
 
+/**
+ * Add the provided Value to the provided TaintSet and
+ * switch _taintSetChanged flag if the taint is new
+ */
 inline void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
+  
   if (taintSet.insert(&v))
     _taintSetChanged = true;
 
@@ -165,10 +175,15 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
     }
   }
 
-  DEBUG_LOG("Taint set for arg `" << arg.getName() << "`:\n");
+  DEBUG_LOG("Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
   printSet(taintSet);
 }
 
+/**
+ * Apply the meeting operation (union) for this basic block.
+ *
+ *  set_current = UNION_i=predecessor (s_i)
+ */
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
   TaintSet& blockSet = _blockList[&block];
   DEBUG_LOG("Applying meet for: " << block.getName() << "\n");
@@ -187,6 +202,13 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
   DEBUG_LOG("End meet\n");
 }
 
+/**
+ * Adds a taint to the final result set.
+ * Also switches the _resultSetChanged flag if the taint is new.
+ *
+ * @param tainter The source of the taint (usually an argument)
+ * @param taintee The sink of the taint (usually a return or out-pointer)
+ */
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
   if (_taints.insert(make_pair(&tainter, &taintee)).second) {
     _resultSetChanged = true;
@@ -200,7 +222,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
 
-    long t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
 
     Instruction& inst = cast<Instruction>(*inst_i);
 
@@ -365,11 +387,11 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  TaintFile* taints = TaintFile::read(func, debug());
+void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
+  TaintFile* taints = TaintFile::read(callee, debug());
 
   if (!taints) {
-    ERROR_LOG("Cannot find definition of `" << func.getName() << "`.\n");
+    ERROR_LOG("Cannot find definition of `" << callee.getName() << "`.\n");
     _canceledInspection = true;
     _processingState = ErrorMissingDefinition;
     delete(taints);
@@ -377,26 +399,74 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
   }
 
   FunctionTaintMap& mapping = taints->getMapping();
-  createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+  createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
   delete(taints);
 }
 
-void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+/**
+ * Transforms a raw mapping in the form of
+ * 0 => 1, 1 => -1, ...
+ * to a mapping where actual Values of the call are used
+ *
+ * -1 on the right hand side of => denotes the return value
+ */
+void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults) {
+  IF_PROFILING(long t = Helper::getTimestamp());
 
+  DEBUG_LOG(" Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
 
-    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
-    const Value* arg = callInst.getArgOperand(paramPos);
+    size_t calleeArgCount = callee.getArgumentList().size();
+    size_t callArgCount = callInst.getNumArgOperands();
 
-    if (retvalPos == -1) {
-      taintResults.insert(make_pair(arg, &callInst));
+    set<const Value*> sources;
+    set<const Value*> sinks;
+
+    DEBUG_LOG(" Converting mapping: " << paramPos << " => " << retvalPos << "\n");
+
+    // Build set for sources
+    if (paramPos == -2) {
+      // VarArgs
+      for (size_t i = calleeArgCount; i < callArgCount; i++) {
+        sources.insert(callInst.getArgOperand(i));
+      }
+    } else {
+      // Normal arguments
+      const Value* arg = callInst.getArgOperand(paramPos);
+      sources.insert(arg);
     }
-    else {
+    DEBUG_LOG("processed source-mappings\n");
+
+    // Build set for sinks
+    if (retvalPos == -1) {
+      // Return value
+      sinks.insert(&callInst);
+    } else if (retvalPos == -2) {
+      // Varargs
+      // These can also be taint sinks, namely if pointers
+      // are put as varargs -- because we cannot detect this in
+      // the callee, we have to handle it here.
+      for (size_t i = calleeArgCount; i < callArgCount; i++) {
+        if (callInst.getArgOperand(i)->getType()->isPointerTy())
+          sinks.insert(callInst.getArgOperand(i));
+      }
+    } else {
+      // Out pointer
       const Value* returnTarget = callInst.getArgOperand(retvalPos);
-      taintResults.insert(make_pair(arg, returnTarget));
+      sinks.insert(returnTarget);
+    }
+
+    DEBUG_LOG("processed sink-mappings\n");
+
+    for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
+      const Value& source = **so_i;
+      for (set<const Value*>::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; si_i++) {
+        const Value& sink = **si_i;
+
+        taintResults.insert(make_pair(&source, &sink));
+      }
     }
   }
 
@@ -404,7 +474,7 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
 }
 
 void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
 
   for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     int inPos = getArgumentPosition(func, *i->first);
@@ -420,7 +490,7 @@ void FunctionProcessor::buildMappingForRecursiveCall(const CallInst& callInst, c
 }
 
 void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  long t = Helper::getTimestamp();
+  IF_PROFILING(long t = Helper::getTimestamp());
 
   ResultSet refResult;
   FunctionProcessor refFp(PASS, func, _circularReferences, M, refResult, _stream);
@@ -433,6 +503,7 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
 
   if (!refFp.didFinish()) {
     _canceledInspection = true;
+
     if (refFp.getState() == ErrorMissingDefinition)
       _processingState = Deferred;
     else
@@ -442,10 +513,11 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   }
 
   for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
+    DEBUG_LOG("found mapping: " << *i->first << " => " << *i->second << "\n");
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
 
-    if (inPos >= (int) callInst.getNumArgOperands() || inPos < 0) {
+    if (inPos >= (int) callInst.getNumArgOperands() || inPos < -2) {
       ERROR_LOG("Argument position " << inPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
       _processingState = ErrorArguments;
@@ -468,6 +540,13 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   PROFILE_LOG("buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
+/**
+ * For calls to Functions that are declared but not defined
+ * in the given bc-assembly (= extern functions) we use a 
+ * conservative heuristic:
+ * 1) Every parameter taints the return value
+ * 2) Every parameter taints all out pointers
+ */
 void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
   for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
     const Value* arg = callInst.getArgOperand(i);
@@ -500,9 +579,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
   DEBUG_LOG(" Callee:" << *callInst.getCalledValue() << "\n");
+
   if (callee != NULL) {
+    // We are calling to a 'normal' function 
     handleFunctionCall(callInst, *callee, taintSet);
   } else {
+    // We are calling to a function pointer.
+    // We search for all possible aliases and
+    // execute a call to each possible realisation.
+    // This effectively builds the taint-union for all
+    // possible realisations.
     set<const Function*> possibleCallees;
 
     if (isa<LoadInst>(callInst.getCalledValue())) {
@@ -577,12 +663,16 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
 
+  } else if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
+    t = Helper::getTimestamp();
+    buildMappingFromTaintFile(callInst, callee, taintResults);
+    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << "\n");
   } else if (callee.isIntrinsic()) {
     DEBUG_LOG("handle intrinsic call: " << callee.getName() << "\n");
 
     FunctionTaintMap mapping;
     if (IntrinsicHelper::getMapping(callee, mapping)) {
-      createResultSetFromFunctionMapping(callInst, mapping, taintResults);
+      createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
     } else {
       ERROR_LOG("No definition of intrinsic `" << callee.getName() << "`.\n");
       _canceledInspection = true;
@@ -593,7 +683,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
 
     if (TaintFile::exists(callee)) {
-      readTaintsFromFile(callInst, callee, taintResults);
+      buildMappingFromTaintFile(callInst, callee, taintResults);
     } else {
       buildResultSet(false);
       TaintFile::writeResult(F, _taints);
@@ -607,9 +697,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DEBUG_LOG("calling to undefined external. using heuristic.\n");
     buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
   } else {
-    t = Helper::getTimestamp();
-    readTaintsFromFile(callInst, callee, taintResults);
-    PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
+    ERROR_LOG("Could not evaluate function call.\n");
   }
 
   bool needToAddGraphNodeForFunction = false;
@@ -656,26 +744,44 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DOT->addCallNode(callee);
 }
 
+/**
+ * Search the argument position for the given Value in
+ * the given CallInst.
+ *
+ * @return the position of the argument in this call, -3 if not found
+ */
 int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
   for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
     if (c.getArgOperand(i) == &v)
       return i;
   }
 
-  return -2;
+  return -3;
 }
 
+/**
+ * Search the parameter position for the given Value in
+ * the given Function.
+ *
+ * @return the position of the parameter in the corresponding Function, -3 if not found
+ */
 int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
+  if (isa<ReturnInst>(v))
+    return -1;
 
-  int j = 0;
-  for (Function::const_arg_iterator i = f.arg_begin(), e = f.arg_end(); i != e; ++i, ++j) {
-    if (&*i == &v)
-      return j;
-  }
+  if (isa<Argument>(v))
+    return (cast<Argument>(v)).getArgNo();
 
-  return -2;
+  return -3;
 }
 
+
+/**
+ * SWITCH is handled the following way:
+ *
+ * If the condition is tainted, each case (or default) is tainted
+ * due to nesting.
+ */
 void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
   const Value* condition = inst.getCondition();
   
@@ -712,14 +818,6 @@ void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
       DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
       addTaintToSet(taintSet, inst);
       DOT->addRelation(incomingBlock, inst, "block-taint");
-
-      // If the block is tainted, also every instruction in
-      // the block is tainted. 
-      // The values that will be assigned to the target were
-      // in this block but are now in the PHI, so we have to mark 
-      // them as tainted.
-      addTaintToSet(taintSet, incomingValue);
-      DOT->addRelation(incomingBlock, incomingValue, "block-taint");
     } else if (Helper::setContains(taintSet, incomingValue)) {
       DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
       addTaintToSet(taintSet, inst);
@@ -801,6 +899,12 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
   }
 }
 
+/**
+ * An arbitrary Instruction is handled the following way:
+ *
+ * If one of the operands is tainted, the taitn is transfered to
+ * the assignment target.
+ */
 void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
 
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
@@ -874,6 +978,35 @@ void FunctionProcessor::findArguments() {
     if (!g_i->isConstant())
       handleFoundArgument(*g_i);
   }
+
+  // In a perfect world, compilers would use the LLVM va_arg instruction
+  // to copy over the current vararg-element. But neither Clang nor gcc-llvm
+  // use this instruction, instead they immediately lower the code to use
+  // some struct magic.
+  // Here, we search for this struct and rename it to "..." to have convenient
+  // output. We simply search for the first @va_start intrinsic and follow its
+  // argument until we reach the struct.
+  if (F.isVarArg()) {
+    for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+      if (isa<CallInst>(*I)) {
+        const CallInst& call = cast<CallInst>(*I);
+
+        if (!call.getCalledFunction())
+          continue;
+
+        if (call.getCalledFunction()->isIntrinsic() && call.getCalledFunction()->getIntrinsicID() == Intrinsic::vastart) {
+          // Found Value of var-arg list.
+          BitCastInst& bitcast = cast<BitCastInst>(*call.getOperand(0));
+          GetElementPtrInst& gep = cast<GetElementPtrInst>(*bitcast.getOperand(0));
+          Value& alloca = *gep.getOperand(0);
+
+          alloca.setName("...");
+          handleFoundArgument(alloca);
+          break;
+        }
+      }
+    }
+  }
 }
 
 void FunctionProcessor::handleFoundArgument(const Value& arg) {
@@ -881,7 +1014,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
 
   DEBUG_LOG(" -- Inspecting argument or global `" << arg.getName() << "`\n");
 
-  if (arg.getType()->isPointerTy() || isa<GlobalVariable>(arg)) {
+  if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
     returnSet.insert(&arg);
 

@@ -107,7 +107,7 @@ private:
   void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
+  void buildMappingFromTaintFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
   void recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet);
@@ -122,7 +122,7 @@ private:
   void buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
-  void createResultSetFromFunctionMapping(const CallInst& callInst, FunctionTaintMap& mapping, ResultSet& taintResults);
+  void createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults);
 
   inline raw_ostream& debug() {
     return _stream;
