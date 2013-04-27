@@ -557,7 +557,7 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
   }
 }
 
-void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*> possibleCallees) {
+void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>& possibleCallees) {
   if (isa<LoadInst>(v)) {
     const LoadInst& callSource = cast<LoadInst>(v);
     DEBUG_LOG("Call source: " << callSource << "\n");
@@ -567,7 +567,7 @@ void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>
     for (Value::const_use_iterator i = delegate.use_begin(), e = delegate.use_end(); i != e; ++i) {
       if (isa<StoreInst>(*i)) {
         const StoreInst& store = *cast<StoreInst>(*i);
-        findPossibleCallees(*store.getOperand(1), possibleCallees);
+        findPossibleCallees(*store.getOperand(0), possibleCallees);
       }
     }
   } else if (isa<PHINode>(v)) {
@@ -598,6 +598,7 @@ void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>
       }
     }
   } else if (isa<Function>(v)) {
+    DEBUG_LOG("Found possible function: " << v.getName() << "\n");
     possibleCallees.insert(cast<Function>(&v));
   } else {
     ERROR_LOG("Cannot de-reference function pointer: " << v << "\n");

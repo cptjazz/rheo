@@ -120,7 +120,7 @@ private:
   void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults);
-  void findPossibleCallees(const Value& v, set<const Function*> possibleCallees);
+  void findPossibleCallees(const Value& v, set<const Function*>& possibleCallees);
 
   inline raw_ostream& debug() {
     return _stream;
