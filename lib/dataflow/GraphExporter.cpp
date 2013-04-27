@@ -65,7 +65,7 @@ void GraphExporter::addBlockNode(const Value& b) {
   _nodes.insert(&b);
 }
 
-void GraphExporter::addCallNode(const Function& f) {
+void GraphExporter::addCallNode(const Value& f) {
   if (_nodes.count(&f))
     return;
 

@@ -24,7 +24,7 @@ public:
   void virtual addInNode(const Value& in);
   void virtual addOutNode(const Value& out);
   void virtual addBlockNode(const Value& b);
-  void virtual addCallNode(const Function& f);
+  void virtual addCallNode(const Value& f);
   void virtual addRelation(const Value& from, const Value& to, string reason = "");
 
 protected:

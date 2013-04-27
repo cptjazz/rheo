@@ -19,7 +19,7 @@ public:
   inline virtual void addInNode(const Value& in) { }
   inline virtual void addOutNode(const Value& out) { }
   inline virtual void addBlockNode(const Value& b) { }
-  inline virtual void addCallNode(const Function& f) { }
+  inline virtual void addCallNode(const Value& f) { }
   inline virtual void addRelation(const Value& from, const Value& to, string reason = "") { }
 };
 

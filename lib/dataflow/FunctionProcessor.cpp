@@ -557,7 +557,7 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
   }
 }
 
-void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>& possibleCallees) {
+void FunctionProcessor::findPossibleCallees(const Function& caller, const Value& v, set<const Function*>& possibleCallees) {
   if (isa<LoadInst>(v)) {
     const LoadInst& callSource = cast<LoadInst>(v);
     DEBUG_LOG("Call source: " << callSource << "\n");
@@ -567,7 +567,7 @@ void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>
     for (Value::const_use_iterator i = delegate.use_begin(), e = delegate.use_end(); i != e; ++i) {
       if (isa<StoreInst>(*i)) {
         const StoreInst& store = *cast<StoreInst>(*i);
-        findPossibleCallees(*store.getOperand(0), possibleCallees);
+        findPossibleCallees(caller, *store.getOperand(0), possibleCallees);
       }
     }
   } else if (isa<PHINode>(v)) {
@@ -575,7 +575,7 @@ void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>
 
     for (size_t j = 0; j < phi.getNumIncomingValues(); j++) {
       const Value& incoming = *phi.getIncomingValue(j);
-      findPossibleCallees(incoming, possibleCallees);
+      findPossibleCallees(caller, incoming, possibleCallees);
     }
   } else if (isa<Argument>(v)) {
     const Argument& lambdaArg = cast<Argument>(v);
@@ -583,13 +583,17 @@ void FunctionProcessor::findPossibleCallees(const Value& v, set<const Function*>
 
     // Find all calls to this function.
     // Add all lambda arguments as possible callees.
-    for (Value::const_use_iterator i = F.use_begin(), e = F.use_end(); i != e; ++i) {
+    for (Value::const_use_iterator i = caller.use_begin(), e = caller.use_end(); i != e; ++i) {
       if (isa<CallInst>(*i)) {
         const CallInst& call = cast<CallInst>(**i);
-        DEBUG_LOG("Use of function: " << call << "\n");
+        DEBUG_LOG("Use of arg #" << argPos << ": " << call << "\n");
 
         const Value& lambda = *call.getArgOperand(argPos);
-        findPossibleCallees(lambda, possibleCallees);
+        DEBUG_LOG("Lambda: " << lambda << ": " << &lambda << "\n");
+
+        const Function& newCaller = *(call.getParent()->getParent());
+        if (&newCaller != &caller)
+          findPossibleCallees(newCaller, lambda, possibleCallees);
       } else {
         ERROR_LOG("Use of Function not a CallInst\n");
         _canceledInspection = true;
@@ -628,8 +632,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     // This effectively builds the taint-union for all
     // possible realisations.
     set<const Function*> possibleCallees;
-    findPossibleCallees(*callInst.getCalledValue(), possibleCallees);
+    findPossibleCallees(F, *callInst.getCalledValue(), possibleCallees);
     STOP_ON_CANCEL;
+
+    if (possibleCallees.size() == 0) {
+      // If no possible function pointer realisations
+      // were found, try to use the heuristic for externs.
+      DEBUG_LOG("No function pointer realisation found. Using heuristic.\n");
+      handleFunctionPointerCallWithHeuristic(callInst, taintSet);
+      return;
+    }
 
     for (set<const Function*>::iterator c_i = possibleCallees.begin(), c_e = possibleCallees.end(); c_i != c_e; ++c_i) {
       const Function& callee = **c_i;
@@ -651,8 +663,32 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
       // Handling all indirect calls produces a union of the taints
       // transferred for all possibly called functions.
       handleFunctionCall(callInst, callee, taintSet);
+    
+      STOP_ON_CANCEL;
     }
   }
+}
+
+void FunctionProcessor::handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) {
+  ResultSet taintResults;
+
+  for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
+    const Value& source = *callInst.getArgOperand(i);
+
+    // Every arguments taints the return value
+    taintResults.insert(make_pair(&source, &callInst));
+
+    // 
+    for (size_t j = 0; j < callInst.getNumArgOperands(); j++) {
+      const Value& sink = *callInst.getArgOperand(j);
+
+      if (&source != &sink && sink.getType()->isPointerTy()) {
+        taintResults.insert(make_pair(&source, &sink));
+      }
+    }
+  }
+
+  processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
 }
 
 void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet) {
@@ -661,14 +697,17 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
   ResultSet taintResults;
   long t;
 
-  if (&callee == &F) {
+  if (callee.size() == 0 || callInst.isInlineAsm()) {
+    // External functions
+    DEBUG_LOG("calling to undefined external. using heuristic.\n");
+    buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
+  } else if (&callee == &F) {
     // build intermediate taint sets
     t = Helper::getTimestamp();
     buildResultSet(false);
     PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
-
   } else if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
     t = Helper::getTimestamp();
     buildMappingFromTaintFile(callInst, callee, taintResults);
@@ -684,7 +723,6 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
       _canceledInspection = true;
       _processingState = ErrorMissingIntrinsic;
     }
-
   } else if (Helper::circleListContains(_circularReferences[&F], callee)) {
     DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
 
@@ -700,16 +738,15 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
 
       TaintFile::remove(F);
     }
-  } else if (callee.size() == 0 || callInst.isInlineAsm()) {
-    // External functions
-    DEBUG_LOG("calling to undefined external. using heuristic.\n");
-    buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
   } else {
-    ERROR_LOG("Could not evaluate function call. " << callee.getName() << "\n");
     _canceledInspection = true;
-    _processingState = ErrorMissingDefinition;
+    _processingState = Deferred;
   }
 
+  processFunctionCallResultSet(callInst, callee, taintResults, taintSet);
+}
+
+void FunctionProcessor::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) {
   bool needToAddGraphNodeForFunction = false;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
