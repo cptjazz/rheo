@@ -21,7 +21,7 @@
 
 char TaintFlowPass::ID = 0;
 
-static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", true, true);
+static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", false, false);
 
 void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper) {
   Function* f = node->getFunction();
