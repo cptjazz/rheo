@@ -29,25 +29,6 @@ class Helper {
     }
 
     /**
-     * @return true if the value is in the set.
-     */
-    inline static bool setContains(const TaintSet& taintSet, const Value& val) {
-      return taintSet.count(&val);
-    }
-
-    /**
-     * @param argTaintSet First set
-     * @param retTaintSet Second set
-     * @param intersect Result of set intersection
-     */
-    inline static void intersectSets(const TaintSet& argTaintSet, const TaintSet& retTaintSet, TaintSet& intersect) {
-      for (TaintSet::const_iterator i = argTaintSet.begin(), e = argTaintSet.end(); i != e; ++i) {
-        if (retTaintSet.count(*i))
-          intersect.insert(*i);
-      }
-    }
-
-    /**
      * @return true if the function is in the provided circular reference set.
      */
     inline static bool circleListContains(NodeVector& v, const Function& f) {

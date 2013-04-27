@@ -44,7 +44,6 @@ class FunctionProcessor {
   raw_ostream& _stream;
 
   bool _canceledInspection;
-  bool _taintSetChanged;
   bool _resultSetChanged;
   bool _suppressPrintTaints;
   bool _shouldWriteErrors;
@@ -104,7 +103,6 @@ private:
   void findArguments();
   void handleFoundArgument(const Value& arg);
   void findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& retlist);
-  void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
   void buildMappingFromTaintFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
@@ -113,7 +111,6 @@ private:
   void recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet);
   void recursivelyFindAliases(const Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
   void followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet);
-  void addTaintToSet(TaintSet& taintSet, const Value& v);
   bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet);
   void applyMeet(const BasicBlock& block);
   void enqueueBlockToWorklist(const BasicBlock* block);
@@ -123,6 +120,7 @@ private:
   void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults);
+  void findPossibleCallees(const Value& v, set<const Function*> possibleCallees);
 
   inline raw_ostream& debug() {
     return _stream;
