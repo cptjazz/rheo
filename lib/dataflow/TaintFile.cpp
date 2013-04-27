@@ -5,6 +5,15 @@
 #include <stdio.h>
 #include <llvm/Instructions.h>
 
+/**
+ * Reads the taint file for the given function and 
+ * converts the mapping into a numeric form of
+ * 0 => 1, 2 => -1, ...
+ * where the numbers specify the argument position
+ * or -1 for return-value and -2 for varargs.
+ *
+ * The created mapping can be retreived via getMapping()
+ */
 TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   string filename = getFilename(func);
   ifstream file(filename.c_str(), ios::in);
@@ -42,7 +51,13 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
       continue;
     }
 
+    // Convert left hand side of => 
+    //
+
     stringstream convert1(paramName);
+    // If integer conversion failed, the arguments
+    // in the file are specified by their names so we 
+    // have to search the corresponing argument positions.
     if( !(convert1 >> paramPos)) {
       paramPos = -1;
       DEBUG(debugStream << "Searching for param " << paramName << "\n");
@@ -64,8 +79,14 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
       DEBUG(debugStream << "Param-info from file: seem to be at #" << paramPos << "\n");
     }
 
+    // Convert right hand side of => 
+    //
+
     i = 0;
     stringstream convert2(valName);
+    // If integer conversion failed, the arguments
+    // in the file are specified by their names so we 
+    // have to search the corresponing argument positions.
     if( !(convert2 >> retvalPos)) {
       retvalPos = -1;
       DEBUG(debugStream << "Searching for retval " << valName << "\n");
@@ -103,19 +124,33 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   return taints;
 }
 
+/**
+ * @return true if the taint file for the given function exists,
+ * false otherwise
+ */
 bool TaintFile::exists(const Function& f) {
   ifstream file(getFilename(f).c_str());
   return file.good();
 }
 
+/**
+ * Removes the taint file for the specified function
+ */
 void TaintFile::remove(const Function& f) {
   ::remove(getFilename(f).c_str());
 }
 
+/**
+ * Extract the taint file name from the given Function
+ */
 string TaintFile::getFilename(const Function& f) {
   return f.getName().str() + ".taints";
 }
 
+/**
+ * Writes the provided ResultSet to a taint file
+ * for the provided Function
+ */
 void TaintFile::writeResult(const Function& f, const ResultSet result) {
   ofstream file;
   file.open((f.getName().str() + ".taints").c_str(), ios::out);

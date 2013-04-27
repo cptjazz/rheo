@@ -120,6 +120,10 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
   }
 }
 
+/**
+ * Add the provided Value to the provided TaintSet and
+ * switch _taintSetChanged flag if the taint is new
+ */
 inline void FunctionProcessor::addTaintToSet(TaintSet& taintSet, const Value& v) {
   IF_PROFILING(long t = Helper::getTimestamp());
   
@@ -175,6 +179,11 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   printSet(taintSet);
 }
 
+/**
+ * Apply the meeting operation (union) for this basic block.
+ *
+ *  set_current = UNION_i=predecessor (s_i)
+ */
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
   TaintSet& blockSet = _blockList[&block];
   DEBUG_LOG("Applying meet for: " << block.getName() << "\n");
@@ -193,6 +202,13 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
   DEBUG_LOG("End meet\n");
 }
 
+/**
+ * Adds a taint to the final result set.
+ * Also switches the _resultSetChanged flag if the taint is new.
+ *
+ * @param tainter The source of the taint (usually an argument)
+ * @param taintee The sink of the taint (usually a return or out-pointer)
+ */
 inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taintee) {
   if (_taints.insert(make_pair(&tainter, &taintee)).second) {
     _resultSetChanged = true;
@@ -524,6 +540,13 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   PROFILE_LOG("buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
+/**
+ * For calls to Functions that are declared but not defined
+ * in the given bc-assembly (= extern functions) we use a 
+ * conservative heuristic:
+ * 1) Every parameter taints the return value
+ * 2) Every parameter taints all out pointers
+ */
 void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
   for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
     const Value* arg = callInst.getArgOperand(i);
@@ -556,9 +579,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
   DEBUG_LOG(" Callee:" << *callInst.getCalledValue() << "\n");
+
   if (callee != NULL) {
+    // We are calling to a 'normal' function 
     handleFunctionCall(callInst, *callee, taintSet);
   } else {
+    // We are calling to a function pointer.
+    // We search for all possible aliases and
+    // execute a call to each possible realisation.
+    // This effectively builds the taint-union for all
+    // possible realisations.
     set<const Function*> possibleCallees;
 
     if (isa<LoadInst>(callInst.getCalledValue())) {
@@ -714,6 +744,12 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DOT->addCallNode(callee);
 }
 
+/**
+ * Search the argument position for the given Value in
+ * the given CallInst.
+ *
+ * @return the position of the argument in this call, -3 if not found
+ */
 int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
   for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
     if (c.getArgOperand(i) == &v)
@@ -723,20 +759,29 @@ int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
   return -3;
 }
 
+/**
+ * Search the parameter position for the given Value in
+ * the given Function.
+ *
+ * @return the position of the parameter in the corresponding Function, -3 if not found
+ */
 int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
-
   if (isa<ReturnInst>(v))
     return -1;
 
-  int j = 0;
-  for (Function::const_arg_iterator i = f.arg_begin(), e = f.arg_end(); i != e; ++i, ++j) {
-    if (&*i == &v)
-      return j;
-  }
+  if (isa<Argument>(v))
+    return (cast<Argument>(v)).getArgNo();
 
   return -3;
 }
 
+
+/**
+ * SWITCH is handled the following way:
+ *
+ * If the condition is tainted, each case (or default) is tainted
+ * due to nesting.
+ */
 void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
   const Value* condition = inst.getCondition();
   
@@ -854,6 +899,12 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
   }
 }
 
+/**
+ * An arbitrary Instruction is handled the following way:
+ *
+ * If one of the operands is tainted, the taitn is transfered to
+ * the assignment target.
+ */
 void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
 
   for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
