@@ -48,6 +48,8 @@ void FunctionProcessor::processFunction() {
   do {
     _resultSetChanged = false;
 
+    DEBUG_LOG("Starting arg iteration " << resultIteration << " for " << F.getName() << "\n");
+
     TaintMap::iterator arg_i = _arguments.begin();
     TaintMap::iterator arg_e = _arguments.end();
       
@@ -59,11 +61,11 @@ void FunctionProcessor::processFunction() {
 
       buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL;
-      resultIteration++;
     }
 
+    resultIteration++;
     buildResultSet(true);
-  } while (resultIteration < 100 && _resultSetChanged);
+  } while (resultIteration < 10 && _resultSetChanged);
 
   _processingState = Success;
 
@@ -369,7 +371,7 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
   return false;
 }
 
-void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
+void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
   TaintFile* taints = TaintFile::read(callee, debug());
 
   if (!taints) {
@@ -395,6 +397,7 @@ void FunctionProcessor::readTaintsFromFile(const CallInst& callInst, const Funct
 void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults) {
   IF_PROFILING(long t = Helper::getTimestamp());
 
+  DEBUG_LOG(" Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
@@ -405,7 +408,7 @@ void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callI
     set<const Value*> sources;
     set<const Value*> sinks;
 
-    DEBUG_LOG(" Use mapping: " << paramPos << " => " << retvalPos << "\n");
+    DEBUG_LOG(" Converting mapping: " << paramPos << " => " << retvalPos << "\n");
 
     // Build set for sources
     if (paramPos == -2) {
@@ -630,6 +633,10 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
 
+  } else if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
+    t = Helper::getTimestamp();
+    buildMappingFromTaintFile(callInst, callee, taintResults);
+    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << "\n");
   } else if (callee.isIntrinsic()) {
     DEBUG_LOG("handle intrinsic call: " << callee.getName() << "\n");
 
@@ -646,7 +653,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
 
     if (TaintFile::exists(callee)) {
-      readTaintsFromFile(callInst, callee, taintResults);
+      buildMappingFromTaintFile(callInst, callee, taintResults);
     } else {
       buildResultSet(false);
       TaintFile::writeResult(F, _taints);
@@ -660,9 +667,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     DEBUG_LOG("calling to undefined external. using heuristic.\n");
     buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
   } else {
-    t = Helper::getTimestamp();
-    readTaintsFromFile(callInst, callee, taintResults);
-    PROFILE_LOG(" readTaintsFromFile() took " << Helper::getTimestampDelta(t) << "\n");
+    ERROR_LOG("Could not evaluate function call.\n");
   }
 
   bool needToAddGraphNodeForFunction = false;

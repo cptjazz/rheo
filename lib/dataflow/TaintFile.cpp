@@ -19,6 +19,7 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   }
 
   TaintFile* taints = new TaintFile();
+  FunctionTaintMap& mapping = taints->getMapping();
 
   string line;
   while (file.good()) {
@@ -81,8 +82,7 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
       if (valName.compare("...") == 0) {
         retvalPos = -2;
         DEBUG(debugStream << "Interpreting as varargs\n");
-    }
-
+      }
     } else {
       DEBUG(debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n");
     }
@@ -92,12 +92,13 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
       break;
     }
 
-    FunctionTaintMap& mapping = taints->getMapping();
     DEBUG(debugStream << " Insert mapping: " << paramPos << " => " << retvalPos << "\n");
     mapping.insert(make_pair(paramPos, retvalPos));
   }
 
   file.close();
+
+  DEBUG(debugStream << " Inserted " << mapping.size() << " mappings\n");
 
   return taints;
 }

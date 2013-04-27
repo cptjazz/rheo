@@ -107,7 +107,7 @@ private:
   void printSet(const TaintSet& s);
   void findReturnStatements();
   void printInstructions(); 
-  void readTaintsFromFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
+  void buildMappingFromTaintFile(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   bool isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList);
   bool isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet);
   void recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet);

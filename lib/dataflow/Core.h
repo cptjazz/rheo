@@ -18,7 +18,7 @@ typedef pair<const Value*, const Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
 typedef vector<const CallGraphNode*> NodeVector;
 typedef map<const Function*, NodeVector> CircleMap;
-typedef map<int, int> FunctionTaintMap;
+typedef set<pair<int, int> > FunctionTaintMap;
 
 /**
  * The ProcessingState enum describes the result of a 
