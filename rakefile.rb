@@ -24,15 +24,15 @@ task :test, [:pattern] do |t, args|
   run_tests(:all, args)
 end
 
-task :analyse, [:dir] do |t, args|
+task :analyse, [:file] do |t, args|
   analyse(args)
 end
 
 def analyse(args)
   `make ENABLE_OPTIMIZED=1`
 
-  dir = args.dir || "."
-  file = "/tmp/taint-flow.bc"
+  file = args.file || "/tmp/taint-flow.bc"
+  file = File.absolute_path(file)
 
   FileUtils.rm_rf("output")
   sleep 0.5
@@ -49,6 +49,8 @@ def analyse(args)
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
+          externals = []
+
           r.each do |line|
             log_file.puts line
             log_file.flush
@@ -70,6 +72,19 @@ def analyse(args)
 
             if line =~ /__error:(.*)/
               puts "error: #{$1.strip}".color(:red)
+            end
+
+            if line =~ /__enqueue:start/
+              puts " * Inspecting Call Graph"
+            end
+            
+            if line =~ /__enqueue:end/
+              puts " * External functions that will be handled by heuristic: " + externals.join(", ").color(:blue)
+              puts
+            end
+            
+            if line =~ /__external:(.*)/
+              externals << $1.strip
             end
           end
         rescue Errno::EIO  

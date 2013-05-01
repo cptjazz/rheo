@@ -59,6 +59,10 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     addFunctionForProcessing(f);
   } else {
     DEBUG(errs() << "Skip enqueue (external): " << f->getName() << "\n");
+
+    if (!f->isIntrinsic()) {
+      errs() << "__external:" << f->getName() << "\n";
+    }
   }
 }
 
@@ -110,6 +114,7 @@ void TaintFlowPass::addFunctionForProcessing(Function* f) {
 bool TaintFlowPass::runOnModule(Module &module) {
   CallGraph& CG = getAnalysis<CallGraph>();
 
+  errs() << "__enqueue:start\n";
   _avoidInfiniteLoopHelper.clear();
   for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
     Function* f = &*i;
@@ -139,6 +144,8 @@ bool TaintFlowPass::runOnModule(Module &module) {
   _avoidInfiniteLoopHelper.clear();
   set<const Function*> circleHelper;
   enqueueFunctionsInCorrectOrder(CG.getRoot(), circleHelper);
+
+  errs() << "__enqueue:end\n";
 
   while (!_functionQueue.empty()) {
     const Function* f = _functionQueue.front();
