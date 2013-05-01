@@ -98,7 +98,7 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
     IF_PROFILING(long t = Helper::getTimestamp());
     DEBUG_LOG("Ret-set for `" << retval << "`:\n");
     if (debugPrintSet)
-      retTaintSet.printTo(_stream);
+      DEBUG(retTaintSet.printTo(_stream));
 
     IF_PROFILING(t = Helper::getTimestamp());
     TaintSet intersect;
@@ -110,7 +110,7 @@ void FunctionProcessor::intersectSets(const Value& arg, const TaintSet argTaintS
 
       DEBUG_LOG("Values that lead to taint " << Helper::getValueNameOrDefault(arg) << " -> "
               << Helper::getValueNameOrDefault(retval) << ":\n");
-      intersect.printTo(_stream);
+      DEBUG(intersect.printTo(_stream));
     }
   }
 }
@@ -156,7 +156,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   }
 
   DEBUG_LOG("Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
-  taintSet.printTo(_stream);
+  DEBUG(taintSet.printTo(_stream));
 }
 
 /**
@@ -167,6 +167,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
   TaintSet& blockSet = _blockList[&block];
   DEBUG_LOG("Applying meet for: " << block.getName() << "\n");
+  IF_PROFILING(long t = Helper::getTimestamp());
   
   for (const_pred_iterator i = pred_begin(&block), e = pred_end(&block); i != e; ++i) {
     const BasicBlock& pred = **i;
@@ -175,6 +176,8 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
     TaintSet& predSet = _blockList[&pred];
     blockSet.addAll(predSet);
   }
+
+  PROFILE_LOG("Meeting took " << Helper::getTimestampDelta(t) << "µs\n");
 
   DEBUG_LOG("End meet\n");
 }

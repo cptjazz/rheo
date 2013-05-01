@@ -25,8 +25,7 @@ class TaintSet {
      * switch _taintSetChanged flag if the taint is new
      */
     inline void add(const Value& v) {
-      if (_taintSet.insert(&v))
-        _taintSetChanged = true;
+      _taintSetChanged |= _taintSet.insert(&v);
     }
 
     inline bool contains(const Value& val) const {
@@ -62,19 +61,19 @@ class TaintSet {
       return _taintSetChanged;
     }
 
-    void printTo(raw_ostream& stream) const {
-      /*for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        DEBUG(stream << **i << " | ");
+    inline void printTo(raw_ostream& stream) const {
+      for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
+        stream << **i << " | ";
       }
 
-      DEBUG(stream << "\n");*/
+      stream << "\n";
     } 
 
-    InternalTaintSet::const_iterator begin() const {
+    inline InternalTaintSet::const_iterator begin() const {
       return _taintSet.begin();
     }
 
-    InternalTaintSet::const_iterator end() const {
+    inline InternalTaintSet::const_iterator end() const {
       return _taintSet.end();
     }
 
