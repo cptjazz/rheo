@@ -13,15 +13,15 @@ using namespace llvm;
 
 class TaintFile {
 public:
-  static TaintFile* read(const Function& func, raw_ostream& debugStream);
   static bool exists(const Function& f);
   static void writeResult(const Function& f, const ResultSet result);
   static void remove(const Function& f);
-  FunctionTaintMap& getMapping() { return _functionTaintMap; }
+  static bool getMapping(const Function& func, FunctionTaintMap& mapping, raw_ostream& debugStream);
 
 private:
-  FunctionTaintMap _functionTaintMap;
+  static map<const Function*, FunctionTaintMap> _mappingCache;
 
+  static bool read(const Function& func, raw_ostream& debugStream, FunctionTaintMap& mapping);
   static string getFilename(const Function& f);
 };
 

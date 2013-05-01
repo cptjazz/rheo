@@ -370,19 +370,19 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
 }
 
 void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
-  TaintFile* taints = TaintFile::read(callee, debug());
+  FunctionTaintMap mapping;
+  bool result = TaintFile::getMapping(callee, mapping, debug());
 
-  if (!taints) {
+  if (!result) {
     ERROR_LOG("Cannot find definition of `" << callee.getName() << "`.\n");
     _canceledInspection = true;
     _processingState = ErrorMissingDefinition;
-    delete(taints);
+    setMissingDefinition(&callee);
+    DEBUG_LOG("Set missing: " << _missingDefinition->getName() << "\n");
     return;
   }
 
-  FunctionTaintMap& mapping = taints->getMapping();
   createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
-  delete(taints);
 }
 
 /**
@@ -480,16 +480,20 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   refFp._shouldWriteErrors = false;
   refFp.processFunction();
 
-  _stream << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n";
-  _stream << "state was: " << refFp.getState() << "\n";
+  DEBUG_LOG("build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n");
+  DEBUG_LOG("state was: " << refFp.getState() << "\n");
 
   if (!refFp.didFinish()) {
     _canceledInspection = true;
 
-    if (refFp.getState() == ErrorMissingDefinition)
+    ProcessingState state = refFp.getState();
+    if (state == ErrorMissingDefinition || state == Deferred) {
+      DEBUG_LOG("Deferring because of missing definition in circular call.\n");
       _processingState = Deferred;
-    else
-      _processingState = refFp.getState();
+      setMissingDefinition(refFp.getMissingDefinition());
+    } else {
+      _processingState = state;
+    }
 
     return;
   }
@@ -605,9 +609,7 @@ void FunctionProcessor::findPossibleCallees(const Function& caller, const Value&
     DEBUG_LOG("Found possible function: " << v.getName() << "\n");
     possibleCallees.insert(cast<Function>(&v));
   } else {
-    ERROR_LOG("Cannot de-reference function pointer: " << v << "\n");
-    _canceledInspection = true;
-    _processingState = Error;
+    // Ignore -- will be handled by function pointer heuristic later
   }
 }
 
@@ -632,7 +634,7 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     // This effectively builds the taint-union for all
     // possible realisations.
     set<const Function*> possibleCallees;
-    findPossibleCallees(F, *callInst.getCalledValue(), possibleCallees);
+    //findPossibleCallees(F, *callInst.getCalledValue(), possibleCallees);
     STOP_ON_CANCEL;
 
     if (possibleCallees.size() == 0) {
@@ -739,8 +741,10 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
       TaintFile::remove(F);
     }
   } else {
+    DEBUG_LOG("Deferring `" << F.getName() << "` -- call to `" << callee << "` could not (yet) be evaulated.\n");
     _canceledInspection = true;
     _processingState = Deferred;
+    setMissingDefinition(&callee);
   }
 
   processFunctionCallResultSet(callInst, callee, taintResults, taintSet);

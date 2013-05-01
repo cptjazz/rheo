@@ -47,6 +47,7 @@ class FunctionProcessor {
   bool _resultSetChanged;
   bool _suppressPrintTaints;
   bool _shouldWriteErrors;
+  Function* _missingDefinition;
   ProcessingState _processingState;
 
 public:
@@ -69,6 +70,14 @@ public:
   }
 
   void processFunction();
+
+  void setMissingDefinition(const Function* f) {
+    _missingDefinition = const_cast<Function*>(f);
+  }
+
+  const Function* getMissingDefinition() {
+    return _missingDefinition;
+  }
 
   ProcessingState getState() {
     return _processingState;

@@ -101,7 +101,7 @@ inline void TaintFlowPass::buildCircularReferenceInfo(CallGraph& CG) {
 
 void TaintFlowPass::addFunctionForProcessing(Function* f) {
   if (!_queuedFunctionHelper.count(f)) {
-    _functionQueue.push(f);
+    _functionQueue.push_back(f);
     _queuedFunctionHelper.insert(f);
     DEBUG(errs() << "Enqueued: " << f->getName() << "\n");
   }
@@ -141,11 +141,11 @@ bool TaintFlowPass::runOnModule(Module &module) {
   enqueueFunctionsInCorrectOrder(CG.getRoot(), circleHelper);
 
   while (!_functionQueue.empty()) {
-    Function* f = _functionQueue.front();
+    const Function* f = _functionQueue.front();
 
     // Skip if function was already processed.
     if (TaintFile::exists(*f)) {
-      _functionQueue.pop();
+      _functionQueue.pop_front();
       continue;
     }
 
@@ -154,24 +154,61 @@ bool TaintFlowPass::runOnModule(Module &module) {
       return false;
     }
 
-    processFunction(*f);
-    _functionQueue.pop();
+    ProcessingState state = processFunction(*f);
+    _functionQueue.pop_front();
+
+    // If the current function was deferred,
+    // there is no need to check the depending functions,
+    // because they would be deferred again.
+    if (state == Deferred)
+      continue;
+
+    // Enqueue deferred functions that depend on the currently processed function
+    // at the front of the function queue.
+    multimap<const Function*, const Function*>::const_iterator d_i = _deferredFunctions.lower_bound(f);
+    multimap<const Function*, const Function*>::const_iterator d_e = _deferredFunctions.upper_bound(f);
+    for (; d_i != d_e; d_i++) {
+      errs() << "pushing deferred to front:" << d_i->second->getName() << "\n";
+      _occurrenceCount[d_i->second]--;
+      _functionQueue.push_front(d_i->second);
+    }
+
+    _deferredFunctions.erase(f);
   }
 
   return false;
 }
 
-void TaintFlowPass::processFunction(Function& func) {
+ProcessingState TaintFlowPass::processFunction(const Function& func) {
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
   ResultSet result;
-  ProcessingState state = runOnFunction(func, result);
+  long time = Helper::getTimestamp();
+
+  FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), result, errs());
+  proc.processFunction();
+
+  time = Helper::getTimestampDelta(time);
+
+  errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
+  ProcessingState state = proc.getState();
+  const Function* missing = proc.getMissingDefinition();
 
   switch (state) {
     case Deferred:
-      errs() << "__defer:" << func.getName() << "\n";
-      _functionQueue.push(&func);
+      if (missing) {
+        errs() << "__defer:" << func.getName();
+        if (missing->hasName())
+          errs()  << ":" << missing->getName();
+        errs() << "\n";
+
+        _deferredFunctions.insert(make_pair(missing, &func));
+      } else {
+        // print error!?
+        errs() << "__error:Could not evaluate dependency.\n";
+      }
+
       break;
 
     case Success:
@@ -182,17 +219,6 @@ void TaintFlowPass::processFunction(Function& func) {
       errs() << "Skipping `" << func.getName() << "`\n";
       break;
   }
-}
 
-ProcessingState TaintFlowPass::runOnFunction(Function& func, ResultSet& result) {
-  long time = Helper::getTimestamp();
-
-  FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), result, errs());
-  proc.processFunction();
-
-  time = Helper::getTimestampDelta(time);
-
-  errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
-
-  return proc.getState();
+  return state;
 }

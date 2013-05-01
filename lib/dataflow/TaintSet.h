@@ -63,11 +63,11 @@ class TaintSet {
     }
 
     void printTo(raw_ostream& stream) const {
-      for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
+      /*for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
         DEBUG(stream << **i << " | ");
       }
 
-      DEBUG(stream << "\n");
+      DEBUG(stream << "\n");*/
     } 
 
     InternalTaintSet::const_iterator begin() const {

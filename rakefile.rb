@@ -62,8 +62,10 @@ def analyse(args)
               puts "done".color(:green) +  "  #{taints}".color("#aaaaaa")
             end
 
-            if line =~ /__defer:(.*)/
-              puts "deferred".color(:yellow)
+            if line =~ /__defer:(.*):(.*)/
+              dependency = ($2 || "").strip
+              dependency_string = dependency ? " (waiting for `#{dependency}` to complete)" : ""
+              puts "deferred".color(:yellow) + dependency_string.color("#333333")
             end
 
             if line =~ /__error:(.*)/

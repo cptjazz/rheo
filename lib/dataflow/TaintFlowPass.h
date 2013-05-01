@@ -18,8 +18,9 @@ using namespace std;
 
   class TaintFlowPass : public ModulePass {
 
-    queue<Function*> _functionQueue;
-    map<Function*, int> _occurrenceCount;
+    multimap<const Function*, const Function*> _deferredFunctions;
+    deque<const Function*> _functionQueue;
+    map<const Function*, int> _occurrenceCount;
     CircleMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
     set<Function*> _avoidInfiniteLoopHelper;
@@ -36,8 +37,7 @@ using namespace std;
     void buildCircularReferenceInfo(CallGraph& CG);
     bool buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences);
     void addFunctionForProcessing(Function* f); 
-    void processFunction(Function& func);
-    ProcessingState runOnFunction(Function& func, ResultSet& result);
+    ProcessingState processFunction(const Function& func);
 
 public:
     static char ID;

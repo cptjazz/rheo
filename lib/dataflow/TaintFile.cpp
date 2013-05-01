@@ -5,6 +5,21 @@
 #include <stdio.h>
 #include <llvm/Instructions.h>
 
+map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
+
+bool TaintFile::getMapping(const Function& func, FunctionTaintMap& mapping, raw_ostream& debugStream) {
+  if (!_mappingCache.count(&func)) {
+    bool result = read(func, debugStream, mapping);
+    if (result)
+      _mappingCache.insert(make_pair(&func, mapping));
+
+    return result;
+  }
+    
+  mapping = _mappingCache[&func];
+  return true;
+}
+
 /**
  * Reads the taint file for the given function and 
  * converts the mapping into a numeric form of
@@ -14,7 +29,7 @@
  *
  * The created mapping can be retreived via getMapping()
  */
-TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
+bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTaintMap& mapping) {
   string filename = getFilename(func);
   ifstream file(filename.c_str(), ios::in);
 
@@ -23,12 +38,10 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
 
     if (!file.is_open()) {
       DEBUG(debugStream << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
-      return NULL;
+      return false;
     }
   }
 
-  TaintFile* taints = new TaintFile();
-  FunctionTaintMap& mapping = taints->getMapping();
 
   string line;
   while (file.good()) {
@@ -120,8 +133,7 @@ TaintFile* TaintFile::read(const Function& func, raw_ostream& debugStream) {
   file.close();
 
   DEBUG(debugStream << " Inserted " << mapping.size() << " mappings\n");
-
-  return taints;
+  return true;
 }
 
 /**
@@ -183,4 +195,7 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
   }
 
   file.close();
+
+  // Remove from cache because the mapping changed
+  _mappingCache.erase(&f);
 }
