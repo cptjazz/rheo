@@ -9,14 +9,21 @@ map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
 bool TaintFile::getMapping(const Function& func, FunctionTaintMap& mapping, raw_ostream& debugStream) {
   if (!_mappingCache.count(&func)) {
+    IF_PROFILING(long t = Helper::getTimestamp());
+
     bool result = read(func, debugStream, mapping);
     if (result)
       _mappingCache.insert(make_pair(&func, mapping));
 
+    IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "`  from file took " << Helper::getTimestampDelta(t) << "µs\n"));
+
     return result;
   }
     
+  IF_PROFILING(long t = Helper::getTimestamp());
   mapping = _mappingCache[&func];
+  IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "` from cache took " << Helper::getTimestampDelta(t) << "µs\n"));
+
   return true;
 }
 

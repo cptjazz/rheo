@@ -24,15 +24,10 @@
 
 
 #define STOP_ON_CANCEL if (_canceledInspection) return
-#define DEBUG_LOG(x) DEBUG(debug() << x)
-#define ERROR_LOG(x) if (_shouldWriteErrors) debug() << "__error:" << x 
-#ifdef PROFILING
-#define PROFILE_LOG(x) DEBUG(debug() << x)
-#define IF_PROFILING(x) x
-#else
-#define PROFILE_LOG(x) 
-#define IF_PROFILING(x)
-#endif
+#define DEBUG_LOG(x) DEBUG(_stream << x)
+#define ERROR_LOG(x) if (_shouldWriteErrors) _stream << "__error:" << x 
+
+#define PROFILE_LOG(x) IF_PROFILING(DEBUG(_stream << x))
 
 using namespace llvm;
 using namespace std;
@@ -232,19 +227,19 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 }
 
 void FunctionProcessor::printTaints() {
-  release() << "__taints:";
-  release().write_escaped(F.getName()) << "(";
+  _stream << "__taints:";
+  _stream.write_escaped(F.getName()) << "(";
   bool isFirstTime = true;
 
   for (ResultSet::const_iterator i = _taints.begin(), e = _taints.end(); i != e; ++i) {
     Value& arg = cast<Value>(*i->first);
     Value& retval = cast<Value>(*i->second);
 
-    release() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << Helper::getValueNameOrDefault(retval);
+    _stream << (isFirstTime ? "" : ", ") << arg.getName() << " => " << Helper::getValueNameOrDefault(retval);
     isFirstTime = false;
   }
 
-  release() << ")\n";
+  _stream << ")\n";
 }
 
 void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& inst, TaintSet& taintSet) {
@@ -371,7 +366,9 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
 
 void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
   FunctionTaintMap mapping;
-  bool result = TaintFile::getMapping(callee, mapping, debug());
+  // ^ does this stay in memory after the function terminates??? at least it seems to...
+  //
+  bool result = TaintFile::getMapping(callee, mapping, _stream);
 
   if (!result) {
     ERROR_LOG("Cannot find definition of `" << callee.getName() << "`.\n");

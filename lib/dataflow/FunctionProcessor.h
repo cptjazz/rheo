@@ -132,14 +132,6 @@ private:
   void findPossibleCallees(const Function& caller, const Value& v, set<const Function*>& possibleCallees);
   void processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet);
   void handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet);
-
-  inline raw_ostream& debug() {
-    return _stream;
-  }
-
-  inline raw_ostream& release() {
-    return _stream;
-  }
 };
 
 #endif // FUNCTION_PROCESSOR_H
