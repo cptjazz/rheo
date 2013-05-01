@@ -5,7 +5,7 @@
 
 using namespace llvm;
 
-typedef SmallPtrSet<const Value*, 256> InternalTaintSet;
+typedef SmallPtrSet<const Value*, 32> InternalTaintSet;
 
 class TaintSet {
 

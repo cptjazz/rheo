@@ -499,15 +499,16 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
     DEBUG_LOG("found mapping: " << *i->first << " => " << *i->second << "\n");
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
+    const int argCount = callInst.getNumArgOperands();
 
-    if (inPos >= (int) callInst.getNumArgOperands() || inPos < -2) {
+    if (inPos >= argCount || inPos < -2) {
       ERROR_LOG("Argument position " << inPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
       _processingState = ErrorArguments;
       return;
     }
 
-    if (outPos >= (int) callInst.getNumArgOperands() || outPos < -1) {
+    if (outPos >= argCount || outPos < -1) {
       ERROR_LOG("Argument position " << outPos << " invalid for call to `" << func.getName() << "`\n");
       _canceledInspection = true;
       _processingState = ErrorArguments;
@@ -531,7 +532,9 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
  * 2) Every parameter taints all out pointers
  */
 void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) {
-  for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
+  const size_t argCount = callInst.getNumArgOperands();
+
+  for (size_t i = 0; i < argCount; i++) {
     const Value* arg = callInst.getArgOperand(i);
 
     // Every argument taints the return value
@@ -670,15 +673,16 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
 
 void FunctionProcessor::handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) {
   ResultSet taintResults;
+  const size_t argCount = callInst.getNumArgOperands();
 
-  for (size_t i = 0; i < callInst.getNumArgOperands(); i++) {
+  for (size_t i = 0; i < argCount; i++) {
     const Value& source = *callInst.getArgOperand(i);
 
     // Every arguments taints the return value
     taintResults.insert(make_pair(&source, &callInst));
 
     // 
-    for (size_t j = 0; j < callInst.getNumArgOperands(); j++) {
+    for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *callInst.getArgOperand(j);
 
       if (&source != &sink && sink.getType()->isPointerTy()) {
@@ -799,7 +803,9 @@ void FunctionProcessor::processFunctionCallResultSet(const CallInst& callInst, c
  * @return the position of the argument in this call, -3 if not found
  */
 int FunctionProcessor::getArgumentPosition(const CallInst& c, const Value& v) {
-  for (size_t i = 0; i < c.getNumArgOperands(); ++i) {
+  const size_t argCount = c.getNumArgOperands();
+
+  for (size_t i = 0; i < argCount; ++i) {
     if (c.getArgOperand(i) == &v)
       return i;
   }
@@ -838,8 +844,10 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
 
   DOT->addRelation(*condition, inst, "switch");
 
+  const size_t succCount = inst.getNumSuccessors();
+
   DEBUG_LOG(" Handle SWITCH instruction:\n");
-  for (size_t i = 0; i < inst.getNumSuccessors(); ++i) {
+  for (size_t i = 0; i < succCount; ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
     DOT->addBlockNode(caseBlock);
@@ -850,7 +858,9 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
 }
 
 void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
-  for (size_t j = 0; j < inst.getNumIncomingValues(); ++j) {
+  const size_t incomingCount = inst.getNumIncomingValues();
+
+  for (size_t j = 0; j < incomingCount; ++j) {
     BasicBlock& incomingBlock = *inst.getIncomingBlock(j);
     Value& incomingValue = *inst.getIncomingValue(j);
 
@@ -954,8 +964,9 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
  * the assignment target.
  */
 void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
+  const size_t argCount = inst.getNumOperands();
 
-  for (size_t o_i = 0; o_i < inst.getNumOperands(); o_i++) {
+  for (size_t o_i = 0; o_i < argCount; o_i++) {
      const Value& operand = *inst.getOperand(o_i);
      if (taintSet.contains(operand)) {
        taintSet.add(inst);
