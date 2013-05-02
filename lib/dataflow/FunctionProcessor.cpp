@@ -703,7 +703,14 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
   ResultSet taintResults;
   long t;
 
-  if (callee.size() == 0 || callInst.isInlineAsm()) {
+  // TODO: Change order?
+  // If files are present for externals we should read them!?
+  //
+  if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
+    t = Helper::getTimestamp();
+    buildMappingFromTaintFile(callInst, callee, taintResults);
+    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << "\n");
+  } else if (callee.size() == 0 || callInst.isInlineAsm()) {
     // External functions
     DEBUG_LOG("calling to undefined external. using heuristic.\n");
     buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
@@ -714,10 +721,6 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     PROFILE_LOG(" buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
-  } else if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
-    t = Helper::getTimestamp();
-    buildMappingFromTaintFile(callInst, callee, taintResults);
-    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << "\n");
   } else if (callee.isIntrinsic()) {
     DEBUG_LOG("handle intrinsic call: " << callee.getName() << "\n");
 
