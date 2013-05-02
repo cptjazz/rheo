@@ -1,0 +1,7 @@
+
+Prerequisites
+=============
+
+* Ruby >= 1.9.2
+* Ruby gem `rake` (sudo gem install rake)
+* LLVM 3.2
