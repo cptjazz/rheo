@@ -211,7 +211,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
-    if (isa<PHINode>(inst))
+    else if (isa<PHINode>(inst))
       handlePhiNode(cast<PHINode>(inst), taintSet);
     else if (isa<StoreInst>(inst))
       handleStoreInstruction(cast<StoreInst>(inst), taintSet);
