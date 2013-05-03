@@ -211,6 +211,8 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
+    else if (isa<IndirectBrInst>(inst))
+      stopWithError("Indirect branching is not supported", Error);
     else if (isa<PHINode>(inst))
       handlePhiNode(cast<PHINode>(inst), taintSet);
     else if (isa<StoreInst>(inst))
@@ -227,6 +229,14 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     PROFILE_LOG(" Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode()) 
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
   }
+}
+
+void FunctionProcessor::stopWithError(Twine msg, ProcessingState state) {
+  _canceledInspection = true;
+  _processingState = Error;
+
+  if (msg.str().length())
+    ERROR_LOG(msg << "\n");
 }
 
 void FunctionProcessor::printTaints() {
@@ -374,9 +384,7 @@ void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, cons
   bool result = TaintFile::getMapping(callee, mapping, _stream);
 
   if (!result) {
-    ERROR_LOG("Cannot find definition of `" << callee.getName() << "`.\n");
-    _canceledInspection = true;
-    _processingState = ErrorMissingDefinition;
+    stopWithError("Cannot find definition of `" + callee.getName() + "`.\n", ErrorMissingDefinition);
     setMissingDefinition(&callee);
     DEBUG_LOG("Set missing: " << _missingDefinition->getName() << "\n");
     return;
@@ -484,9 +492,9 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
   DEBUG_LOG("state was: " << refFp.getState() << "\n");
 
   if (!refFp.didFinish()) {
-    _canceledInspection = true;
-
     ProcessingState state = refFp.getState();
+    stopWithError("", state);
+
     if (state == ErrorMissingDefinition || state == Deferred) {
       DEBUG_LOG("Deferring because of missing definition in circular call.\n");
       _processingState = Deferred;
@@ -502,21 +510,6 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
     DEBUG_LOG("found mapping: " << *i->first << " => " << *i->second << "\n");
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
-    const int argCount = callInst.getNumArgOperands();
-
-    if (inPos >= argCount || inPos < -2) {
-      ERROR_LOG("Argument position " << inPos << " invalid for call to `" << func.getName() << "`\n");
-      _canceledInspection = true;
-      _processingState = ErrorArguments;
-      return;
-    }
-
-    if (outPos >= argCount || outPos < -1) {
-      ERROR_LOG("Argument position " << outPos << " invalid for call to `" << func.getName() << "`\n");
-      _canceledInspection = true;
-      _processingState = ErrorArguments;
-      return;
-    }
 
     Value* inVal = callInst.getArgOperand(inPos);
     const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
@@ -602,9 +595,7 @@ void FunctionProcessor::findPossibleCallees(const Function& caller, const Value&
         if (&newCaller != &caller)
           findPossibleCallees(newCaller, lambda, possibleCallees);
       } else {
-        ERROR_LOG("Use of Function not a CallInst\n");
-        _canceledInspection = true;
-        _processingState = Error;
+        stopWithError("Use of Function not a CallInst\n", Error);
         return;
       }
     }
@@ -728,9 +719,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     if (IntrinsicHelper::getMapping(callee, mapping)) {
       createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
     } else {
-      ERROR_LOG("No definition of intrinsic `" << callee.getName() << "`.\n");
-      _canceledInspection = true;
-      _processingState = ErrorMissingIntrinsic;
+      stopWithError("No definition of intrinsic `" + callee.getName() + "`.\n", ErrorMissingIntrinsic);
     }
   } else if (Helper::circleListContains(_circularReferences[&F], callee)) {
     DEBUG_LOG("calling with circular reference: " << F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
@@ -749,8 +738,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
     }
   } else {
     DEBUG_LOG("Deferring `" << F.getName() << "` -- call to `" << callee << "` could not (yet) be evaulated.\n");
-    _canceledInspection = true;
-    _processingState = Deferred;
+    stopWithError("", Deferred);
     setMissingDefinition(&callee);
   }
 
