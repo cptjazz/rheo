@@ -690,9 +690,6 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
   ResultSet taintResults;
   long t;
 
-  // TODO: Change order?
-  // If files are present for externals we should read them!?
-  //
   if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
     t = Helper::getTimestamp();
     buildMappingFromTaintFile(callInst, callee, taintResults);
