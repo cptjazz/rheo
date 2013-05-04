@@ -25,27 +25,43 @@ static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", false, f
 
 void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper) {
   Function* f = node->getFunction();
+  set<const CallGraphNode*> deferred;
+  
+  // Skip already processed functions
+  if (circleHelper.count(f)) {
+    return;
+  } else {
+    circleHelper.insert(f);
+  }
 
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
     const CallGraphNode* kid = i->second;
     const Function* kf = kid->getFunction();
+
     // Skip dummy nodes
     if (!kf)
       continue;
 
-    // Skip already processed functions
-    if (circleHelper.count(kf)) {
+    NodeVector& circle = _circularReferences[kf];
+    if (circle.size()) {
+      deferred.insert(kid);
       continue;
-    } else {
-      circleHelper.insert(kf);
     }
 
-    NodeVector& circle = _circularReferences[kf];
-    for (vector<const CallGraphNode*>::iterator f_i = circle.begin(), f_e = circle.end(); f_i != f_e; f_i++) {
-      const CallGraphNode* circleElem = *f_i;
+    enqueueFunctionsInCorrectOrder(kid, circleHelper);
+  }
 
-      if (circleElem->getFunction())
-        enqueueFunctionsInCorrectOrder(circleElem, circleHelper);
+  for (set<const CallGraphNode*>::iterator d_i = deferred.begin(), d_e = deferred.end(); d_i != d_e; ++d_i) {
+    const CallGraphNode* kid = *d_i;
+    const Function* kf = kid->getFunction();
+
+    // Skip dummy nodes
+    if (!kf)
+      continue;
+
+    NodeVector& circle = _circularReferences[kf];
+    for (NodeVector::iterator c_i = circle.begin(), c_e = circle.end(); c_i != c_e; ++c_i) {
+      enqueueFunctionsInCorrectOrder(kid, circleHelper);
     }
 
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
@@ -60,7 +76,7 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
   } else {
     DEBUG(errs() << "Skip enqueue (external): " << f->getName() << "\n");
 
-    if (!f->isIntrinsic()) {
+    if (!f->isIntrinsic() && !TaintFile::exists(*f)) {
       errs() << "__external:" << f->getName() << "\n";
     }
   }
