@@ -7,24 +7,27 @@
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
-bool TaintFile::getMapping(const Function& func, FunctionTaintMap& mapping, raw_ostream& debugStream) {
-  if (!_mappingCache.count(&func)) {
+const FunctionTaintMap* TaintFile::getMapping(const Function& func, raw_ostream& debugStream) {
+  IF_PROFILING(long t = Helper::getTimestamp());
+  FunctionTaintMap temp;
+  pair<TaintFileCache::iterator, bool> result = _mappingCache.insert(make_pair(&func, temp));
+  FunctionTaintMap& mapping = result.first->second;
+
+  if (result.second) {
     IF_PROFILING(long t = Helper::getTimestamp());
 
-    bool result = read(func, debugStream, mapping);
-    if (result)
-      _mappingCache.insert(make_pair(&func, mapping));
+    bool readResult = read(func, debugStream, mapping);
+    if (!readResult)
+      _mappingCache.erase(&func);
 
-    IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "`  from file took " << Helper::getTimestampDelta(t) << "µs\n"));
-
-    return result;
+    IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "`  from file took " 
+          << Helper::getTimestampDelta(t) << "µs\n"));
   }
-    
-  IF_PROFILING(long t = Helper::getTimestamp());
-  mapping = _mappingCache[&func];
-  IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "` from cache took " << Helper::getTimestampDelta(t) << "µs\n"));
 
-  return true;
+  IF_PROFILING(DEBUG(debugStream << "Getting mapping for `" << func.getName() << "` took " 
+        << Helper::getTimestampDelta(t) << "µs\n"));
+
+  return &mapping;
 }
 
 /**

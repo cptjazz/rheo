@@ -234,7 +234,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
 void FunctionProcessor::stopWithError(Twine msg, ProcessingState state) {
   _canceledInspection = true;
-  _processingState = Error;
+  _processingState = state;
 
   if (msg.str().length())
     ERROR_LOG(msg << "\n");
@@ -379,19 +379,16 @@ bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock*
 }
 
 void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
-  FunctionTaintMap mapping;
-  // ^ does this stay in memory after the function terminates??? at least it seems to...
-  //
-  bool result = TaintFile::getMapping(callee, mapping, _stream);
+  const FunctionTaintMap* mapping = TaintFile::getMapping(callee, _stream);
 
-  if (!result) {
+  if (!mapping) {
     stopWithError("Cannot find definition of `" + callee.getName() + "`.\n", ErrorMissingDefinition);
     setMissingDefinition(&callee);
     DEBUG_LOG("Set missing: " << _missingDefinition->getName() << "\n");
     return;
   }
 
-  createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
+  createResultSetFromFunctionMapping(callInst, callee, *mapping, taintResults);
 }
 
 /**
@@ -401,7 +398,7 @@ void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, cons
  *
  * -1 on the right hand side of => denotes the return value
  */
-void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, FunctionTaintMap& mapping, ResultSet& taintResults) {
+void FunctionProcessor::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults) {
   IF_PROFILING(long t = Helper::getTimestamp());
 
   DEBUG_LOG(" Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
@@ -500,11 +497,8 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
       DEBUG_LOG("Deferring because of missing definition in circular call.\n");
       _processingState = Deferred;
       setMissingDefinition(refFp.getMissingDefinition());
-    } else {
-      _processingState = state;
-    }
+    } 
 
-    _canceledInspection = true;
     return;
   }
 
@@ -702,7 +696,7 @@ void FunctionProcessor::handleFunctionCall(const CallInst& callInst, const Funct
   if (TaintFile::exists(callee) && !Helper::circleListContains(_circularReferences[&F], callee)) {
     t = Helper::getTimestamp();
     buildMappingFromTaintFile(callInst, callee, taintResults);
-    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << "\n");
+    PROFILE_LOG(" buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << " µs\n");
   } else if (callee.size() == 0 || callInst.isInlineAsm()) {
     // External functions
     DEBUG_LOG("calling to undefined external. using heuristic.\n");
