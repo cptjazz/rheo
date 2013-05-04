@@ -150,6 +150,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   } while(taintSet.hasChanged());
 
+  // Merge all par-block taint-sets
   for (map<const BasicBlock*, TaintSet>::const_iterator j_i = _blockList.begin(), j_e = _blockList.end(); j_i != j_e; ++j_i) {
     TaintSet& set = _blockList[j_i->first];
     taintSet.addAll(set);
@@ -503,6 +504,7 @@ void FunctionProcessor::buildMappingForCircularReferenceCall(const CallInst& cal
       _processingState = state;
     }
 
+    _canceledInspection = true;
     return;
   }
 
