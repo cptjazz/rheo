@@ -59,9 +59,14 @@ def analyse(args)
               print " * Analysing " + $1.strip.bright + " ... "
             end
 
+            if line =~ /__logtime:(.*):(.*)/
+              time = $2
+              puts (", took " + time).color("#444444")
+            end
+            
             if line =~ /__taints:(.*)\((.*)\)/
               taints = ($2 || "").strip
-              puts "done".color(:green) +  "  #{taints}".color("#aaaaaa")
+              print "done".color(:green) +  "  #{taints}".color("#aaaaaa")
             end
 
             if line =~ /__defer:(.*):(.*)/
@@ -82,7 +87,7 @@ def analyse(args)
               puts " * External functions that will be handled by heuristic: " + externals.join(", ").color(:blue)
               puts
             end
-            
+
             if line =~ /__external:(.*)/
               externals << $1.strip
             end
