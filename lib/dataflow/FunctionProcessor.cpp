@@ -553,56 +553,6 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
   }
 }
 
-void FunctionProcessor::findPossibleCallees(const Function& caller, const Value& v, set<const Function*>& possibleCallees) {
-  if (isa<LoadInst>(v)) {
-    const LoadInst& callSource = cast<LoadInst>(v);
-    DEBUG_LOG("Call source: " << callSource << "\n");
-
-    const Value& delegate = *callSource.getOperand(0);
-
-    for (Value::const_use_iterator i = delegate.use_begin(), e = delegate.use_end(); i != e; ++i) {
-      if (isa<StoreInst>(*i)) {
-        const StoreInst& store = *cast<StoreInst>(*i);
-        findPossibleCallees(caller, *store.getOperand(0), possibleCallees);
-      }
-    }
-  } else if (isa<PHINode>(v)) {
-    const PHINode& phi = cast<PHINode>(v);
-
-    for (size_t j = 0; j < phi.getNumIncomingValues(); j++) {
-      const Value& incoming = *phi.getIncomingValue(j);
-      findPossibleCallees(caller, incoming, possibleCallees);
-    }
-  } else if (isa<Argument>(v)) {
-    const Argument& lambdaArg = cast<Argument>(v);
-    int argPos = lambdaArg.getArgNo();
-
-    // Find all calls to this function.
-    // Add all lambda arguments as possible callees.
-    for (Value::const_use_iterator i = caller.use_begin(), e = caller.use_end(); i != e; ++i) {
-      if (isa<CallInst>(*i)) {
-        const CallInst& call = cast<CallInst>(**i);
-        DEBUG_LOG("Use of arg #" << argPos << ": " << call << "\n");
-
-        const Value& lambda = *call.getArgOperand(argPos);
-        DEBUG_LOG("Lambda: " << lambda << ": " << &lambda << "\n");
-
-        const Function& newCaller = *(call.getParent()->getParent());
-        if (&newCaller != &caller)
-          findPossibleCallees(newCaller, lambda, possibleCallees);
-      } else {
-        stopWithError("Use of Function not a CallInst\n", Error);
-        return;
-      }
-    }
-  } else if (isa<Function>(v)) {
-    DEBUG_LOG("Found possible function: " << v.getName() << "\n");
-    possibleCallees.insert(cast<Function>(&v));
-  } else {
-    // Ignore -- will be handled by function pointer heuristic later
-  }
-}
-
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
@@ -619,48 +569,18 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     handleFunctionCall(callInst, *callee, taintSet);
   } else {
     // We are calling to a function pointer.
-    // We search for all possible aliases and
-    // execute a call to each possible realisation.
-    // This effectively builds the taint-union for all
-    // possible realisations.
-    set<const Function*> possibleCallees;
-    //findPossibleCallees(F, *callInst.getCalledValue(), possibleCallees);
-    STOP_ON_CANCEL;
-
-    if (possibleCallees.size() == 0) {
-      // If no possible function pointer realisations
-      // were found, try to use the heuristic for externs.
-      DEBUG_LOG("No function pointer realisation found. Using heuristic.\n");
-      handleFunctionPointerCallWithHeuristic(callInst, taintSet);
-      return;
-    }
-
-    for (set<const Function*>::iterator c_i = possibleCallees.begin(), c_e = possibleCallees.end(); c_i != c_e; ++c_i) {
-      const Function& callee = **c_i;
-      DEBUG_LOG("Possible function: " << callee.getName() << "\n");
-
-      // If the indirect function itself is tainted (eg. function pointer)
-      // add the return value to taints.       
-      if (taintSet.contains(callee)) {
-        taintSet.add(callInst);
-        DOT->addRelation(*callInst.getCalledValue(), callee, "function indirection");
-      }
-
-      // If the function pointer is tainted, add the callees.
-      if (taintSet.contains(*callInst.getCalledValue())) {
-        taintSet.add(callee);
-        DOT->addRelation(*callInst.getCalledValue(), callee, "function indirection");
-      }
-
-      // Handling all indirect calls produces a union of the taints
-      // transferred for all possibly called functions.
-      handleFunctionCall(callInst, callee, taintSet);
-    
-      STOP_ON_CANCEL;
-    }
+    // Since we cannot determine all relisations of the pointer
+    // (eg. if the function is a API function to be use from extern)
+    // we need to use the same heuristic we use for external functions.
+    handleFunctionPointerCallWithHeuristic(callInst, taintSet);
   }
 }
 
+/**
+ * For calls to FunctionPointer we use conservative heuristic:
+ * 1) Every parameter taints the return value
+ * 2) Every parameter taints all out pointers
+ */
 void FunctionProcessor::handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) {
   ResultSet taintResults;
   const size_t argCount = callInst.getNumArgOperands();
@@ -671,7 +591,7 @@ void FunctionProcessor::handleFunctionPointerCallWithHeuristic(const CallInst& c
     // Every arguments taints the return value
     taintResults.insert(make_pair(&source, &callInst));
 
-    // 
+    // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *callInst.getArgOperand(j);
 

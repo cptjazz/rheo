@@ -129,7 +129,6 @@ private:
   void buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults);
   void createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults);
-  void findPossibleCallees(const Function& caller, const Value& v, set<const Function*>& possibleCallees);
   void processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet);
   void handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet);
   void stopWithError(Twine msg, ProcessingState state);
