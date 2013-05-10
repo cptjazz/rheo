@@ -556,7 +556,8 @@ void FunctionProcessor::buildMappingForUndefinedExternalCall(const CallInst& cal
 void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet& taintSet) {
   DEBUG_LOG(" Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
-  DEBUG_LOG(" Callee:" << *callInst.getCalledValue() << "\n");
+  const Value* calleeValue = callInst.getCalledValue();
+  DEBUG_LOG(" Callee:" << *calleeValue << "\n");
   
   // Skip inline ASM for now
   if (callInst.isInlineAsm()) {
@@ -573,6 +574,15 @@ void FunctionProcessor::handleCallInstruction(const CallInst& callInst, TaintSet
     // (eg. if the function is a API function to be use from extern)
     // we need to use the same heuristic we use for external functions.
     handleFunctionPointerCallWithHeuristic(callInst, taintSet);
+
+    // If the function to be called is tained
+    // (eg. because the function is selected inside
+    // of an if or switch, the return value is also
+    // tainted.
+    if (taintSet.contains(*calleeValue)) {
+      taintSet.add(callInst);
+      DOT->addRelation(*calleeValue, callInst);
+    }
   }
 }
 
@@ -590,12 +600,14 @@ void FunctionProcessor::handleFunctionPointerCallWithHeuristic(const CallInst& c
 
     // Every arguments taints the return value
     taintResults.insert(make_pair(&source, &callInst));
+    DEBUG_LOG("Function pointers: inserting mapping " << i << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *callInst.getArgOperand(j);
 
       if (&source != &sink && sink.getType()->isPointerTy()) {
+        DEBUG_LOG("Function pointers: inserting mapping " << i << " => " << j << "\n");
         taintResults.insert(make_pair(&source, &sink));
       }
     }
@@ -663,6 +675,8 @@ void FunctionProcessor::processFunctionCallResultSet(const CallInst& callInst, c
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     const Value& out = *i->second;
+
+    DEBUG_LOG("Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
     if (taintSet.contains(in)) {
       // Add graph arrows and function-node only if taints
@@ -931,12 +945,12 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   }
 
   taintSet.add(inst);
+  DEBUG_LOG(" + Instruction tainted by dirty block: " << inst << "\n");
+
   if (isa<StoreInst>(inst))
     DOT->addRelation(currentBlock, *inst.getOperand(0), "block-taint");
   else
     DOT->addRelation(currentBlock, inst, "block-taint");
-
-  DEBUG_LOG(" + Instruction tainted by dirty block: " << inst << "\n");
 }
 
 void FunctionProcessor::findArguments() {
