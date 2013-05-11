@@ -198,7 +198,7 @@ inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taint
 }
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
-  bool blockTainted = isBlockTaintedByOtherBlock(block, taintSet);
+  bool blockTainted = taintSet.contains(block) || isBlockTaintedByOtherBlock(block, taintSet);
 
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
@@ -767,7 +767,16 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
 
   const size_t succCount = inst.getNumSuccessors();
 
+  if (succCount == 1) {
+    DEBUG_LOG("Skipping switch because it consisted solely of a default branch.\n");
+    return;
+  }
+
+  const BasicBlock& join = *PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
+
   DEBUG_LOG(" Handle SWITCH instruction:\n");
+  DEBUG_LOG(" Found joining block: " << join << "\n");
+
   for (size_t i = 0; i < succCount; ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
@@ -775,6 +784,8 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
     DOT->addRelation(inst, caseBlock, "case");
     taintSet.add(caseBlock);
     DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
+
+    followTransientBranchPaths(caseBlock, join, taintSet);
   }
 }
 
@@ -870,8 +881,8 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
 
     taintSet.add(brSuccessor);
     DOT->addBlockNode(brSuccessor);
-    DOT->addRelation(brTerminator, brSuccessor, "br");
-    DEBUG_LOG(" ++ Added TRANSIENT branch:\n");
+    DOT->addRelation(brTerminator, brSuccessor, "block-taint");
+    DEBUG_LOG(" ++ Added TRANSIENT block:\n");
     DEBUG_LOG(brSuccessor << "\n");
 
     followTransientBranchPaths(brSuccessor, join, taintSet);
@@ -1029,11 +1040,11 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Val
         returnSet.add(**u_i);
         DEBUG_LOG(" Added ARG STORE: " << **u_i << "\n");
         newArg = u_i->getOperand(1);
+
+        ReturnSet alreadyProcessed;
+        recursivelyFindAliases(*newArg, returnSet, alreadyProcessed);
       }
     }
-
-    ReturnSet alreadyProcessed;
-    recursivelyFindAliases(*newArg, returnSet, alreadyProcessed);
 }
 
 void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
