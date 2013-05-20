@@ -772,6 +772,41 @@ void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet
     return;
   }
 
+  const BasicBlock& defaultBlock = *inst.getSuccessor(0);
+
+  bool canSwitchBeShortened = true;
+  for (size_t i = 1; i < succCount; ++i) {
+    const BasicBlock& caseBlock = *inst.getSuccessor(i);
+
+    // If block consists of more than one instruction 
+    // it cannot be shortened.
+    if (caseBlock.size() != 1) {
+      canSwitchBeShortened = false;
+      break;
+    }
+
+    // If the terminator has more than one successor
+    // the switch cannot be shortened
+    const TerminatorInst& terminator = *caseBlock.getTerminator();
+    if (terminator.getNumSuccessors() != 1) {
+      canSwitchBeShortened = false;
+      break;
+    }
+
+    // Target must be default block to shorten
+    if (terminator.getSuccessor(0) != &defaultBlock) {
+      canSwitchBeShortened = false;
+      break;
+    }
+
+    DEBUG_LOG("block size of " << inst.getSuccessor(i)->getName() << ": " << inst.getSuccessor(i)->size() << "\n");
+  }
+
+  if (canSwitchBeShortened) {
+    DEBUG_LOG("Skipping switch because all cases fall through to default without executing other instructions before.\n");
+    return;
+  }
+
   const BasicBlock& join = *PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
 
   DEBUG_LOG(" Handle SWITCH instruction:\n");
