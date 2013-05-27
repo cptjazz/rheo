@@ -21,7 +21,6 @@
 #include "TaintFile.h" 
 #include "TaintSet.h" 
 #include "IntrinsicHelper.h" 
-#include "BlockHelper.h" 
 
 
 #define STOP_ON_CANCEL if (_canceledInspection) return
@@ -346,7 +345,7 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeIns
     if (prevStore.getOperand(1) != storeInst.getOperand(1))
       continue;
 
-    if (!BlockHelper::isSuccessor(storeInst.getParent(), prevStore.getParent())) {
+    if (!BH->isSuccessor(storeInst.getParent(), prevStore.getParent())) {
       return false;
     }
   }

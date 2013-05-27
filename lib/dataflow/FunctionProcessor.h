@@ -20,6 +20,7 @@
 #include "Helper.h"
 #include "Core.h"
 #include "TaintFlowPass.h" 
+#include "BlockHelper.h" 
 
 
 using namespace llvm;
@@ -40,6 +41,7 @@ class FunctionProcessor {
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
   CircleMap& _circularReferences;
+  BlockHelper* BH;
 
   raw_ostream& _stream;
 
@@ -63,6 +65,8 @@ public:
 
     DEBUG(delete DOT);
     DEBUG(DOT = new GraphExporter(f.getName()));
+
+    BH = new BlockHelper(f);
   }
 
   ~FunctionProcessor() {

@@ -1,18 +1,40 @@
 #ifndef BLOCK_HELPER_H
 #define BLOCK_HELPER_H
 
+#include "Core.h"
 #include "llvm/Function.h"
 
+/**
+ * The BlockHelper constructs a mapping of
+ * successor to (set of) predecessor blocks
+ * for a given function. This increases preformance
+ * for predecessor relation lookups.
+ */
 class BlockHelper {
+  typedef SmallPtrSet<const BasicBlock*, 8> BlockSet;
+
+  // map<succ, preds>
+  map<const BasicBlock*, BlockSet> successors;
 
   public:
-    inline static bool isSuccessor(const BasicBlock* succ, const BasicBlock* pred) {
-      set<const BasicBlock*> usedList;
-      return isCfgSuccessorInternal(succ, pred, usedList);
+
+    BlockHelper(const Function& f) {
+      for (Function::const_iterator b_i = f.begin(), b_e = f.end(); b_i != b_e; ++b_i) {
+        const BasicBlock* block = cast<BasicBlock>(b_i);
+
+        BlockSet usedList;
+
+        isCfgSuccessorInternal(block, &f.getEntryBlock(), usedList);
+        successors.insert(make_pair(block, usedList));
+      }
+    }
+
+    inline bool isSuccessor(const BasicBlock* succ, const BasicBlock* pred) {
+      return successors[succ].count(pred);
     }
 
   private:
-    inline static bool isCfgSuccessorInternal(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList) {
+    inline bool isCfgSuccessorInternal(const BasicBlock* succ, const BasicBlock* pred, BlockSet& usedList) {
       if (NULL == succ || NULL == pred)
         return false;
 
