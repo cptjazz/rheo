@@ -1,18 +1,20 @@
 #ifndef BLOCK_HELPER_H
 #define BLOCK_HELPER_H
 
+#include "Core.h"
 #include "llvm/Function.h"
 
 class BlockHelper {
+  typedef SmallPtrSet<const BasicBlock*, 8> BlockSet;
 
   public:
     inline static bool isSuccessor(const BasicBlock* succ, const BasicBlock* pred) {
-      set<const BasicBlock*> usedList;
+      BlockSet usedList;
       return isCfgSuccessorInternal(succ, pred, usedList);
     }
 
   private:
-    inline static bool isCfgSuccessorInternal(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList) {
+    inline static bool isCfgSuccessorInternal(const BasicBlock* succ, const BasicBlock* pred, BlockSet& usedList) {
       if (NULL == succ || NULL == pred)
         return false;
 
