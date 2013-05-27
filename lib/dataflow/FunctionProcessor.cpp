@@ -345,7 +345,7 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeIns
     if (prevStore.getOperand(1) != storeInst.getOperand(1))
       continue;
 
-    if (!BH->isSuccessor(storeInst.getParent(), prevStore.getParent())) {
+    if (!BlockHelper::isSuccessor(storeInst.getParent(), prevStore.getParent())) {
       return false;
     }
   }
