@@ -21,6 +21,7 @@
 #include "TaintFile.h" 
 #include "TaintSet.h" 
 #include "IntrinsicHelper.h" 
+#include "BlockHelper.h" 
 
 
 #define STOP_ON_CANCEL if (_canceledInspection) return
@@ -345,8 +346,7 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeIns
     if (prevStore.getOperand(1) != storeInst.getOperand(1))
       continue;
 
-    set<const BasicBlock*> usedList;
-    if (!isCfgSuccessor(storeInst.getParent(), prevStore.getParent(), usedList)) {
+    if (!BlockHelper::isSuccessor(storeInst.getParent(), prevStore.getParent())) {
       return false;
     }
   }
@@ -354,29 +354,6 @@ bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeIns
   return true;
 }
 
-bool FunctionProcessor::isCfgSuccessor(const BasicBlock* succ, const BasicBlock* pred, set<const BasicBlock*>& usedList) {
-  if (NULL == succ || NULL == pred)
-    return false;
-
-  DEBUG_LOG("CFG SUCC recursion for succ = `" << succ->getName()
-          << "` and pred = `" << pred->getName() << "`\n");
-
-  if (pred == succ)
-    return true;
-
-  for (const_pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
-    if (usedList.count(*i))
-      continue;
-
-    DEBUG_LOG(**i << "\n");
-
-    usedList.insert(*i);
-    if (isCfgSuccessor(*i, pred, usedList))
-      return true;
-  }
-
-  return false;
-}
 
 void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
   const FunctionTaintMap* mapping = TaintFile::getMapping(callee, _stream);
