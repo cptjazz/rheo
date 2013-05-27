@@ -24,7 +24,6 @@
 
 
 #define STOP_ON_CANCEL if (_canceledInspection) return
-#define DEBUG_LOG(x) DEBUG(_stream << x)
 #define ERROR_LOG(x) if (_shouldWriteErrors) _stream << "__error:" << x 
 
 #define PROFILE_LOG(x) IF_PROFILING(DEBUG(_stream << x))
@@ -198,7 +197,7 @@ inline void FunctionProcessor::addTaint(const Value& tainter, const Value& taint
 }
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
-  bool blockTainted = taintSet.contains(block) || isBlockTaintedByOtherBlock(block, taintSet);
+  bool blockTainted = taintSet.contains(block) || BH->isBlockTaintedByOtherBlock(block, taintSet);
 
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
@@ -294,7 +293,7 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
       recursivelyAddAllGepsAndLoads(inst, taintSet);
     }
 
-  } else if (taintSet.contains(target) && isCfgSuccessorOfPreviousStores(storeInst, taintSet)) {
+  } else if (taintSet.contains(target)) {
     // Only do removal if value is really in set
     taintSet.remove(target);
     DEBUG_LOG(" - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n");
@@ -332,27 +331,6 @@ void FunctionProcessor::recursivelyAddAllGepsAndLoads(const Instruction& target,
       recursivelyAddAllGepsAndLoads(cast<Instruction>(ptrOp), taintSet);
   }
 }
-
-bool FunctionProcessor::isCfgSuccessorOfPreviousStores(const StoreInst& storeInst, const TaintSet& taintSet) {
-  for (TaintSet::const_iterator i = taintSet.begin(), e = taintSet.end(); i != e; ++i) {
-    DEBUG_LOG(" CFG SUCC: inspecting " << **i << "\n");
-
-    if (!isa<StoreInst>(*i))
-      continue;
-
-    const StoreInst& prevStore = *cast<StoreInst>(*i);
-
-    if (prevStore.getOperand(1) != storeInst.getOperand(1))
-      continue;
-
-    if (!BlockHelper::isSuccessor(storeInst.getParent(), prevStore.getParent())) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 
 void FunctionProcessor::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) {
   const FunctionTaintMap* mapping = TaintFile::getMapping(callee, _stream);
@@ -918,35 +896,6 @@ void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& tai
        DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n");
     }
   }
-}
-
-bool FunctionProcessor::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) {
-  bool result = false;
-
-  for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
-    if (*s_i == NULL)
-      continue;
-
-    assert (*s_i != NULL && "BB must not be NULL");
-    if (! isa<BasicBlock>(*s_i))
-      continue;
-
-    const BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
-
-    if (DT.dominates(&taintedBlock, &currentBlock)) {
-      DEBUG_LOG(" ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n");
-
-      if (&taintedBlock != &currentBlock) {
-        taintSet.add(currentBlock);
-        DOT->addBlockNode(currentBlock);
-        DOT->addRelation(taintedBlock, currentBlock, "block-taint");
-      }
-
-      result = true;
-    }
-  }
-
-  return result;
 }
 
 void FunctionProcessor::handleBlockTainting(const Instruction& inst, const BasicBlock& currentBlock, TaintSet& taintSet) {

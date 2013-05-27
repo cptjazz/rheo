@@ -3,6 +3,8 @@
 
 #include "Core.h"
 #include "llvm/Function.h"
+#include "GraphExporter.h"
+#include "llvm/Analysis/Dominators.h"
 
 /**
  * The BlockHelper constructs a mapping of
@@ -11,34 +13,15 @@
  * for predecessor relation lookups.
  */
 class BlockHelper {
-  typedef SmallPtrSet<const BasicBlock*, 8> BlockSet;
+  const DominatorTree& DT;
+  GraphExporter& DOT;
+  raw_ostream& _stream;
 
   public:
-    inline static bool isSuccessor(const BasicBlock* succ, const BasicBlock* pred) {
-      BlockSet usedList;
-      return isCfgSuccessorInternal(succ, pred, usedList);
-    }
 
-  private:
-    inline static bool isCfgSuccessorInternal(const BasicBlock* succ, const BasicBlock* pred, BlockSet& usedList) {
-      if (NULL == succ || NULL == pred)
-        return false;
+    BlockHelper(const DominatorTree& dt, GraphExporter& dot, raw_ostream& stream) : DT(dt), DOT(dot), _stream(stream) { }
 
-      if (pred == succ)
-        return true;
-
-      for (const_pred_iterator i = pred_begin(succ), e = pred_end(succ); i != e; ++i) {
-        if (usedList.count(*i))
-          continue;
-
-        usedList.insert(*i);
-
-        if (isCfgSuccessorInternal(*i, pred, usedList))
-          return true;
-      }
-
-      return false;
-    }
+    bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet); 
 };
 
 #endif //BLOCK_HELPER_H

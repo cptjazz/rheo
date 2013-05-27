@@ -34,6 +34,7 @@ class FunctionProcessor {
   GraphExporter* DOT;
   const Module& M;
   TaintFlowPass& PASS;
+  BlockHelper* BH;
 
   TaintMap _returnStatements;
   TaintMap _arguments;
@@ -64,10 +65,13 @@ public:
 
     DEBUG(delete DOT);
     DEBUG(DOT = new GraphExporter(f.getName()));
+
+    BH = new BlockHelper(DT, *DOT, stream);
   }
 
   ~FunctionProcessor() {
     delete DOT;
+    delete BH;
   }
 
   void processFunction();

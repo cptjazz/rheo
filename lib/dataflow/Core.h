@@ -17,6 +17,8 @@
   #define IF_PROFILING(x)
 #endif
 
+#define DEBUG_LOG(x) DEBUG(_stream << x)
+
 using namespace std;
 using namespace llvm;
 
