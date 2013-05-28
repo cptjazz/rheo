@@ -209,22 +209,21 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
 
+    IHD->dispatch(inst, taintSet);
+/*
     if (isa<BranchInst>(inst))
       handleBranchInstruction(cast<BranchInst>(inst), taintSet);
     else if (isa<IndirectBrInst>(inst))
       stopWithError("Indirect branching is not supported", Error);
-    else if (isa<PHINode>(inst))
-      handlePhiNode(cast<PHINode>(inst), taintSet);
     else if (isa<StoreInst>(inst))
       handleStoreInstruction(cast<StoreInst>(inst), taintSet);
     else if (isa<CallInst>(inst))
       handleCallInstruction(cast<CallInst>(inst), taintSet);
-    else if (isa<GetElementPtrInst>(inst))
-      handleGetElementPtrInstruction(cast<GetElementPtrInst>(inst), taintSet);
     else if (isa<SwitchInst>(inst))
       handleSwitchInstruction(cast<SwitchInst>(inst), taintSet);
     else
       handleInstruction(inst, taintSet);
+      */
 
     PROFILE_LOG(" Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode()) 
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -255,28 +254,6 @@ void FunctionProcessor::printTaints() {
   _stream << ")\n";
 }
 
-void FunctionProcessor::handleGetElementPtrInstruction(const GetElementPtrInst& inst, TaintSet& taintSet) {
-  const Value& op = *inst.getPointerOperand();
-
-  if (taintSet.contains(op)) {
-    taintSet.add(inst);
-    DOT->addRelation(op, inst, "indexer");
-    DEBUG_LOG(" + Added GEP taint: `" << inst << "`\n");
-  }
-  
-  for (size_t i = 0; i < inst.getNumIndices(); i++) {
-    const Value& idx = *inst.getOperand(i + 1);
-
-    if (taintSet.contains(idx)) {
-      taintSet.add(inst);
-      stringstream reason("");
-      reason << "index #" << i;
-      DOT->addRelation(idx, inst, reason.str());
-      DEBUG_LOG(" ++ Added GEP INDEX: `" << idx << "`\n");
-    }
-  }
-}
-
 void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, TaintSet& taintSet) {
   const Value& source = *storeInst.getOperand(0);
   const Value& target = *storeInst.getOperand(1);
@@ -297,13 +274,6 @@ void FunctionProcessor::handleStoreInstruction(const StoreInst& storeInst, Taint
     // Only do removal if value is really in set
     taintSet.remove(target);
     DEBUG_LOG(" - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n");
-
-    if (isa<LoadInst>(target)) {
-      const Value& load = *(cast<LoadInst>(target)).getPointerOperand();
-      taintSet.remove(load);
-      DEBUG_LOG(" - Also removed transitive LOAD." << load << "\n");
-    }
-
     DOT->addRelation(source, target, "non-taint overwrite");
   }
 }
@@ -704,155 +674,6 @@ int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
   return -3;
 }
 
-
-/**
- * SWITCH is handled the following way:
- *
- * If the condition is tainted, each case (or default) is tainted
- * due to nesting.
- */
-void FunctionProcessor::handleSwitchInstruction(const SwitchInst& inst, TaintSet& taintSet) {
-  const Value* condition = inst.getCondition();
-  
-  if (!taintSet.contains(*condition))
-    return;
-
-  DOT->addRelation(*condition, inst, "switch");
-
-  const size_t succCount = inst.getNumSuccessors();
-
-  if (succCount == 1) {
-    DEBUG_LOG("Skipping switch because it consisted solely of a default branch.\n");
-    return;
-  }
-
-  const BasicBlock& defaultBlock = *inst.getSuccessor(0);
-
-  bool canSwitchBeShortened = true;
-  for (size_t i = 1; i < succCount; ++i) {
-    const BasicBlock& caseBlock = *inst.getSuccessor(i);
-
-    // If block consists of more than one instruction 
-    // it cannot be shortened.
-    if (caseBlock.size() != 1) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    // If the terminator has more than one successor
-    // the switch cannot be shortened
-    const TerminatorInst& terminator = *caseBlock.getTerminator();
-    if (terminator.getNumSuccessors() != 1) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    // Target must be default block to shorten
-    if (terminator.getSuccessor(0) != &defaultBlock) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    DEBUG_LOG("block size of " << inst.getSuccessor(i)->getName() << ": " << inst.getSuccessor(i)->size() << "\n");
-  }
-
-  if (canSwitchBeShortened) {
-    DEBUG_LOG("Skipping switch because all cases fall through to default without executing other instructions before.\n");
-    return;
-  }
-
-  const BasicBlock& join = *PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
-
-  DEBUG_LOG(" Handle SWITCH instruction:\n");
-  DEBUG_LOG(" Found joining block: " << join << "\n");
-
-  for (size_t i = 0; i < succCount; ++i) {
-    // Mark all case-blocks as tainted.
-    const BasicBlock& caseBlock = *inst.getSuccessor(i);
-    DOT->addBlockNode(caseBlock);
-    DOT->addRelation(inst, caseBlock, "case");
-    taintSet.add(caseBlock);
-    DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
-
-    followTransientBranchPaths(caseBlock, join, taintSet);
-  }
-}
-
-void FunctionProcessor::handlePhiNode(const PHINode& inst, TaintSet& taintSet) {
-  const size_t incomingCount = inst.getNumIncomingValues();
-
-  for (size_t j = 0; j < incomingCount; ++j) {
-    BasicBlock& incomingBlock = *inst.getIncomingBlock(j);
-    Value& incomingValue = *inst.getIncomingValue(j);
-
-    // We need to handle block-tainting here, because
-    // with PHI nodes, the effective assignment is no
-    // longer in the previous block, but in the PHI.
-    // If you assign constants in the block and the block
-    // is tainted by an if, we would not see this taint,
-    // because our logic would say: "is <const 7> tainted. "no".
-    // Without phi we would have an explicit (block tainted) assignment
-    // or store in the block.
-    if (taintSet.contains(incomingBlock)) {
-      DEBUG_LOG(" + Added PHI from block" << incomingBlock << "\n");
-      taintSet.add(inst);
-      DOT->addRelation(incomingBlock, inst, "block-taint");
-    } else if (taintSet.contains(incomingValue)) {
-      DEBUG_LOG(" + Added PHI from value" << incomingValue << "\n");
-      taintSet.add(inst);
-      DOT->addRelation(incomingValue, inst, "phi-value");
-    }
-  }
-}
-
-void FunctionProcessor::handleBranchInstruction(const BranchInst& inst, TaintSet& taintSet) {
-  DEBUG_LOG(" Handle BRANCH instruction: " << inst << "\n");
-  
-  if (inst.isConditional()) {
-    const Value& cmp = *inst.getCondition();
-    DEBUG_LOG(" = Compare instruction is: " << cmp << "\n");
-
-    bool isConditionTainted = taintSet.contains(cmp);
-    if (isConditionTainted) {
-      DOT->addRelation(cmp, inst, "condition");
-     
-      const BasicBlock& brTrue = *inst.getSuccessor(0);
-      const BasicBlock& brFalse = *inst.getSuccessor(1);
-
-      const BasicBlock& join = *const_cast<const BasicBlock*>(PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
-
-      DEBUG_LOG("   Nearest Common Post-Dominator for tr/fa: " << join << "\n");
-      
-      // true branch is always tainted
-      taintSet.add(brTrue);
-      DOT->addBlockNode(brTrue);
-      DOT->addRelation(inst, brTrue, "br-true");
-      DEBUG_LOG(" + Added TRUE branch to taint set:\n");
-      DEBUG_LOG(brTrue.getName() << "\n");
-
-      followTransientBranchPaths(brTrue, join, taintSet);
-
-      // false branch is only tainted if successor 
-      // is not the same as jump target after true branch
-      if (&join != &brFalse) {
-        taintSet.add(brFalse);
-        DOT->addBlockNode(brFalse);
-        DOT->addRelation(inst, brFalse, "br-false");
-        DEBUG_LOG(" + Added FALSE branch to taint set:\n");
-        DEBUG_LOG(brFalse.getName() << "\n");
-
-        followTransientBranchPaths(brFalse, join, taintSet);
-     }
-    }
-  } else {
-    if (taintSet.hasChanged()) {
-      const BasicBlock* target = inst.getSuccessor(0);
-      enqueueBlockToWorklist(target);
-      DEBUG_LOG("Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP\n");
-    }
-  }
-}
-
 void FunctionProcessor::enqueueBlockToWorklist(const BasicBlock* block) {
   _workList.push_front(block);
 }
@@ -875,26 +696,6 @@ void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const B
     DEBUG_LOG(brSuccessor << "\n");
 
     followTransientBranchPaths(brSuccessor, join, taintSet);
-  }
-}
-
-/**
- * An arbitrary Instruction is handled the following way:
- *
- * If one of the operands is tainted, the taitn is transfered to
- * the assignment target.
- */
-void FunctionProcessor::handleInstruction(const Instruction& inst, TaintSet& taintSet) {
-  const size_t argCount = inst.getNumOperands();
-
-  for (size_t o_i = 0; o_i < argCount; o_i++) {
-     const Value& operand = *inst.getOperand(o_i);
-     if (taintSet.contains(operand)) {
-       taintSet.add(inst);
-       DOT->addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
-
-       DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n");
-    }
   }
 }
 

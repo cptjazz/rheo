@@ -21,6 +21,11 @@
 #include "Core.h"
 #include "TaintFlowPass.h" 
 #include "BlockHelper.h" 
+#include "InstructionHandler.h" 
+#include "InstructionHandlerDispatcher.h" 
+#include "GetElementPtrHandler.h" 
+#include "PhiNodeHandler.h" 
+#include "DefaultHandler.h" 
 
 
 using namespace llvm;
@@ -34,6 +39,7 @@ class FunctionProcessor {
   GraphExporter* DOT;
   const Module& M;
   TaintFlowPass& PASS;
+  InstructionHandlerDispatcher* IHD;
   BlockHelper* BH;
 
   TaintMap _returnStatements;
@@ -67,11 +73,13 @@ public:
     DEBUG(DOT = new GraphExporter(f.getName()));
 
     BH = new BlockHelper(DT, *DOT, stream);
+    registerHandlers();
   }
 
   ~FunctionProcessor() {
     delete DOT;
     delete BH;
+    delete IHD;
   }
 
   void processFunction();
@@ -137,6 +145,15 @@ private:
   void processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet);
   void handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet);
   void stopWithError(Twine msg, ProcessingState state);
+
+  void registerHandlers() {
+    IHD = new InstructionHandlerDispatcher(*DOT, DT, PDT, _stream);
+
+    IHD->registerDefaultHandler<DefaultHandler>();
+    IHD->registerHandler<GetElementPtrHandler>();
+    IHD->registerHandler<PhiNodeHandler>();
+  }
+
 };
 
 #endif // FUNCTION_PROCESSOR_H
