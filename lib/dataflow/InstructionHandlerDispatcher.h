@@ -1,14 +1,13 @@
 #ifndef INSTRUCTION_HANDLER_DISPATCHER_H
 #define INSTRUCTION_HANDLER_DISPATCHER_H
 
+#include "InstructionHandler.h"
+
 class InstructionHandlerDispatcher {
 
   map<unsigned int, InstructionHandler*> mapping;
   InstructionHandler* _defaultHandler;
-  const DominatorTree& DT;
-  PostDominatorTree& PDT;
-  GraphExporter& DOT;
-  raw_ostream& _stream;
+  InstructionHandlerContext& _context;
 
   struct DeleteFunctor {
     template<class T>
@@ -18,19 +17,20 @@ class InstructionHandlerDispatcher {
   };
 
   public:
-    InstructionHandlerDispatcher(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream) 
-      : DT(dt), PDT(pdt), DOT(dot), _stream(stream) 
+    InstructionHandlerDispatcher(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream,
+                                 deque<const BasicBlock*>& worklist)
+        : _context(*new InstructionHandlerContext(dot, dt, pdt, stream, worklist))
     { }
 
     template<class T>
     void registerHandler() {
-      T* handler = new T(DOT, DT, PDT, _stream);
+      T* handler = new T(_context);
       mapping.insert(make_pair(handler->getOpcode(), handler));
     }
 
     template<class T>
     void registerDefaultHandler() {
-      _defaultHandler = new T(DOT, DT, PDT, _stream);
+      _defaultHandler = new T(_context);
     }
 
     void dispatch(const Instruction& instruction, TaintSet& taintSet) {

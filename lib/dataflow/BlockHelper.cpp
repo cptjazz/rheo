@@ -1,6 +1,6 @@
 #include "BlockHelper.h" 
 
-bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) {
+bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) const {
   bool result = false;
 
   for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
@@ -27,4 +27,25 @@ bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, Tai
   }
 
   return result;
+}
+
+void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) const {
+  const TerminatorInst& brTerminator = *br.getTerminator();
+
+  if (brTerminator.getNumSuccessors() != 1)
+    return;
+
+  const BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
+
+  if (PDT.dominates(&join, &brSuccessor) &&
+      &brSuccessor != &join) {
+
+    taintSet.add(brSuccessor);
+    DOT.addBlockNode(brSuccessor);
+    DOT.addRelation(brTerminator, brSuccessor, "block-taint");
+    DEBUG_LOG(" ++ Added TRANSIENT block:\n");
+    DEBUG_LOG(brSuccessor << "\n");
+
+    followTransientBranchPaths(brSuccessor, join, taintSet);
+  }
 }

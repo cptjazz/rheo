@@ -674,31 +674,6 @@ int FunctionProcessor::getArgumentPosition(const Function& f, const Value& v) {
   return -3;
 }
 
-void FunctionProcessor::enqueueBlockToWorklist(const BasicBlock* block) {
-  _workList.push_front(block);
-}
-
-void FunctionProcessor::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) {
-  const TerminatorInst& brTerminator = *br.getTerminator();
-
-  if (brTerminator.getNumSuccessors() != 1)
-    return;
-
-  const BasicBlock& brSuccessor = *brTerminator.getSuccessor(0);
-
-  if (PDT.dominates(&join, &brSuccessor) && 
-      &brSuccessor != &join) {
-
-    taintSet.add(brSuccessor);
-    DOT->addBlockNode(brSuccessor);
-    DOT->addRelation(brTerminator, brSuccessor, "block-taint");
-    DEBUG_LOG(" ++ Added TRANSIENT block:\n");
-    DEBUG_LOG(brSuccessor << "\n");
-
-    followTransientBranchPaths(brSuccessor, join, taintSet);
-  }
-}
-
 void FunctionProcessor::handleBlockTainting(const Instruction& inst, const BasicBlock& currentBlock, TaintSet& taintSet) {
   DEBUG_LOG(" Handle BLOCK-tainting for `" << inst << "`\n");
 

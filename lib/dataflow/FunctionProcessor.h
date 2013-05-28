@@ -25,7 +25,9 @@
 #include "InstructionHandlerDispatcher.h" 
 #include "GetElementPtrHandler.h" 
 #include "PhiNodeHandler.h" 
-#include "DefaultHandler.h" 
+#include "BranchHandler.h"
+#include "SwitchHandler.h"
+#include "DefaultHandler.h"
 
 
 using namespace llvm;
@@ -72,7 +74,7 @@ public:
     DEBUG(delete DOT);
     DEBUG(DOT = new GraphExporter(f.getName()));
 
-    BH = new BlockHelper(DT, *DOT, stream);
+    BH = new BlockHelper(DT, PDT, *DOT, stream);
     registerHandlers();
   }
 
@@ -147,11 +149,13 @@ private:
   void stopWithError(Twine msg, ProcessingState state);
 
   void registerHandlers() {
-    IHD = new InstructionHandlerDispatcher(*DOT, DT, PDT, _stream);
+    IHD = new InstructionHandlerDispatcher(*DOT, DT, PDT, _stream, _workList);
 
     IHD->registerDefaultHandler<DefaultHandler>();
     IHD->registerHandler<GetElementPtrHandler>();
     IHD->registerHandler<PhiNodeHandler>();
+    IHD->registerHandler<BranchHandler>();
+    IHD->registerHandler<SwitchHandler>();
   }
 
 };

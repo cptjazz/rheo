@@ -1,14 +1,13 @@
 #ifndef PHINODE_HANDLER_H
 #define PHINODE_HANDLER_H
 
-#include <sstream>
 #include "InstructionHandler.h"
 
 class PhiNodeHandler : public InstructionHandlerTrait<PHINode> {
 
   public:
-    PhiNodeHandler(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream)
-      : InstructionHandlerTrait(Instruction::PHI, dot, dt, pdt, stream) { }
+    PhiNodeHandler(InstructionHandlerContext& ctx)
+      : InstructionHandlerTrait(Instruction::PHI, ctx) { }
 
     void handleInstructionInternal(const PHINode& inst, TaintSet& taintSet) const {
       const size_t incomingCount = inst.getNumIncomingValues();
