@@ -206,17 +206,18 @@ ProcessingState TaintFlowPass::processFunction(const Function& func) {
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  ResultSet result;
   long time = Helper::getTimestamp();
 
-  FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), result, errs());
+  FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), logger);
   proc.processFunction();
+  ResultSet result = proc.getResult();
 
   time = Helper::getTimestampDelta(time);
 
   errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
-  ProcessingState state = proc.getState();
-  const Function* missing = proc.getMissingDefinition();
+  AnalysisState analysisState = proc.getAnalysisState();
+  ProcessingState state = analysisState.getProcessingState();
+  const Function* missing = analysisState.getMissingDefinition();
 
   switch (state) {
     case Deferred:

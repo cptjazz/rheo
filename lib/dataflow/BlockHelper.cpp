@@ -8,13 +8,14 @@ bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, Tai
       continue;
 
     assert (*s_i != NULL && "BB must not be NULL");
+
     if (! isa<BasicBlock>(*s_i))
       continue;
 
     const BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
 
     if (DT.dominates(&taintedBlock, &currentBlock)) {
-      DEBUG_LOG(" ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n");
+      logger.debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n";
 
       if (&taintedBlock != &currentBlock) {
         taintSet.add(currentBlock);
@@ -43,8 +44,8 @@ void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBl
     taintSet.add(brSuccessor);
     DOT.addBlockNode(brSuccessor);
     DOT.addRelation(brTerminator, brSuccessor, "block-taint");
-    DEBUG_LOG(" ++ Added TRANSIENT block:\n");
-    DEBUG_LOG(brSuccessor << "\n");
+    logger.debug() << " ++ Added TRANSIENT block:\n";
+    logger.debug() << brSuccessor << "\n";
 
     followTransientBranchPaths(brSuccessor, join, taintSet);
   }

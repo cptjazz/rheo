@@ -2,6 +2,7 @@
 #define INSTRUCTION_HANDLER_DISPATCHER_H
 
 #include "InstructionHandler.h"
+#include "AnalysisState.h"
 
 class InstructionHandlerDispatcher {
 
@@ -17,9 +18,7 @@ class InstructionHandlerDispatcher {
   };
 
   public:
-    InstructionHandlerDispatcher(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, raw_ostream& stream,
-                                 deque<const BasicBlock*>& worklist)
-        : _context(*new InstructionHandlerContext(dot, dt, pdt, stream, worklist))
+  InstructionHandlerDispatcher(InstructionHandlerContext& ctx) : _context(ctx)
     { }
 
     template<class T>

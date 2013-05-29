@@ -7,7 +7,7 @@
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
-const FunctionTaintMap* TaintFile::getMapping(const Function& func, raw_ostream& debugStream) {
+const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger& logger) {
   IF_PROFILING(long t = Helper::getTimestamp());
   FunctionTaintMap temp;
   pair<TaintFileCache::iterator, bool> result = _mappingCache.insert(make_pair(&func, temp));
@@ -16,16 +16,16 @@ const FunctionTaintMap* TaintFile::getMapping(const Function& func, raw_ostream&
   if (result.second) {
     IF_PROFILING(long t = Helper::getTimestamp());
 
-    bool readResult = read(func, debugStream, mapping);
+    bool readResult = read(func, logger, mapping);
     if (!readResult)
       _mappingCache.erase(&func);
 
-    IF_PROFILING(DEBUG(debugStream << "Reading mapping for `" << func.getName() << "`  from file took " 
-          << Helper::getTimestampDelta(t) << "µs\n"));
+    logger.profile() << "Reading mapping for `" << func.getName() << "`  from file took "
+          << Helper::getTimestampDelta(t) << "µs\n";
   }
 
-  IF_PROFILING(DEBUG(debugStream << "Getting mapping for `" << func.getName() << "` took " 
-        << Helper::getTimestampDelta(t) << "µs\n"));
+  logger.profile() << "Getting mapping for `" << func.getName() << "` took "
+        << Helper::getTimestampDelta(t) << "µs\n";
 
   return &mapping;
 }
@@ -39,7 +39,7 @@ const FunctionTaintMap* TaintFile::getMapping(const Function& func, raw_ostream&
  *
  * The created mapping can be retreived via getMapping()
  */
-bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTaintMap& mapping) {
+bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMap& mapping) {
   string filename = getFilename(func);
   ifstream file(filename.c_str(), ios::in);
 
@@ -47,7 +47,7 @@ bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTai
     file.open(("taintlib/" + filename).c_str(), ios::in);
 
     if (!file.is_open()) {
-      DEBUG(debugStream << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n");
+      logger.debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
       return false;
     }
   }
@@ -83,12 +83,12 @@ bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTai
     // have to search the corresponing argument positions.
     if( !(convert1 >> paramPos)) {
       paramPos = -1;
-      DEBUG(debugStream << "Searching for param " << paramName << "\n");
+      logger.debug() << "Searching for param " << paramName << "\n";
 
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
-          DEBUG(debugStream << "Found at #" << i << "\n");
+          logger.debug() << "Found at #" << i << "\n";
           break;
         }
 
@@ -99,7 +99,7 @@ bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTai
         paramPos = -2;
 
     } else {
-      DEBUG(debugStream << "Param-info from file: seem to be at #" << paramPos << "\n");
+      logger.debug() << "Param-info from file: seem to be at #" << paramPos << "\n";
     }
 
     // Convert right hand side of => 
@@ -112,11 +112,11 @@ bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTai
     // have to search the corresponing argument positions.
     if( !(convert2 >> retvalPos)) {
       retvalPos = -1;
-      DEBUG(debugStream << "Searching for retval " << valName << "\n");
+      logger.debug() << "Searching for retval " << valName << "\n";
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == valName) {
           retvalPos = i;
-          DEBUG(debugStream << "Found at #" << i << "\n");
+          logger.debug() << "Found at #" << i << "\n";
           break;
         }
 
@@ -125,24 +125,24 @@ bool TaintFile::read(const Function& func, raw_ostream& debugStream, FunctionTai
 
       if (valName.compare("...") == 0) {
         retvalPos = -2;
-        DEBUG(debugStream << "Interpreting as varargs\n");
+        logger.debug() << "Interpreting as varargs\n";
       }
     } else {
-      DEBUG(debugStream << "Retval-info from file: seem to be at #" << retvalPos << "\n");
+      logger.debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n";
     }
 
     if (paramPos == -1) {
-      DEBUG(debugStream << "  - Skipping `" << paramName << "` -- not found.\n");
+      logger.debug() << "  - Skipping `" << paramName << "` -- not found.\n";
       break;
     }
 
-    DEBUG(debugStream << " Insert mapping: " << paramPos << " => " << retvalPos << "\n");
+    logger.debug() << " Insert mapping: " << paramPos << " => " << retvalPos << "\n";
     mapping.insert(make_pair(paramPos, retvalPos));
   }
 
   file.close();
 
-  DEBUG(debugStream << " Inserted " << mapping.size() << " mappings\n");
+  logger.debug() << " Inserted " << mapping.size() << " mappings\n";
   return true;
 }
 

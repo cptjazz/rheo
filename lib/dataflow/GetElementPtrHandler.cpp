@@ -6,8 +6,8 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
 
   if (taintSet.contains(op)) {
     taintSet.add(inst);
-    DOT.addRelation(op, inst, "indexer");
-    DEBUG_LOG(" + Added GEP taint: `" << inst << "`\n");
+    CTX.DOT.addRelation(op, inst, "indexer");
+    CTX.logger.debug() << " + Added GEP taint: `" << inst << "`\n";
   }
 
   for (size_t i = 0; i < inst.getNumIndices(); i++) {
@@ -17,8 +17,8 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
       taintSet.add(inst);
       stringstream reason("");
       reason << "index #" << i;
-      DOT.addRelation(idx, inst, reason.str());
-      DEBUG_LOG(" ++ Added GEP INDEX: `" << idx << "`\n");
+      CTX.DOT.addRelation(idx, inst, reason.str());
+      CTX.logger.debug() << " ++ Added GEP INDEX: `" << idx << "`\n";
     }
   }
 }

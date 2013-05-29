@@ -9,23 +9,17 @@
 #include "llvm/Instructions.h"
 #include "BlockHelper.h"
 #include "InstructionHandlerContext.h"
-
+#include <string>
 
 class InstructionHandler {
-  unsigned int _opcode;
-
-  protected:
-    const DominatorTree& DT;
-    PostDominatorTree& PDT;
-    GraphExporter& DOT;
-    const BlockHelper& BH;
-    InstructionHandlerContext& CTX;
-    raw_ostream& _stream;
+  private:
+    unsigned int _opcode;
 
   public:
+    InstructionHandlerContext& CTX;
+
     InstructionHandler(unsigned int opcode, InstructionHandlerContext& ctx)
-      : _opcode(opcode), DT(ctx.DT), PDT(ctx.PDT), DOT(ctx.DOT),
-        BH(*new BlockHelper(ctx.DT, ctx.PDT, ctx.DOT, ctx.stream)), CTX(ctx), _stream(ctx.stream)
+      : _opcode(opcode), CTX(ctx)
     { }
 
     virtual ~InstructionHandler() { }
@@ -49,6 +43,20 @@ class InstructionHandlerTrait : public InstructionHandler {
 
   protected:
     virtual void handleInstructionInternal(const T& inst, TaintSet& taintSet) const = 0;
+};
+
+
+template<class T>
+class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<T> {
+    string _msg;
+
+  public:
+    UnsupportedInstructionHandlerTrait(string msg, InstructionHandlerContext& ctx)
+        : InstructionHandlerTrait<T>(0, ctx), _msg(msg) { }
+
+    void handleInstructionInternal(const T& inst, TaintSet& taintSet) const {
+        this->CTX.analysisState.stopWithError(_msg);
+    }
 };
 
 #endif // INSTRUCTION_HANDLER_H

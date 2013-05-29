@@ -6,12 +6,12 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
   if (!taintSet.contains(*condition))
     return;
 
-  DOT.addRelation(*condition, inst, "switch");
+  CTX.DOT.addRelation(*condition, inst, "switch");
 
   const size_t succCount = inst.getNumSuccessors();
 
   if (succCount == 1) {
-    DEBUG_LOG("Skipping switch because it consisted solely of a default branch.\n");
+    CTX.logger.debug() << "Skipping switch because it consisted solely of a default branch.\n";
     return;
   }
 
@@ -42,27 +42,27 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
       break;
     }
 
-    DEBUG_LOG("block size of " << inst.getSuccessor(i)->getName() << ": " << inst.getSuccessor(i)->size() << "\n");
+    CTX.logger.debug() << "block size of " << inst.getSuccessor(i)->getName() << ": " << inst.getSuccessor(i)->size() << "\n";
   }
 
   if (canSwitchBeShortened) {
-    DEBUG_LOG("Skipping switch because all cases fall through to default without executing other instructions before.\n");
+    CTX.logger.debug() << "Skipping switch because all cases fall through to default without executing other instructions before.\n";
     return;
   }
 
-  const BasicBlock& join = *PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
+  const BasicBlock& join = *CTX.PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
 
-  DEBUG_LOG(" Handle SWITCH instruction:\n");
-  DEBUG_LOG(" Found joining block: " << join << "\n");
+  CTX.logger.debug() << " Handle SWITCH instruction:\n";
+  CTX.logger.debug() << " Found joining block: " << join << "\n";
 
   for (size_t i = 0; i < succCount; ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
-    DOT.addBlockNode(caseBlock);
-    DOT.addRelation(inst, caseBlock, "case");
+    CTX.DOT.addBlockNode(caseBlock);
+    CTX.DOT.addRelation(inst, caseBlock, "case");
     taintSet.add(caseBlock);
-    DEBUG_LOG(" + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
+    CTX.logger.debug() << " + Added Block due to tainted SWITCH condition: " << caseBlock << "\n";
 
-    BH.followTransientBranchPaths(caseBlock, join, taintSet);
+    CTX.BH.followTransientBranchPaths(caseBlock, join, taintSet);
   }
 }

@@ -17,8 +17,6 @@
   #define IF_PROFILING(x)
 #endif
 
-#define DEBUG_LOG(x) DEBUG(_stream << x)
-
 using namespace std;
 using namespace llvm;
 
@@ -28,18 +26,5 @@ typedef set<TaintPair> ResultSet;
 typedef vector<const CallGraphNode*> NodeVector;
 typedef map<const Function*, NodeVector> CircleMap;
 typedef set<pair<int, int> > FunctionTaintMap;
-
-/**
- * The ProcessingState enum describes the result of a 
- * FunctionProcessor run.
- */
-enum ProcessingState {
-  Success,
-  ErrorMissingDefinition,
-  ErrorMissingIntrinsic,
-  ErrorArguments,
-  Error,
-  Deferred
-};
 
 #endif // CORE_H

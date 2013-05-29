@@ -6,18 +6,19 @@
 #include "GraphExporter.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "Logger.h"
 
 
 class BlockHelper {
   const DominatorTree& DT;
   PostDominatorTree& PDT;
   GraphExporter& DOT;
-  raw_ostream& _stream;
+  const Logger& logger;
 
   public:
 
-    BlockHelper(const DominatorTree& dt, PostDominatorTree& pdt, GraphExporter& dot, raw_ostream& stream)
-        : DT(dt), PDT(pdt), DOT(dot), _stream(stream) { }
+    BlockHelper(const DominatorTree& dt, PostDominatorTree& pdt, GraphExporter& dot, const Logger& logger)
+        : DT(dt), PDT(pdt), DOT(dot), logger(logger) { }
 
     bool isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) const;
 

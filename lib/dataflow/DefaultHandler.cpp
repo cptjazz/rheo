@@ -7,9 +7,9 @@ void DefaultHandler::handleInstruction(const Instruction& inst, TaintSet& taintS
     const Value& operand = *inst.getOperand(o_i);
     if (taintSet.contains(operand)) {
       taintSet.add(inst);
-      DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
 
-      DEBUG_LOG(" + Added " << operand << " --> " << inst << "\n");
+      CTX.DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode())));
+      CTX.logger.debug() << " + Added " << operand << " --> " << inst << "\n";
     }
   }
 }

@@ -9,6 +9,8 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/raw_ostream.h"
 #include "Core.h"
+#include "AnalysisState.h"
+#include "Logger.h"
 #include <queue>
 
 using namespace llvm;
@@ -24,6 +26,7 @@ using namespace std;
     CircleMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
     set<Function*> _avoidInfiniteLoopHelper;
+    Logger logger;
 
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -42,7 +45,7 @@ using namespace std;
 public:
     static char ID;
 
-    TaintFlowPass() : ModulePass(ID) { }
+    TaintFlowPass() : ModulePass(ID), logger(errs(), nulls()) { }
 
     template<class TDep>
     TDep& getDependency(const Function& f) {
