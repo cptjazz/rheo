@@ -7,14 +7,14 @@
 
 
 void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& taintSet) const {
-  CTX.logger.debug() << " Handle CALL instruction:\n";
+  DEBUG(CTX.logger.debug() << " Handle CALL instruction:\n");
   const Function* callee = callInst.getCalledFunction();
   const Value* calleeValue = callInst.getCalledValue();
-  CTX.logger.debug() << " Callee:" << *calleeValue << "\n";
+  DEBUG(CTX.logger.debug() << " Callee:" << *calleeValue << "\n");
 
   // Skip inline ASM for now
   if (callInst.isInlineAsm()) {
-    CTX.logger.debug() << " Ignoring inline ASM. \n";
+    DEBUG(CTX.logger.debug() << " Ignoring inline ASM. \n");
     return;
   }
 
@@ -34,7 +34,7 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     // tainted.
     if (taintSet.contains(*calleeValue)) {
       taintSet.add(callInst);
-      CTX.DOT.addRelation(*calleeValue, callInst);
+      DEBUG(CTX.DOT.addRelation(*calleeValue, callInst));
     }
   }
 }
@@ -53,7 +53,7 @@ void CallHandler::buildMappingForRecursiveCall(const CallInst& callInst, const F
     taintResults.insert(make_pair(inVal, outVal));
   }
 
-  CTX.logger.profile() << "buildMappingForRecursiveCall() took " << Helper::getTimestampDelta(t) << " µs\n";
+  IF_PROFILING(CTX.logger.profile() << "buildMappingForRecursiveCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 
@@ -69,14 +69,14 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   AnalysisState state = refFp.getAnalysisState();
   ProcessingState processingState = state.getProcessingState();
 
-  CTX.logger.debug() << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n";
-  CTX.logger.debug() << "state was: " << processingState << "\n";
+  DEBUG(CTX.logger.debug() << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n");
+  DEBUG(CTX.logger.debug() << "state was: " << processingState << "\n");
 
   if (!refFp.didFinish()) {
     CTX.analysisState.stopWithError("", processingState);
 
     if (processingState == ErrorMissingDefinition || processingState == Deferred) {
-      CTX.logger.debug() << "Deferring because of missing definition in circular call.\n";
+      DEBUG(CTX.logger.debug() << "Deferring because of missing definition in circular call.\n");
       CTX.analysisState.setProcessingState(Deferred);
       CTX.analysisState.setMissingDefinition(state.getMissingDefinition());
     }
@@ -85,7 +85,7 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   }
 
   for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
-    CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n";
+    DEBUG(CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
     int inPos = getArgumentPosition(func, *i->first);
     int outPos = getArgumentPosition(func, *i->second);
 
@@ -95,7 +95,7 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
     taintResults.insert(make_pair(inVal, outVal));
   }
 
-  CTX.logger.profile() << "buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n";
+  IF_PROFILING(CTX.logger.profile() << "buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 
@@ -114,7 +114,7 @@ void CallHandler::buildMappingForUndefinedExternalCall(const CallInst& callInst,
 
     // Every argument taints the return value
     taintResults.insert(make_pair(arg, &callInst));
-    CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> $_retval\n";
+    DEBUG(CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> $_retval\n");
 
     size_t k = 0;
     for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; a_i++) {
@@ -123,14 +123,14 @@ void CallHandler::buildMappingForUndefinedExternalCall(const CallInst& callInst,
       k++;
 
       if (!out) {
-        CTX.logger.error() << "arg #" << k << " was NULL\n";
+        DEBUG(CTX.logger.error() << "arg #" << k << " was NULL\n");
         continue;
       }
 
       if (param.getType()->isPointerTy() && out != arg) {
         // Since it is a pointer it is a possible out-argument
         taintResults.insert(make_pair(arg, out));
-        CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> " << out->getName() << "\n";
+        DEBUG(CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> " << out->getName() << "\n");
       }
     }
   }
@@ -151,14 +151,14 @@ void CallHandler::handleFunctionPointerCallWithHeuristic(const CallInst& callIns
 
     // Every arguments taints the return value
     taintResults.insert(make_pair(&source, &callInst));
-    CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => -1\n";
+    DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *callInst.getArgOperand(j);
 
       if (&source != &sink && sink.getType()->isPointerTy()) {
-        CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => " << j << "\n";
+        DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => " << j << "\n");
         taintResults.insert(make_pair(&source, &sink));
       }
     }
@@ -169,28 +169,27 @@ void CallHandler::handleFunctionPointerCallWithHeuristic(const CallInst& callIns
 
 
 void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet) const {
-  CTX.logger.debug() << " * Calling function `" << callee.getName() << "`\n";
+  DEBUG(CTX.logger.debug() << " * Calling function `" << callee.getName() << "`\n");
 
   ResultSet taintResults;
-  long t;
 
   if (TaintFile::exists(callee) && !Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
-    t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
     buildMappingFromTaintFile(callInst, callee, taintResults);
-    CTX.logger.profile() << " buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << " µs\n";
+    IF_PROFILING(CTX.logger.profile() << " buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << " µs\n");
   } else if (callee.size() == 0 || callInst.isInlineAsm()) {
     // External functions
-    CTX.logger.debug() << "calling to undefined external. using heuristic.\n";
+    DEBUG(CTX.logger.debug() << "calling to undefined external. using heuristic.\n");
     buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
   } else if (&callee == &CTX.F) {
     // build intermediate taint sets
-    t = Helper::getTimestamp();
+    IF_PROFILING(long t = Helper::getTimestamp());
     CTX.setHelper.buildResultSet();
-    CTX.logger.profile() << " buildResultSet() took " << Helper::getTimestampDelta(t) << "\n";
+    IF_PROFILING(CTX.logger.profile() << " buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
   } else if (callee.isIntrinsic()) {
-    CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n";
+    DEBUG(CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n");
 
     FunctionTaintMap mapping;
     if (IntrinsicHelper::getMapping(callee, mapping)) {
@@ -199,7 +198,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
       CTX.analysisState.stopWithError("No definition of intrinsic `" + callee.getName().str() + "`.\n", ErrorMissingIntrinsic);
     }
   } else if (Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
-    CTX.logger.debug() << "calling with circular reference: " << CTX.F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n";
+    DEBUG(CTX.logger.debug() << "calling with circular reference: " << CTX.F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
 
     if (TaintFile::exists(callee)) {
       buildMappingFromTaintFile(callInst, callee, taintResults);
@@ -214,7 +213,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
       TaintFile::remove(CTX.F);
     }
   } else {
-    CTX.logger.debug() << "Deferring `" << CTX.F.getName() << "` -- call to `" << callee << "` could not (yet) be evaulated.\n";
+    DEBUG(CTX.logger.debug() << "Deferring `" << CTX.F.getName() << "` -- call to `" << callee << "` could not (yet) be evaulated.\n");
     CTX.analysisState.stopWithError("", Deferred);
     CTX.analysisState.setMissingDefinition(&callee);
   }
@@ -233,7 +232,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
 
-  CTX.logger.debug() << " Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n";
+  DEBUG(CTX.logger.debug() << " Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->first;
     int retvalPos = i->second;
@@ -244,7 +243,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     set<const Value*> sources;
     set<const Value*> sinks;
 
-    CTX.logger.debug() << " Converting mapping: " << paramPos << " => " << retvalPos << "\n";
+    DEBUG(CTX.logger.debug() << " Converting mapping: " << paramPos << " => " << retvalPos << "\n");
 
     // Build set for sources
     if (paramPos == -2) {
@@ -257,7 +256,8 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       const Value* arg = callInst.getArgOperand(paramPos);
       sources.insert(arg);
     }
-    CTX.logger.debug() << "processed source-mappings\n";
+
+    DEBUG(CTX.logger.debug() << "processed source-mappings\n");
 
     // Build set for sinks
     if (retvalPos == -1) {
@@ -278,7 +278,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       sinks.insert(returnTarget);
     }
 
-    CTX.logger.debug() << "processed sink-mappings\n";
+    DEBUG(CTX.logger.debug() << "processed sink-mappings\n");
 
     for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
       const Value& source = **so_i;
@@ -290,7 +290,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     }
   }
 
-  CTX.logger.profile() << "createResultSetFromFunctionMapping() took " << Helper::getTimestampDelta(t) << " µs\n";
+  IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
 
@@ -300,45 +300,45 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
     const Value& in = *i->first;
     const Value& out = *i->second;
 
-    CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n";
+    DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
     if (taintSet.contains(in)) {
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
       needToAddGraphNodeForFunction = true;
-      CTX.logger.debug() << "in is: " << in << "\n";
+      DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
       stringstream reas("");
-      reas << "in, arg#" << getArgumentPosition(callInst, in);
-      CTX.DOT.addRelation(in, callee, reas.str());
+      DEBUG(reas << "in, arg#" << getArgumentPosition(callInst, in));
+      DEBUG(CTX.DOT.addRelation(in, callee, reas.str()));
 
       if (taintSet.contains(callee) && out.getType()->isPointerTy()) {
-        CTX.DOT.addRelation(callee, out, "function-indirection");
+        DEBUG(CTX.DOT.addRelation(callee, out, "function-indirection"));
         taintSet.add(out);
       }
 
       taintSet.add(out);
       if (&out == &callInst) {
-        CTX.DOT.addRelation(callee, callInst, "ret");
+        DEBUG(CTX.DOT.addRelation(callee, callInst, "ret"));
       } else {
         stringstream outReas("");
-        outReas << "out, arg#" << getArgumentPosition(callInst, out);
-        CTX.DOT.addRelation(callee, out, outReas.str());
+        DEBUG(outReas << "out, arg#" << getArgumentPosition(callInst, out));
+        DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
       // Value is a pointer, so the previous load is also tainted.
       if (isa<LoadInst>(out)) {
         Value* op = (cast<LoadInst>(out)).getOperand(0);
         taintSet.add(*op);
-        CTX.logger.debug() << " ++ Added previous load: " << out << "\n";
-        CTX.DOT.addRelation(*op, out, "load");
+        DEBUG(CTX.logger.debug() << " ++ Added previous load: " << out << "\n");
+        DEBUG(CTX.DOT.addRelation(*op, out, "load"));
       }
     }
   }
 
 
   if (needToAddGraphNodeForFunction)
-    CTX.DOT.addCallNode(callee);
+    DEBUG(CTX.DOT.addCallNode(callee));
 }
 
 
@@ -383,7 +383,7 @@ void CallHandler::buildMappingFromTaintFile(const CallInst& callInst, const Func
   if (!mapping) {
     CTX.analysisState.stopWithError("Cannot find definition of `" + callee.getName().str() + "`.\n", ErrorMissingDefinition);
     CTX.analysisState.setMissingDefinition(&callee);
-    CTX.logger.debug() << "Set missing: " << callee.getName() << "\n";
+    DEBUG(CTX.logger.debug() << "Set missing: " << callee.getName() << "\n");
     return;
   }
 

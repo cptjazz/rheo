@@ -27,7 +27,7 @@ using namespace std;
 
 
 void FunctionProcessor::processFunction() {
-  printInstructions();
+  DEBUG(printInstructions());
 
   findReturnStatements();
   findArguments();
@@ -37,7 +37,7 @@ void FunctionProcessor::processFunction() {
   do {
     setHelper.resetResultSetChanged();
 
-    logger.debug() << "Starting arg iteration " << resultIteration << " for " << F.getName() << "\n";
+    DEBUG(logger.debug() << "Starting arg iteration " << resultIteration << " for " << F.getName() << "\n");
 
     TaintMap::iterator arg_i = setHelper.arguments.begin();
     TaintMap::iterator arg_e = setHelper.arguments.end();
@@ -65,7 +65,7 @@ void FunctionProcessor::processFunction() {
 
 
 void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
-  logger.debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n";
+  DEBUG(logger.debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n");
 
   // Arg trivially taints itself.
   taintSet.add(arg);
@@ -90,7 +90,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
       const BasicBlock& block = *_workList.front();
       _workList.pop_front();
 
-      logger.debug() << " ----- PROCESS BLOCK " << block.getName() << " -----\n";
+      DEBUG(logger.debug() << " ----- PROCESS BLOCK " << block.getName() << " -----\n");
       applyMeet(block);
 
       processBasicBlock(block, _blockList[&block]);
@@ -104,7 +104,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
     taintSet.addAll(set);
   }
 
-  logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n";
+  DEBUG(logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
   DEBUG(taintSet.printTo(logger.debug()));
 }
 
@@ -115,19 +115,19 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
  */
 void FunctionProcessor::applyMeet(const BasicBlock& block) {
   TaintSet& blockSet = _blockList[&block];
-  logger.debug() << "Applying meet for: " << block.getName() << "\n";
+  DEBUG(logger.debug() << "Applying meet for: " << block.getName() << "\n");
   IF_PROFILING(long t = Helper::getTimestamp());
   
   for (const_pred_iterator i = pred_begin(&block), e = pred_end(&block); i != e; ++i) {
     const BasicBlock& pred = **i;
-    logger.debug() << "Meeting block: " << pred.getName() << "\n";
+    DEBUG(logger.debug() << "Meeting block: " << pred.getName() << "\n");
 
     TaintSet& predSet = _blockList[&pred];
     blockSet.addAll(predSet);
   }
 
-  logger.profile() << "Meeting took " << Helper::getTimestampDelta(t) << "µs\n";
-  logger.debug() << "End meet\n";
+  IF_PROFILING(logger.profile() << "Meeting took " << Helper::getTimestampDelta(t) << "µs\n");
+  DEBUG(logger.debug() << "End meet\n");
 }
 
 
@@ -146,8 +146,8 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
     IHD->dispatch(inst, taintSet);
 
-    logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
-        << "' took " << Helper::getTimestampDelta(t) << " µs\n";
+    IF_PROFILING(logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
+        << "' took " << Helper::getTimestampDelta(t) << " µs\n");
   }
 }
 
@@ -170,29 +170,29 @@ void FunctionProcessor::printTaints() {
 
 
 void FunctionProcessor::handleBlockTainting(const Instruction& inst, const BasicBlock& currentBlock, TaintSet& taintSet) {
-  logger.debug() << " Handle BLOCK-tainting for `" << inst << "`\n";
+  DEBUG(logger.debug() << " Handle BLOCK-tainting for `" << inst << "`\n");
 
   // Loads should not be tained by parenting block
   // because otherwise a block would taint a load of
   // a global variable what makes no sense -- it would
   // introduce a taint that does not exist.
   if (isa<LoadInst>(inst)) {
-    logger.debug() << " Ignoring LOAD\n";
+    DEBUG(logger.debug() << " Ignoring LOAD\n");
     return;
   }
 
   if (isa<GetElementPtrInst>(inst)) {
-    logger.debug() << " Ignoring GEP\n";
+    DEBUG(logger.debug() << " Ignoring GEP\n");
     return;
   }
 
   taintSet.add(inst);
-  logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n";
+  DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
   if (isa<StoreInst>(inst))
-    DOT->addRelation(currentBlock, *inst.getOperand(0), "block-taint");
+    DEBUG(DOT->addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
   else
-    DOT->addRelation(currentBlock, inst, "block-taint");
+    DEBUG(DOT->addRelation(currentBlock, inst, "block-taint"));
 }
 
 void FunctionProcessor::findArguments() {
@@ -269,7 +269,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Val
     for (User::const_use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
       if (isa<StoreInst>(*u_i)) {
         returnSet.add(**u_i);
-        logger.debug() << " Added ARG STORE: " << **u_i << "\n";
+        DEBUG(logger.debug() << " Added ARG STORE: " << **u_i << "\n");
         newArg = u_i->getOperand(1);
 
         ReturnSet alreadyProcessed;
@@ -280,7 +280,7 @@ void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Val
 
 void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
 
-  logger.debug() << "Recursively find: " << arg << "\n";
+  DEBUG(logger.debug() << "Recursively find: " << arg << "\n");
 
   if (alreadyProcessed.contains(arg))
     return;
@@ -292,19 +292,19 @@ void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& retu
       // Necessary, as constant string literals also come 
       // as GlobalVariables, but do not point to an instruction.
       // They point to an operand of a GEP.
-      logger.debug() << "Skip: " << **i << "\n";
+      DEBUG(logger.debug() << "Skip: " << **i << "\n");
       continue;
     }
 
     const Instruction& I = cast<Instruction>(**i);
     
-    logger.debug() << "Inspecting: " << I << "\n";
+    DEBUG(logger.debug() << "Inspecting: " << I << "\n");
 
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       const Value& load = cast<LoadInst>(I);
       returnSet.add(load);
-      DOT->addRelation(arg, load, "load");
-      logger.debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n";
+      DEBUG(DOT->addRelation(arg, load, "load"));
+      DEBUG(logger.debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n");
       
       recursivelyFindAliases(load, returnSet, alreadyProcessed);
     }
@@ -322,15 +322,15 @@ void FunctionProcessor::findReturnStatements() {
       if (retval) {
         if (isa<Constant>(retval)) {
           taintSet.add(r);
-          logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n";
+          DEBUG(logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
         } else {
           taintSet.add(*retval);
-          logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n";
+          DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
         }
 
         setHelper.returnStatements.insert(make_pair(&r, taintSet));
-        DOT->addOutNode(r);
-        logger.debug() << "Found ret-stmt: " << r << "\n";
+        DEBUG(DOT->addOutNode(r));
+        DEBUG(logger.debug() << "Found ret-stmt: " << r << "\n");
       }
     }
   }

@@ -13,23 +13,26 @@ class Logger {
   public:
     Logger(raw_ostream& errStream, raw_ostream& nullStream) : errStream(errStream), nullStream(nullStream)  { }
 
-    raw_ostream& debug() const {
-      DEBUG(return errStream);
-      return nullStream;
+    inline raw_ostream& debug() const {
+      return errStream;
     }
 
-    raw_ostream& profile() const {
-      IF_PROFILING(return debug());
-      return nullStream;
+    inline raw_ostream& profile() const {
+      errStream << "~~~PROFILING: ";
+      return errStream;
     }
 
-    raw_ostream& error() const {
+    inline raw_ostream& error() const {
       errStream << "__error:";
       return errStream;
     }
 
-    raw_ostream& output() const {
+    inline raw_ostream& output() const {
       return errStream;
+    }
+
+    inline raw_ostream& null() const {
+      return nullStream;
     }
 };
 

@@ -1,6 +1,6 @@
 #include "SetHelper.h"
 #include "Core.h"
-    #include "Helper.h"
+#include "Helper.h"
 
 void SetHelper::buildResultSet() {
 
@@ -25,24 +25,23 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
     const TaintSet retTaintSet = ret_i->second;
 
     if (&retval == &arg) {
-      logger.debug() << "Skipping detected self-taint\n";
+      DEBUG(logger.debug() << "Skipping detected self-taint\n");
       continue;
     }
 
-    IF_PROFILING(long t = Helper::getTimestamp());
-    logger.debug() << "Ret-set for `" << retval << "`:\n";
+    DEBUG(logger.debug() << "Ret-set for `" << retval << "`:\n");
     DEBUG(retTaintSet.printTo(logger.debug()));
 
-    IF_PROFILING(t = Helper::getTimestamp());
+    IF_PROFILING(long t = Helper::getTimestamp());
     TaintSet intersect;
     argTaintSet.intersect(retTaintSet, intersect);
-    logger.profile() << "intersect() took " << Helper::getTimestampDelta(t) << " µs\n";
+    IF_PROFILING(logger.profile() << "intersect() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     if (intersect.size()) {
       addTaint(arg, retval);
 
-      logger.debug() << "Values that lead to taint " << Helper::getValueNameOrDefault(arg) << " -> "
-              << Helper::getValueNameOrDefault(retval) << ":\n";
+      DEBUG(logger.debug() << "Values that lead to taint " << Helper::getValueNameOrDefault(arg) << " -> "
+              << Helper::getValueNameOrDefault(retval) << ":\n");
       DEBUG(intersect.printTo(logger.debug()));
     }
   }
@@ -59,6 +58,6 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
 void SetHelper::addTaint(const Value& tainter, const Value& taintee) {
   if (resultSet.insert(make_pair(&tainter, &taintee)).second) {
     resultSetChanged = true;
-    logger.debug() << "Added taint. Result set changed.\n";
+    DEBUG(logger.debug() << "Added taint. Result set changed.\n");
   }
 }

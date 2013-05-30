@@ -8,6 +8,7 @@
 #include "GraphExporter.h"
 #include "llvm/Instructions.h"
 #include "BlockHelper.h"
+#include "Helper.h"
 #include "InstructionHandlerContext.h"
 #include <string>
 
@@ -37,8 +38,10 @@ class InstructionHandlerTrait : public InstructionHandler {
     InstructionHandlerTrait(unsigned int opcode, InstructionHandlerContext& ctx)
       : InstructionHandler(opcode, ctx) { }
 
-    void handleInstruction(const Instruction& inst, TaintSet& taintSet) const { 
-      handleInstructionInternal(cast<T>(inst), taintSet);
+    inline void handleInstruction(const Instruction& inst, TaintSet& taintSet) const {
+        IF_PROFILING(long t = Helper::getTimestamp());
+        handleInstructionInternal(cast<T>(inst), taintSet);
+        IF_PROFILING(CTX.logger.profile() << "handleInstructionInternal took: " << Helper::getTimestampDelta(t) << "µs\n");
     }
 
   protected:

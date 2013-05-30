@@ -3,6 +3,8 @@
 
 #include "InstructionHandler.h"
 #include "AnalysisState.h"
+#include "Helper.h"
+
 
 class InstructionHandlerDispatcher {
 
@@ -32,14 +34,15 @@ class InstructionHandlerDispatcher {
       _defaultHandler = new T(_context);
     }
 
-    void dispatch(const Instruction& instruction, TaintSet& taintSet) {
+    inline void dispatch(const Instruction& instruction, TaintSet& taintSet) {
+      IF_PROFILING(long t = Helper::getTimestamp());
       InstructionHandler* handler = mapping[instruction.getOpcode()];
 
       if (handler != NULL)
         handler->handleInstruction(instruction, taintSet);
       else
         _defaultHandler->handleInstruction(instruction, taintSet);
-
+      IF_PROFILING(_context.logger.profile() << "dispatch took " << Helper::getTimestampDelta(t) << "µs\n");
     }
 
     ~InstructionHandlerDispatcher() {

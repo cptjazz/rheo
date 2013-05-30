@@ -44,8 +44,9 @@ class FunctionProcessor {
   PostDominatorTree& PDT;
   GraphExporter* DOT;
   const Module& M;
-  const Logger& logger;
   TaintFlowPass& PASS;
+  CircleMap& _circularReferences;
+  const Logger& logger;
   SetHelper setHelper;
   InstructionHandlerDispatcher* IHD;
   InstructionHandlerContext* CTX;
@@ -53,7 +54,6 @@ class FunctionProcessor {
 
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
-  CircleMap& _circularReferences;
 
   bool _suppressPrintTaints;
   bool _shouldWriteErrors;
@@ -69,8 +69,8 @@ public:
 
     DOT = new NullGraphExporter();
 
-    DEBUG(delete DOT);
-    DEBUG(DOT = new GraphExporter(f.getName()));
+    //DEBUG(delete DOT);
+    //DEBUG(DOT = new GraphExporter(f.getName()));
 
     CTX = new InstructionHandlerContext(*DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m),
     BH = new BlockHelper(DT, PDT, *DOT, logger);

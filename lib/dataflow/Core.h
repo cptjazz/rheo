@@ -9,13 +9,14 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "TaintSet.h"
 
-#define PROFILING
+//#define PROFILING
 
 #ifdef PROFILING
   #define IF_PROFILING(x) x
 #else
   #define IF_PROFILING(x)
 #endif
+
 
 using namespace std;
 using namespace llvm;

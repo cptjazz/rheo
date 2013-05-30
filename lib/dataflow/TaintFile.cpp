@@ -20,12 +20,12 @@ const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger
     if (!readResult)
       _mappingCache.erase(&func);
 
-    logger.profile() << "Reading mapping for `" << func.getName() << "`  from file took "
-          << Helper::getTimestampDelta(t) << "µs\n";
+    IF_PROFILING(logger.profile() << "Reading mapping for `" << func.getName() << "`  from file took "
+          << Helper::getTimestampDelta(t) << "µs\n");
   }
 
-  logger.profile() << "Getting mapping for `" << func.getName() << "` took "
-        << Helper::getTimestampDelta(t) << "µs\n";
+  IF_PROFILING(logger.profile() << "Getting mapping for `" << func.getName() << "` took "
+        << Helper::getTimestampDelta(t) << "µs\n");
 
   return &mapping;
 }
