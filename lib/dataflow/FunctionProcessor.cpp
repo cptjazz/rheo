@@ -132,7 +132,7 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
-  bool blockTainted = taintSet.contains(block) || BH->isBlockTaintedByOtherBlock(block, taintSet);
+  bool blockTainted = taintSet.contains(block) || BH.isBlockTaintedByOtherBlock(block, taintSet);
 
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
@@ -144,7 +144,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
 
-    IHD->dispatch(inst, taintSet);
+    IHD.dispatch(inst, taintSet);
 
     IF_PROFILING(logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -190,9 +190,9 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
   if (isa<StoreInst>(inst))
-    DEBUG(DOT->addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
+    DEBUG(DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
   else
-    DEBUG(DOT->addRelation(currentBlock, inst, "block-taint"));
+    DEBUG(DOT.addRelation(currentBlock, inst, "block-taint"));
 }
 
 void FunctionProcessor::findArguments() {
@@ -239,7 +239,7 @@ void FunctionProcessor::findArguments() {
 void FunctionProcessor::handleFoundArgument(const Value& arg) {
   bool isInOutNode = false;
 
-  logger.debug() << " -- Inspecting argument or global `" << arg.getName() << "`\n";
+  DEBUG(logger.debug() << " -- Inspecting argument or global `" << arg.getName() << "`\n");
 
   if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
@@ -248,19 +248,19 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, returnSet);
 
     setHelper.returnStatements.insert(make_pair(&arg, returnSet));
-    DOT->addInOutNode(arg);
+    DEBUG(DOT.addInOutNode(arg));
     isInOutNode = true;
 
-    logger.debug() << "added arg `" << arg.getName() << "` to out-list\n";
+    DEBUG(logger.debug() << "added arg `" << arg.getName() << "` to out-list\n");
   }
 
   TaintSet taintSet;
   taintSet.add(arg);
   if (!isInOutNode)
-    DOT->addInNode(arg);
+    DEBUG(DOT.addInNode(arg));
 
   setHelper.arguments.insert(make_pair(&arg, taintSet));
-  logger.debug() << "added arg `" << arg.getName() << "` to arg-list\n";
+  DEBUG(logger.debug() << "added arg `" << arg.getName() << "` to arg-list\n");
 }
 
 void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& returnSet) {
@@ -303,7 +303,7 @@ void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& retu
     if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
       const Value& load = cast<LoadInst>(I);
       returnSet.add(load);
-      DEBUG(DOT->addRelation(arg, load, "load"));
+      DEBUG(DOT.addRelation(arg, load, "load"));
       DEBUG(logger.debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n");
       
       recursivelyFindAliases(load, returnSet, alreadyProcessed);
@@ -329,7 +329,7 @@ void FunctionProcessor::findReturnStatements() {
         }
 
         setHelper.returnStatements.insert(make_pair(&r, taintSet));
-        DEBUG(DOT->addOutNode(r));
+        DEBUG(DOT.addOutNode(r));
         DEBUG(logger.debug() << "Found ret-stmt: " << r << "\n");
       }
     }

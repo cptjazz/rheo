@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include "Logger.h"
 #include "GraphExporter.h"
-#include "NullGraphExporter.h"
 #include "Helper.h"
 #include "Core.h"
 #include "TaintFlowPass.h" 
@@ -42,15 +41,15 @@ class FunctionProcessor {
   const Function& F;
   const DominatorTree& DT;
   PostDominatorTree& PDT;
-  GraphExporter* DOT;
   const Module& M;
   TaintFlowPass& PASS;
   CircleMap& _circularReferences;
   const Logger& logger;
   SetHelper setHelper;
-  InstructionHandlerDispatcher* IHD;
-  InstructionHandlerContext* CTX;
-  BlockHelper* BH;
+  GraphExporter DOT;
+  InstructionHandlerContext CTX;
+  InstructionHandlerDispatcher IHD;
+  BlockHelper BH;
 
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
@@ -62,28 +61,14 @@ class FunctionProcessor {
 public:
   FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger)
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
-    PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger)
+    PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()),
+    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m),
+    IHD(CTX), BH(DT, PDT, DOT, logger)
   {
     _suppressPrintTaints = false;
     _shouldWriteErrors = true;
 
-    DOT = new NullGraphExporter();
-
-    //DEBUG(delete DOT);
-    //DEBUG(DOT = new GraphExporter(f.getName()));
-
-    CTX = new InstructionHandlerContext(*DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m),
-    BH = new BlockHelper(DT, PDT, *DOT, logger);
-    IHD = new InstructionHandlerDispatcher(*CTX);
-
     registerHandlers();
-  }
-
-  ~FunctionProcessor() {
-    delete DOT;
-    delete BH;
-    delete IHD;
-    delete CTX;
   }
 
   void processFunction();
@@ -102,11 +87,11 @@ public:
   }
 
   void suppressPrintTaints() {
-      _suppressPrintTaints = true;
+    _suppressPrintTaints = true;
   }
 
   ResultSet getResult() {
-      return setHelper.resultSet;
+    return setHelper.resultSet;
   }
 
 private:
@@ -114,9 +99,7 @@ private:
   void addTaint(const Value& tainter, const Value& taintee);
   void processBasicBlock(const BasicBlock& block, TaintSet& taintSet);
   void printTaints();
-
   void handleBlockTainting(const Instruction& inst, const BasicBlock& currentblock, TaintSet& taintSet);
-
   void findArguments();
   void handleFoundArgument(const Value& arg);
   void findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& retlist);
@@ -126,14 +109,14 @@ private:
   void applyMeet(const BasicBlock& block);
 
   void registerHandlers() {
-    IHD->registerDefaultHandler<DefaultHandler>();
-    IHD->registerHandler<GetElementPtrHandler>();
-    IHD->registerHandler<PhiNodeHandler>();
-    IHD->registerHandler<BranchHandler>();
-    IHD->registerHandler<SwitchHandler>();
-    IHD->registerHandler<StoreHandler>();
-    IHD->registerHandler<IndirectBranchHandler>();
-    IHD->registerHandler<CallHandler>();
+    IHD.registerDefaultHandler<DefaultHandler>();
+    IHD.registerHandler<GetElementPtrHandler>();
+    IHD.registerHandler<PhiNodeHandler>();
+    IHD.registerHandler<BranchHandler>();
+    IHD.registerHandler<SwitchHandler>();
+    IHD.registerHandler<StoreHandler>();
+    IHD.registerHandler<IndirectBranchHandler>();
+    IHD.registerHandler<CallHandler>();
   }
 
 };
