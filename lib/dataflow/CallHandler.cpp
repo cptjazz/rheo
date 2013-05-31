@@ -2,6 +2,7 @@
 #include "TaintFile.h"
 #include "IntrinsicHelper.h"
 #include "FunctionProcessor.h"
+#include "llvm/ValueSymbolTable.h"
 #include <cstring>
 #include <sstream>
 
@@ -43,15 +44,7 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
 void CallHandler::buildMappingForRecursiveCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
 
-  for (ResultSet::const_iterator i = CTX.setHelper.resultSet.begin(), e = CTX.setHelper.resultSet.end(); i != e; ++i) {
-    int inPos = getArgumentPosition(func, *i->first);
-    int outPos = getArgumentPosition(func, *i->second);
-
-    Value* inVal = callInst.getArgOperand(inPos);
-    const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
-
-    taintResults.insert(make_pair(inVal, outVal));
-  }
+  writeMapForRecursive(callInst, func, CTX.setHelper.resultSet, taintResults);
 
   IF_PROFILING(CTX.logger.profile() << "buildMappingForRecursiveCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
@@ -84,20 +77,41 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
     return;
   }
 
-  for (ResultSet::const_iterator i = refResult.begin(), e = refResult.end(); i != e; ++i) {
-    DEBUG(CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
-    int inPos = getArgumentPosition(func, *i->first);
-    int outPos = getArgumentPosition(func, *i->second);
-
-    Value* inVal = callInst.getArgOperand(inPos);
-    const Value* outVal = outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst;
-
-    taintResults.insert(make_pair(inVal, outVal));
-  }
+  writeMapForRecursive(callInst, func, refResult, taintResults);
 
   IF_PROFILING(CTX.logger.profile() << "buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
+void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const {
+  for (ResultSet::const_iterator i = results.begin(), e = results.end(); i != e; ++i) {
+    (CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
+
+    Value* inVal = NULL;
+    Value* outVal = NULL;
+
+    if (isa<GlobalVariable>(i->first)) {
+      inVal = const_cast<Value*>(i->first);
+    } else {
+      int inPos = getArgumentPosition(func, *i->first);
+      inVal = callInst.getArgOperand(inPos);
+    }
+
+    if (isa<GlobalVariable>(i->second)) {
+      outVal = const_cast<Value*>(i->second);
+    } else {
+      int outPos = getArgumentPosition(func, *i->second);
+      outVal = const_cast<Value*>(outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst);
+    }
+
+    if (!inVal || !outVal) {
+      CTX.analysisState.stopWithError("Could not resolve argument when processing function mapping: " 
+          + i->first->getName().str() + " => " + i->second->getName().str() + " for " + func.getName().str(), Error);
+    }
+
+    taintResults.insert(make_pair(inVal, outVal));
+  }
+
+}
 
 /**
  * For calls to Functions that are declared but not defined
@@ -144,18 +158,33 @@ void CallHandler::buildMappingForUndefinedExternalCall(const CallInst& callInst,
  */
 void CallHandler::handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) const {
   ResultSet taintResults;
+  vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
-  for (size_t i = 0; i < argCount; i++) {
-    const Value& source = *callInst.getArgOperand(i);
+  for (size_t j = 0; j < argCount; j++) {
+    arguments.push_back(callInst.getArgOperand(j));
+  }
 
-    // Every arguments taints the return value
+  for (Module::const_global_iterator g_i = CTX.M.global_begin(), g_e = CTX.M.global_end(); g_i != g_e; ++g_i) {
+    const GlobalVariable& g = *g_i;
+
+    // Skip constants (eg. string literals)
+    if (g.isConstant())
+      continue;
+
+    arguments.push_back(&g);
+  }
+
+  for (size_t i = 0; i < arguments.size(); i++) {
+    const Value& source = *arguments.at(i);
+
+    // Every argument taints the return value
     taintResults.insert(make_pair(&source, &callInst));
     DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argCount; j++) {
-      const Value& sink = *callInst.getArgOperand(j);
+      const Value& sink = *arguments.at(j);
 
       if (&source != &sink && sink.getType()->isPointerTy()) {
         DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => " << j << "\n");
@@ -234,8 +263,8 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
   DEBUG(CTX.logger.debug() << " Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
-    int paramPos = i->first;
-    int retvalPos = i->second;
+    int paramPos = i->sourcePosition;
+    int retvalPos = i->sinkPosition;
 
     size_t calleeArgCount = callee.getArgumentList().size();
     size_t callArgCount = callInst.getNumArgOperands();
@@ -251,6 +280,12 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       for (size_t i = calleeArgCount; i < callArgCount; i++) {
         sources.insert(callInst.getArgOperand(i));
       }
+    } else if (paramPos == -3) {
+      // Seems to be a global
+      DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sourceName << "\n");
+      const Value* glob = CTX.M.getNamedGlobal(i->sourceName);
+      sources.insert(glob);
+      DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else {
       // Normal arguments
       const Value* arg = callInst.getArgOperand(paramPos);
@@ -263,6 +298,11 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     if (retvalPos == -1) {
       // Return value
       sinks.insert(&callInst);
+    } else if (paramPos == -3) {
+      // Seems to be a global
+      const Value* glob = CTX.M.getNamedGlobal(i->sinkName);
+      sources.insert(glob);
+      DEBUG(CTX.logger.debug() << " no position mapping. using global: " << *glob << "\n");
     } else if (retvalPos == -2) {
       // Varargs
       // These can also be taint sinks, namely if pointers

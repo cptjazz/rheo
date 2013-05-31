@@ -3,6 +3,7 @@
 
 #include <set>
 #include <map>
+#include <string>
 #include <llvm/Value.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include "llvm/Support/Debug.h"
@@ -21,11 +22,43 @@
 using namespace std;
 using namespace llvm;
 
+struct FunctionTaint {
+  FunctionTaint(string sourceName, int sourcePos, string sinkName, int sinkPos) {
+    this->sourceName = sourceName;
+    sourcePosition = sourcePos;
+    this->sinkName = sinkName;
+    sinkPosition = sinkPos;
+  }
+
+  FunctionTaint(int sourcePos, int sinkPos) {
+    sourceName = "";
+    sourcePosition = sourcePos;
+    sinkName = "";
+    sinkPosition = sinkPos;
+  }
+
+  bool operator<(const FunctionTaint& r) const {
+    return this < &r;
+  }
+
+  bool operator==(const FunctionTaint& r) const {
+    if (sourcePosition > -3 && r.sourcePosition > -3 && sinkPosition > -3 && r.sinkPosition > -3)
+      return sourcePosition == r.sourcePosition && sinkPosition && r.sinkPosition;
+
+    return false;
+  }
+
+  string sourceName;
+  int sourcePosition;
+  string sinkName;
+  int sinkPosition;
+};
+
 typedef map<const Value*, TaintSet> TaintMap;
 typedef pair<const Value*, const Value*> TaintPair;
 typedef set<TaintPair> ResultSet;
 typedef vector<const CallGraphNode*> NodeVector;
 typedef map<const Function*, NodeVector> CircleMap;
-typedef set<pair<int, int> > FunctionTaintMap;
+typedef set<FunctionTaint> FunctionTaintMap;
 
 #endif // CORE_H

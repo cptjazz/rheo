@@ -82,13 +82,13 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
     // in the file are specified by their names so we 
     // have to search the corresponing argument positions.
     if( !(convert1 >> paramPos)) {
-      paramPos = -1;
-      logger.debug() << "Searching for param " << paramName << "\n";
+      paramPos = -3;
+      DEBUG(logger.debug() << "Searching for param " << paramName << "\n");
 
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == paramName) {
           paramPos = i;
-          logger.debug() << "Found at #" << i << "\n";
+          DEBUG(logger.debug() << " Found at #" << i << "\n");
           break;
         }
 
@@ -99,7 +99,7 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
         paramPos = -2;
 
     } else {
-      logger.debug() << "Param-info from file: seem to be at #" << paramPos << "\n";
+      DEBUG(logger.debug() << "Param-info from file: seem to be at #" << paramPos << "\n");
     }
 
     // Convert right hand side of => 
@@ -111,12 +111,12 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
     // in the file are specified by their names so we 
     // have to search the corresponing argument positions.
     if( !(convert2 >> retvalPos)) {
-      retvalPos = -1;
-      logger.debug() << "Searching for retval " << valName << "\n";
+      retvalPos = -3;
+      DEBUG(logger.debug() << "Searching for retval " << valName << "\n");
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (a_i->getName().str() == valName) {
           retvalPos = i;
-          logger.debug() << "Found at #" << i << "\n";
+          DEBUG(logger.debug() << " Found at #" << i << "\n");
           break;
         }
 
@@ -125,24 +125,25 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
 
       if (valName.compare("...") == 0) {
         retvalPos = -2;
-        logger.debug() << "Interpreting as varargs\n";
+        DEBUG(logger.debug() << " Interpreting as varargs\n");
+      }
+
+      if (valName.compare("$_retval") == 0) {
+        retvalPos = -1;
+        DEBUG(logger.debug() << " Interpreting as return value\n");
       }
     } else {
-      logger.debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n";
+      DEBUG(logger.debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n");
     }
 
-    if (paramPos == -1) {
-      logger.debug() << "  - Skipping `" << paramName << "` -- not found.\n";
-      break;
-    }
-
-    logger.debug() << " Insert mapping: " << paramPos << " => " << retvalPos << "\n";
-    mapping.insert(make_pair(paramPos, retvalPos));
+    DEBUG(logger.debug() << "Insert mapping: " << paramPos << " => " << retvalPos << " ");
+    DEBUG(logger.debug() << "with names: " << paramName << " => " << valName << "\n");
+    mapping.insert(FunctionTaint(paramName, paramPos, valName, retvalPos));
   }
 
   file.close();
 
-  logger.debug() << " Inserted " << mapping.size() << " mappings\n";
+  DEBUG(logger.debug() << " * Inserted " << mapping.size() << " mappings\n");
   return true;
 }
 
@@ -151,7 +152,16 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
  * false otherwise
  */
 bool TaintFile::exists(const Function& f) {
-  ifstream file(getFilename(f).c_str());
+  string filename = getFilename(f);
+  ifstream file(filename.c_str(), ios::in);
+
+  if (!file.is_open()) {
+    file.open(("taintlib/" + filename).c_str(), ios::in);
+
+    if (!file.is_open())
+      return false;
+  }
+  
   return file.good();
 }
 
@@ -175,33 +185,41 @@ string TaintFile::getFilename(const Function& f) {
  */
 void TaintFile::writeResult(const Function& f, const ResultSet result) {
   ofstream file;
+
   file.open((f.getName().str() + ".taints").c_str(), ios::out);
 
   for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
     const Value& arg = *i->first;
     const Value& retval = *i->second;
 
-    int sourcePos = -3;
-    int sinkPos = -3;
+    string source = arg.getName().str();
+    string sink = Helper::getValueNameOrDefault(retval);
 
-    file << arg.getName().str() << " => " << Helper::getValueNameOrDefault(retval) << "\n";
+    file << source << " => " << sink << "\n";
 
-    // Specify the taint a second time in numeric form, eg 0 => -1
-    if (isa<Argument>(arg))
-      sourcePos = cast<Argument>(arg).getArgNo(); 
-    else if (!isa<GlobalVariable>(arg))
+    // Specify the taint a second time in numeric form, eg 0 => -1 
+    // (except for globals, they keep their name)
+    if (isa<Argument>(arg)) {
+      ostringstream convert;
+      convert << cast<Argument>(arg).getArgNo(); 
+      source = convert.str();
+    } else if (!isa<GlobalVariable>(arg)) {
       // Varargs
-      sourcePos = -2;
+      source = "-2";
+    }
 
-    if (isa<ReturnInst>(retval))
-      sinkPos = -1;
-    else if (isa<Argument>(retval))
-      sinkPos = cast<Argument>(retval).getArgNo();
-    else
+    if (isa<ReturnInst>(retval)) {
+      sink = "-1";
+    } else if (isa<Argument>(retval)) {
+      ostringstream convert;
+      convert << cast<Argument>(retval).getArgNo();
+      sink = convert.str();
+    } else {
       // Varargs
-      sinkPos = -2;
+      sink = "-2";
+    }
 
-      file << sourcePos << " => " << sinkPos << "\n"; 
+    file << source << " => " << sink << "\n"; 
   }
 
   file.close();

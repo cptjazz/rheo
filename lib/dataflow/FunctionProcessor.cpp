@@ -201,9 +201,13 @@ void FunctionProcessor::findArguments() {
   }
 
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
+    const GlobalVariable& g = *g_i;
+
     // Skip constants (eg. string literals)
-    if (!g_i->isConstant())
-      handleFoundArgument(*g_i);
+    if (g.isConstant())
+      continue;
+
+    handleFoundArgument(g);
   }
 
   // In a perfect world, compilers would use the LLVM va_arg instruction

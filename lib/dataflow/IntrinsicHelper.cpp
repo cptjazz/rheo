@@ -31,7 +31,7 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
      * 1 => 0
      */
     case Intrinsic::vacopy:
-      mapping.insert(make_pair(1, 0));
+      mapping.insert(FunctionTaint(1, 0));
       return true;
 
     /**
@@ -52,7 +52,7 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::ctlz:
     case Intrinsic::cttz:
     case Intrinsic::bswap:
-      mapping.insert(make_pair(0, -1));
+      mapping.insert(FunctionTaint(0, -1));
       return true;
 
     /**
@@ -61,8 +61,8 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
      */
     case Intrinsic::pow:
     case Intrinsic::powi:
-      mapping.insert(make_pair(0, -1));
-      mapping.insert(make_pair(1, -1));
+      mapping.insert(FunctionTaint(0, -1));
+      mapping.insert(FunctionTaint(1, -1));
       return true;
 
     /**
@@ -73,25 +73,25 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::memcpy:
       // 1 (src) => 0 (dst), 2 (len) => 0 (dst)
       // due to overlapping src can also be overwritten: 0 => 1
-      mapping.insert(make_pair(1, 0));
-      mapping.insert(make_pair(2, 0));
-      mapping.insert(make_pair(0, 1));
+      mapping.insert(FunctionTaint(1, 0));
+      mapping.insert(FunctionTaint(2, 0));
+      mapping.insert(FunctionTaint(0, 1));
       return true;
 
     case Intrinsic::memmove:
     case Intrinsic::memset:
       // 1 (src) => 0 (dst), 2 (len) => 0 (dst)
       // memmove: overlapping is handled correctly
-      mapping.insert(make_pair(1, 0));
-      mapping.insert(make_pair(2, 0));
+      mapping.insert(FunctionTaint(1, 0));
+      mapping.insert(FunctionTaint(2, 0));
       return true;
 
     // fused multiply-add
     case Intrinsic::fma:
       // 0 => $_retval, 1 => $_retval, 2 => $_retval
-      mapping.insert(make_pair(0, -1));
-      mapping.insert(make_pair(1, -1));
-      mapping.insert(make_pair(2, -1));
+      mapping.insert(FunctionTaint(0, -1));
+      mapping.insert(FunctionTaint(1, -1));
+      mapping.insert(FunctionTaint(2, -1));
       return true;
 
     default:

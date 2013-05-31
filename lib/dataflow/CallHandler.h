@@ -22,6 +22,7 @@ private:
     void processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const;
     void handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) const;
     void handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet) const;
+    void writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const;
     int getArgumentPosition(const CallInst& c, const Value& v) const;
     int getArgumentPosition(const Function& f, const Value& v) const;
 };

@@ -1,5 +1,6 @@
 double PI = 3.1415;
 const int E = 2;
+int some_global;
 
 // __expected:nasty_function(a => PI, b => PI)
 void nasty_function(int a, int b) {
@@ -48,4 +49,39 @@ void const_globals_do_not_taint_block_with_pointers(int a, int* b) {
 
   for (int i = 0; i < E; i++)
     *b += a;
+}
+
+// __expected:global_flow_over_functions_1(some_global => $_retval)
+int global_flow_over_functions_1() {
+  return some_global ? 22 : 11;  
+}
+
+// __expected:global_flow_over_functions_2(some_global => $_retval)
+int global_flow_over_functions_2(int a) {
+  // The global is used in the callee, hence it 
+  // taints our return value.
+  int ret = global_flow_over_functions_1();
+  return ret;
+}
+
+// __expected:global_flow_over_functions_3(a => some_global, a => $_retval)
+int global_flow_over_functions_3(int a) {
+  // Global is overwritten thus it does not 
+  // affect the call below anymore.
+  // But `a` now affects the return value because
+  // the callee uses the global which now effectively is `a`
+  some_global = a;  
+
+  int ret = global_flow_over_functions_1();
+
+  return ret;
+}
+
+// __expected:recursive_global(x => $_retval, some_global => $_retval)
+int recursive_global(int x) {
+
+  if (some_global && x == 0)
+    return 0;
+
+  return recursive_global(x - 1);
 }

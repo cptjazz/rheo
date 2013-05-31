@@ -39,7 +39,7 @@ int op4(int x, int y)
   return y;
 }
 
-// __expected:variable_operation_2(fswitch => $_retval, fu => $_retval, baz => $_retval)
+// __expected:variable_operation_2(fswitch => $_retval, fu => $_retval, baz => $_retval, operation => $_retval)
 int variable_operation_2(int fswitch, int fu, int baz)
 {
   int (*operation2)(int x, int y);
@@ -50,6 +50,8 @@ int variable_operation_2(int fswitch, int fu, int baz)
     operation2 = op4;
   }
 
+  // Since the function pointer `operation` is global, this
+  // global also taints our call (due to heuristics)
   int y = operation2(fu, baz);
 
   return y;
