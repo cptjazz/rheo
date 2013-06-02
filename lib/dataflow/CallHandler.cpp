@@ -298,7 +298,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     if (retvalPos == -1) {
       // Return value
       sinks.insert(&callInst);
-    } else if (paramPos == -3) {
+    } else if (retvalPos == -3) {
       // Seems to be a global
       const Value* glob = CTX.M.getNamedGlobal(i->sinkName);
       sources.insert(glob);

@@ -191,7 +191,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
     multimap<const Function*, const Function*>::const_iterator d_i = _deferredFunctions.lower_bound(f);
     multimap<const Function*, const Function*>::const_iterator d_e = _deferredFunctions.upper_bound(f);
     for (; d_i != d_e; d_i++) {
-      errs() << "pushing deferred to front:" << d_i->second->getName() << "\n";
+      DEBUG(errs() << "pushing deferred to front:" << d_i->second->getName() << "\n");
       _occurrenceCount[d_i->second]--;
       _functionQueue.push_front(d_i->second);
     }
