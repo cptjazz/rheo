@@ -14,7 +14,7 @@
 
 class InstructionHandler {
   private:
-    unsigned int _opcode;
+    const unsigned int _opcode;
 
   public:
     InstructionHandlerContext& CTX;
@@ -27,7 +27,7 @@ class InstructionHandler {
 
     virtual void handleInstruction(const Instruction& inst, TaintSet& taintSet) const = 0; 
 
-    unsigned int getOpcode() { return _opcode; }
+    inline unsigned int getOpcode() { return _opcode; }
 };
 
 
