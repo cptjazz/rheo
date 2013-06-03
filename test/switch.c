@@ -32,3 +32,44 @@ int tainted_condition(int a) {
 
   return 0;
 }
+
+// __expected:default_block(a => $_retval)
+int default_block(int a, int* b) {
+  int x;
+
+  switch (a) {
+    case 1:
+      x = 11;
+      break;
+
+    case 2:
+      x = 22;
+      break;
+  }
+
+  // In the '0' block of switch -- but should not be tainted
+  *b = 5;
+
+  return x;
+}
+
+// __expected:default_block_2(a => $_retval, a => b)
+int default_block_2(int a, int* b) {
+  int x;
+
+  switch (a) {
+    case 1:
+      x = 11;
+      break;
+
+    case 2:
+      x = 22;
+      break;
+
+    default:
+      *b = 5;
+      break;
+  }
+
+  return x;
+}

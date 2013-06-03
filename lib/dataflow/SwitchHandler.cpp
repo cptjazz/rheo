@@ -8,54 +8,26 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
 
   DEBUG(CTX.DOT.addRelation(*condition, inst, "switch"));
 
-  const size_t succCount = inst.getNumSuccessors();
-
-  if (succCount == 1) {
+  if (!inst.getNumCases()) {
     DEBUG(CTX.logger.debug() << "Skipping switch because it consisted solely of a default branch.\n");
     return;
   }
 
-  const BasicBlock& defaultBlock = *inst.getSuccessor(0);
-
-  bool canSwitchBeShortened = true;
-  for (size_t i = 1; i < succCount; ++i) {
-    const BasicBlock& caseBlock = *inst.getSuccessor(i);
-
-    // If block consists of more than one instruction
-    // it cannot be shortened.
-    if (caseBlock.size() != 1) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    // If the terminator has more than one successor
-    // the switch cannot be shortened
-    const TerminatorInst& terminator = *caseBlock.getTerminator();
-    if (terminator.getNumSuccessors() != 1) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    // Target must be default block to shorten
-    if (terminator.getSuccessor(0) != &defaultBlock) {
-      canSwitchBeShortened = false;
-      break;
-    }
-
-    DEBUG(CTX.logger.debug() << "block size of " << inst.getSuccessor(i)->getName() << ": " << inst.getSuccessor(i)->size() << "\n");
-  }
-
-  if (canSwitchBeShortened) {
-    DEBUG(CTX.logger.debug() << "Skipping switch because all cases fall through to default without executing other instructions before.\n");
-    return;
-  }
-
+  const BasicBlock* defaultBlock = inst.getDefaultDest();
   const BasicBlock& join = *CTX.PDT.getNode(const_cast<BasicBlock*>(inst.getParent()))->getIDom()->getBlock();
 
   DEBUG(CTX.logger.debug() << " Handle SWITCH instruction:\n");
   DEBUG(CTX.logger.debug() << " Found joining block: " << join << "\n");
 
-  for (size_t i = 0; i < succCount; ++i) {
+  // If no default block exists, the default jump target 
+  // (Successor0) is after the switch and equals the join-block.
+  // Otherwise, an explicit 'default' label was provided and it has
+  // to be treated like the other blocks.
+  unsigned int startBlock = (&join == defaultBlock) ? 1 : 0;
+  
+  const size_t succCount = inst.getNumSuccessors();
+
+  for (size_t i = startBlock; i < succCount; ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
     DEBUG(CTX.DOT.addBlockNode(caseBlock));
