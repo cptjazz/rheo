@@ -4,4 +4,5 @@ Prerequisites
 
 * Ruby >= 1.9.2
 * Ruby gem `rake` (sudo gem install rake)
+* Ruby gem `rainbow` (sudo gem install rainbow)
 * LLVM 3.2
