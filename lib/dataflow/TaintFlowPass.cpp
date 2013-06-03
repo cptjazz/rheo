@@ -177,7 +177,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
       return false;
     }
 
-    ProcessingState state = processFunction(*f);
+    ProcessingState state = processFunction(*f, module);
     _functionQueue.pop_front();
 
     // If the current function was deferred,
@@ -202,13 +202,13 @@ bool TaintFlowPass::runOnModule(Module &module) {
   return false;
 }
 
-ProcessingState TaintFlowPass::processFunction(const Function& func) {
+ProcessingState TaintFlowPass::processFunction(const Function& func, const Module& module) {
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
   long time = Helper::getTimestamp();
 
-  FunctionProcessor proc(*this, func, _circularReferences, *func.getParent(), logger);
+  FunctionProcessor proc(*this, func, _circularReferences, module, logger);
   proc.processFunction();
   ResultSet result = proc.getResult();
 
