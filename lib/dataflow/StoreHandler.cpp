@@ -7,7 +7,6 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
   DEBUG(CTX.logger.debug() << " Handle STORE instruction " << storeInst << "\n");
   if (taintSet.contains(source) || taintSet.contains(storeInst)) {
     taintSet.add(target);
-    taintSet.add(storeInst);
 
     DEBUG(CTX.DOT.addRelation(source, target, "store"));
     DEBUG(CTX.logger.debug() << " + Added STORE taint: " << source << " --> " << target << "\n");

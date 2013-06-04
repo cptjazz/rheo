@@ -2,10 +2,11 @@ int b;
 int c;
 int d;
 
-// __expected:no_transitivity_1(a => b, d => c, d => b)
+// __expected:no_transitivity_1(a => b, d => c)
 int no_transitivity_1(int a) {
   c = d;
   b = c;
+  // Overwrite
   b = a;
 
   return 0;
