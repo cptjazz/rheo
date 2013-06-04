@@ -214,7 +214,7 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(retval).getArgNo();
       sink = convert.str();
-    } else {
+    } else if (!isa<GlobalVariable>(arg)) {
       // Varargs
       sink = "-2";
     }
