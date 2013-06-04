@@ -53,6 +53,9 @@ void CallHandler::buildMappingForRecursiveCall(const CallInst& callInst, const F
 void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
 
+  // Start a second instance of the analysis to process 
+  // the callee with the current partial map of the current
+  // function. Tha partial map war already written to a file.
   FunctionProcessor refFp(CTX.PASS, func, CTX.circularReferences, CTX.M, CTX.logger);
   refFp.suppressPrintTaints();
   refFp.setShouldWriteErrors(false);
@@ -275,6 +278,8 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     DEBUG(CTX.logger.debug() << " Converting mapping: " << paramPos << " => " << retvalPos << "\n");
 
     // Build set for sources
+    //
+
     if (paramPos == -2) {
       // VarArgs
       for (size_t i = calleeArgCount; i < callArgCount; i++) {
@@ -295,13 +300,15 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     DEBUG(CTX.logger.debug() << "processed source-mappings\n");
 
     // Build set for sinks
+    // 
+    
     if (retvalPos == -1) {
       // Return value
       sinks.insert(&callInst);
     } else if (retvalPos == -3) {
       // Seems to be a global
       const Value* glob = CTX.M.getNamedGlobal(i->sinkName);
-      sources.insert(glob);
+      sinks.insert(glob);
       DEBUG(CTX.logger.debug() << " no position mapping. using global: " << *glob << "\n");
     } else if (retvalPos == -2) {
       // Varargs
@@ -336,6 +343,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
   bool needToAddGraphNodeForFunction = false;
+  DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     const Value& out = *i->second;
@@ -349,7 +357,12 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       needToAddGraphNodeForFunction = true;
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
       stringstream reas("");
-      DEBUG(reas << "in, arg#" << getArgumentPosition(callInst, in));
+
+      if (isa<GlobalVariable>(in))
+        DEBUG(reas << "in, via " << in.getName().str());
+      else
+        DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in));
+
       DEBUG(CTX.DOT.addRelation(in, callee, reas.str()));
 
       if (taintSet.contains(callee) && out.getType()->isPointerTy()) {
@@ -362,7 +375,12 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         DEBUG(CTX.DOT.addRelation(callee, callInst, "ret"));
       } else {
         stringstream outReas("");
-        DEBUG(outReas << "out, arg#" << getArgumentPosition(callInst, out));
+
+        if (isa<GlobalVariable>(out))
+          DEBUG(outReas << "out, via " << out.getName().str());
+        else
+          DEBUG(outReas << "out, arg# " << getArgumentPosition(callInst, out));
+
         DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
