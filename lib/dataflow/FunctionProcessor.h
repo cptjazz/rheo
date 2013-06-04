@@ -102,10 +102,8 @@ private:
   void handleBlockTainting(const Instruction& inst, const BasicBlock& currentblock, TaintSet& taintSet);
   void findArguments();
   void handleFoundArgument(const Value& arg);
-  void findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& retlist);
   void findReturnStatements();
   void printInstructions(); 
-  void recursivelyFindAliases(const Value& arg, ReturnSet& taintSet, ReturnSet& alreadyProcessed);
   void applyMeet(const BasicBlock& block);
 
   void registerHandlers() {

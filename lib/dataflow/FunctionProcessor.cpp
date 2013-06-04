@@ -4,6 +4,7 @@
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/GlobalVariable.h"
+#include "llvm/ValueSymbolTable.h"
 #include "llvm/InstrTypes.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -81,6 +82,8 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
     _workList.push_back(&block);
   }
 
+  const BasicBlock* lastBlock = _workList.back();
+
   do {
     STOP_ON_CANCEL;
 
@@ -98,11 +101,10 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   } while(taintSet.hasChanged());
 
-  // Merge all par-block taint-sets
-  for (map<const BasicBlock*, TaintSet>::const_iterator j_i = _blockList.begin(), j_e = _blockList.end(); j_i != j_e; ++j_i) {
-    TaintSet& set = _blockList[j_i->first];
-    taintSet.addAll(set);
-  }
+  // The last block represents the result.
+  // Every taint flows were propagated to this
+  // block due to the meet-operation
+  taintSet.addAll(_blockList[lastBlock]);
 
   DEBUG(logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
   DEBUG(taintSet.printTo(logger.debug()));
@@ -249,8 +251,6 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     TaintSet returnSet;
     returnSet.add(arg);
 
-    findAllStoresAndLoadsForOutArgumentAndAddToSet(arg, returnSet);
-
     setHelper.returnStatements.insert(make_pair(&arg, returnSet));
     DEBUG(DOT.addInOutNode(arg));
     isInOutNode = true;
@@ -265,54 +265,6 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
 
   setHelper.arguments.insert(make_pair(&arg, taintSet));
   DEBUG(logger.debug() << "added arg `" << arg.getName() << "` to arg-list\n");
-}
-
-void FunctionProcessor::findAllStoresAndLoadsForOutArgumentAndAddToSet(const Value& arg, ReturnSet& returnSet) {
-    const Value* newArg = &arg;
-
-    for (User::const_use_iterator u_i = arg.use_begin(), u_e = arg.use_end(); u_i != u_e; ++u_i) {
-      if (isa<StoreInst>(*u_i)) {
-        returnSet.add(**u_i);
-        DEBUG(logger.debug() << " Added ARG STORE: " << **u_i << "\n");
-        newArg = u_i->getOperand(1);
-
-        ReturnSet alreadyProcessed;
-        recursivelyFindAliases(*newArg, returnSet, alreadyProcessed);
-      }
-    }
-}
-
-void FunctionProcessor::recursivelyFindAliases(const Value& arg, ReturnSet& returnSet, ReturnSet& alreadyProcessed) {
-
-  DEBUG(logger.debug() << "Recursively find: " << arg << "\n");
-
-  if (alreadyProcessed.contains(arg))
-    return;
-
-  alreadyProcessed.add(arg);
-
-  for (User::const_use_iterator i = arg.use_begin(), e = arg.use_end(); i != e; ++i) {
-    if (!isa<Instruction>(**i)) {
-      // Necessary, as constant string literals also come 
-      // as GlobalVariables, but do not point to an instruction.
-      // They point to an operand of a GEP.
-      DEBUG(logger.debug() << "Skip: " << **i << "\n");
-      continue;
-    }
-
-    const Instruction& I = cast<Instruction>(**i);
-    
-    DEBUG(logger.debug() << "Inspecting: " << I << "\n");
-
-    if (isa<LoadInst>(I) && I.getOperand(0) == &arg) {
-      const Value& load = cast<LoadInst>(I);
-      returnSet.add(load);
-      DEBUG(DOT.addRelation(arg, load, "load"));
-      DEBUG(logger.debug() << " + Found LOAD for `" << arg.getName() << "` @ " << load << "\n");
-      
-      recursivelyFindAliases(load, returnSet, alreadyProcessed);
-    }
-  }
 }
 
 void FunctionProcessor::findReturnStatements() {
