@@ -159,7 +159,9 @@ bool TaintFlowPass::runOnModule(Module &module) {
   _queuedFunctionHelper.clear();
   _avoidInfiniteLoopHelper.clear();
   set<const Function*> circleHelper;
-  enqueueFunctionsInCorrectOrder(CG.getRoot(), circleHelper);
+
+  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i)
+    enqueueFunctionsInCorrectOrder(i->second, circleHelper);
 
   errs() << "__enqueue:end\n";
 
