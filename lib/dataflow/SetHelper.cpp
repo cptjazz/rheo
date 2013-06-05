@@ -34,7 +34,7 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
 
     IF_PROFILING(long t = Helper::getTimestamp());
     TaintSet intersect;
-    argTaintSet.intersect(retTaintSet, intersect);
+    retTaintSet.intersect(argTaintSet, intersect);
     IF_PROFILING(logger.profile() << "intersect() took " << Helper::getTimestampDelta(t) << " µs\n");
 
     if (intersect.size()) {

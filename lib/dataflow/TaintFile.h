@@ -11,7 +11,7 @@
 using namespace std;
 using namespace llvm;
 
-#define TaintFileCache map<const Function*, FunctionTaintMap>
+typedef map<const Function*, FunctionTaintMap> TaintFileCache;
 
 class TaintFile {
 public:

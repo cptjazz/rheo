@@ -27,7 +27,9 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     // Since we cannot determine all relisations of the pointer
     // (eg. if the function is a API function to be use from extern)
     // we need to use the same heuristic we use for external functions.
-    handleFunctionPointerCallWithHeuristic(callInst, taintSet);
+    ResultSet taintResults;
+    buildMappingWithHeuristic(callInst, taintResults);
+    processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
 
     // If the function to be called is tained
     // (eg. because the function is selected inside
@@ -116,54 +118,17 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
 
 }
 
+
 /**
- * For calls to Functions that are declared but not defined
- * in the given bc-assembly (= extern functions) we use a
- * conservative heuristic:
+ * For calls to function pointers or exterals we use conservative heuristic:
  * 1) Every parameter taints the return value
  * 2) Every parameter taints all out pointers
  */
-void CallHandler::buildMappingForUndefinedExternalCall(const CallInst& callInst, const Function& func, ResultSet& taintResults) const {
-  const size_t argCount = callInst.getNumArgOperands();
-
-  for (size_t i = 0; i < argCount; i++) {
-    const Value* arg = callInst.getArgOperand(i);
-
-    // Every argument taints the return value
-    taintResults.insert(make_pair(arg, &callInst));
-    DEBUG(CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> $_retval\n");
-
-    size_t k = 0;
-    for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; a_i++) {
-      const Argument& param = *a_i;
-      Value* out = callInst.getArgOperand(k);
-      k++;
-
-      if (!out) {
-        DEBUG(CTX.logger.error() << "arg #" << k << " was NULL\n");
-        continue;
-      }
-
-      if (param.getType()->isPointerTy() && out != arg) {
-        // Since it is a pointer it is a possible out-argument
-        taintResults.insert(make_pair(arg, out));
-        DEBUG(CTX.logger.debug() << "undef-ext call: " << arg->getName() << " -> " << out->getName() << "\n");
-      }
-    }
-  }
-}
-
-
-/**
- * For calls to FunctionPointer we use conservative heuristic:
- * 1) Every parameter taints the return value
- * 2) Every parameter taints all out pointers
- */
-void CallHandler::handleFunctionPointerCallWithHeuristic(const CallInst& callInst, TaintSet& taintSet) const {
-  ResultSet taintResults;
+void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet& taintResults) const {
   vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
+  arguments.reserve(argCount + 30);
   for (size_t j = 0; j < argCount; j++) {
     arguments.push_back(callInst.getArgOperand(j));
   }
@@ -196,7 +161,6 @@ void CallHandler::handleFunctionPointerCallWithHeuristic(const CallInst& callIns
     }
   }
 
-  processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
 }
 
 
@@ -206,21 +170,32 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
   ResultSet taintResults;
 
   if (TaintFile::exists(callee) && !Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
+    //
+    // A 'normal' call where the mapping is read from file
+    //
     IF_PROFILING(long t = Helper::getTimestamp());
     buildMappingFromTaintFile(callInst, callee, taintResults);
     IF_PROFILING(CTX.logger.profile() << " buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << " µs\n");
   } else if (callee.size() == 0 || callInst.isInlineAsm()) {
-    // External functions
+    //
+    // A call to EXTERNal function
+    //
     DEBUG(CTX.logger.debug() << "calling to undefined external. using heuristic.\n");
-    buildMappingForUndefinedExternalCall(callInst, callee, taintResults);
+    buildMappingWithHeuristic(callInst, taintResults);
   } else if (&callee == &CTX.F) {
-    // build intermediate taint sets
+    //
+    // A self-recursive call
+    //
     IF_PROFILING(long t = Helper::getTimestamp());
+    // Build intermediate results to be used in next iteration
     CTX.setHelper.buildResultSet();
     IF_PROFILING(CTX.logger.profile() << " buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
   } else if (callee.isIntrinsic()) {
+    //
+    // A call to an Intrinsic
+    //
     DEBUG(CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n");
 
     FunctionTaintMap mapping;
@@ -230,7 +205,11 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
       CTX.analysisState.stopWithError("No definition of intrinsic `" + callee.getName().str() + "`.\n", ErrorMissingIntrinsic);
     }
   } else if (Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
-    DEBUG(CTX.logger.debug() << "calling with circular reference: " << CTX.F.getName() << " (caller) <--> (callee) " << callee.getName() << "\n");
+    //
+    // A mutual-recursive call
+    //
+    DEBUG(CTX.logger.debug() << "calling with circular reference: " << CTX.F.getName() 
+        << " (caller) <--> (callee) " << callee.getName() << "\n");
 
     if (TaintFile::exists(callee)) {
       buildMappingFromTaintFile(callInst, callee, taintResults);
@@ -242,6 +221,8 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 
       buildMappingForCircularReferenceCall(callInst, callee, taintResults);
 
+      // Make sure the intermediate results for this function
+      // is removed or we carry along wrong taints!
       TaintFile::remove(CTX.F);
     }
   } else {

@@ -10,7 +10,7 @@ class SetHelper {
     const Logger& logger;
     bool resultSetChanged;
 
-    void intersectSets(const Value& arg, const TaintSet argTaintSet);
+    inline void intersectSets(const Value& arg, const TaintSet argTaintSet);
 
   public:
     TaintMap returnStatements;
@@ -21,7 +21,7 @@ class SetHelper {
 
     bool hasResultSetChanged() const { return resultSetChanged; }
 
-    void resetResultSetChanged() { resultSetChanged = 0; }
+    void resetResultSetChanged() { resultSetChanged = false; }
 
     void buildResultSet();
 
