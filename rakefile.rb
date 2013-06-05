@@ -45,7 +45,7 @@ def analyse(args)
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
 
-    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
+    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
@@ -134,7 +134,7 @@ def run_tests(show_only, args)
         out_map = {}
         out_logs = {}
 
-        opt_out = `opt -load ../Release+Asserts/lib/dataflow.so #{opt} -debug -scalarrepl -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
+        opt_out = `opt -load ../Release+Asserts/lib/dataflow.so #{opt} -debug -globalopt -scalarrepl -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
         opt_out.scan(/__logtime:(.*):(.*)/) { |m| out_logs[m[0]] = m[1] }
