@@ -7,6 +7,15 @@
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
+/**
+ * Taint mappings are read from file and cached for further use.
+ * The cache is static and so it is valid for the whole analysis,
+ * eg. every file is only read once.
+ * This is ok, because mappings usually don't change. (Exception:
+ * mutual recursive calls -- but the handling ensures the old 
+ * (partial) file gets deleted and the cache entry is removed, 
+ * forcing a re-read of the mapping.
+ */
 const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger& logger) {
   IF_PROFILING(long t = Helper::getTimestamp());
   FunctionTaintMap temp;
@@ -24,7 +33,7 @@ const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger
           << Helper::getTimestampDelta(t) << "µs\n");
   }
 
-  IF_PROFILING(logger.profile() << "Getting mapping for `" << func.getName() << "` took "
+  IF_PROFILING(logger.profile() << "Getting mapping from cache for `" << func.getName() << "` took "
         << Helper::getTimestampDelta(t) << "µs\n");
 
   return &mapping;

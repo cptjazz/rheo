@@ -264,13 +264,13 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
 
+  size_t calleeArgCount = callee.getArgumentList().size();
+  size_t callArgCount = callInst.getNumArgOperands();
+
   DEBUG(CTX.logger.debug() << " Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
     int paramPos = i->sourcePosition;
     int retvalPos = i->sinkPosition;
-
-    size_t calleeArgCount = callee.getArgumentList().size();
-    size_t callArgCount = callInst.getNumArgOperands();
 
     set<const Value*> sources;
     set<const Value*> sinks;
@@ -328,11 +328,11 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     DEBUG(CTX.logger.debug() << "processed sink-mappings\n");
 
     for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
-      const Value& source = **so_i;
+      const Value* source = *so_i;
       for (set<const Value*>::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; si_i++) {
-        const Value& sink = **si_i;
+        const Value* sink = *si_i;
 
-        taintResults.insert(make_pair(&source, &sink));
+        taintResults.insert(make_pair(source, sink));
       }
     }
   }
@@ -436,6 +436,18 @@ int CallHandler::getArgumentPosition(const Function& f, const Value& v) const {
 
 
 void CallHandler::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) const {
+  // Caching call instruction arguments-to-value mappings
+  // per-function. This is a benefit if blocks are inspected
+  // several times. This is the case if we have more than
+  // one function parameter or have loops in the CFG.
+  // Caching must be done per call (not per function!) as
+  // the arguments are different for each call.
+  if (CTX.mappingCache.count(&callInst)) {
+    taintResults = CTX.mappingCache[&callInst];
+    DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
+    return;
+  } 
+
   const FunctionTaintMap* mapping = TaintFile::getMapping(callee, CTX.logger);
 
   if (!mapping) {
@@ -446,4 +458,5 @@ void CallHandler::buildMappingFromTaintFile(const CallInst& callInst, const Func
   }
 
   createResultSetFromFunctionMapping(callInst, callee, *mapping, taintResults);
+  CTX.mappingCache.insert(make_pair(&callInst, taintResults));
 }

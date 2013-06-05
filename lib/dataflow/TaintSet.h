@@ -38,8 +38,8 @@ class TaintSet {
      */
     inline void intersect(const TaintSet& set, TaintSet& intersect) const {
       for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        if (set.contains(**i))
-          intersect.add(**i);
+        if (set._taintSet.count(*i))
+          intersect._taintSet.insert(*i);
       }
     }
 

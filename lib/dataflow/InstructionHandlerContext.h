@@ -40,6 +40,7 @@ class InstructionHandlerContext {
     SetHelper& setHelper;
     TaintFlowPass& PASS;
     const Module& M;
+    map<const CallInst*, ResultSet> mappingCache;
 };
 
 
