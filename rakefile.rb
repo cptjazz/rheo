@@ -42,6 +42,10 @@ def analyse(args)
     `cp -R taintlib output/` 
   end
 
+  if File.exist?("requests.list")
+    `cp requests.list output/`
+  end
+
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
 
@@ -50,13 +54,14 @@ def analyse(args)
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
           externals = []
+          function_count = i_th_func = 1
 
           r.each do |line|
             log_file.puts line
             log_file.flush
 
             if line =~ /__log:start:(.*)/
-              print " * Analysing " + $1.strip.bright + " ... "
+              print " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
             end
 
             if line =~ /__logtime:(.*):(.*)/
@@ -66,7 +71,9 @@ def analyse(args)
             
             if line =~ /__taints:(.*)\((.*)\)/
               taints = ($2 || "").strip
+              taints = taints[0..40] + "..." + " [and many more]".color(:magenta) if taints.length > 50
               print "done".color(:green) +  "  #{taints}".color("#aaaaaa")
+              i_th_func += 1
             end
 
             if line =~ /__defer:(.*):(.*)/
@@ -86,6 +93,12 @@ def analyse(args)
             if line =~ /__enqueue:end/
               puts " * External functions that will be handled by heuristic: " + externals.join(", ").color(:blue)
               puts
+            end
+
+            if line =~ /__enqueue:count:(.*)/
+              puts " # Functions to analyse: #{$1.strip}".bright
+              puts
+              function_count = $1.to_i
             end
 
             if line =~ /__external:(.*)/
