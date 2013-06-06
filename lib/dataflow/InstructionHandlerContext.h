@@ -14,7 +14,8 @@ struct EnqueueToWorklistFunctor {
       : _worklist(worklist) { }
 
     void operator()(const BasicBlock* block) {
-      _worklist.push_front(block);
+      if (_worklist.front() != block)
+        _worklist.push_front(block);
     }
 };
 

@@ -13,7 +13,7 @@ class AliasHelper {
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       const Value& ptrOp = *gep.getPointerOperand();
       DEBUG(CTX.logger.debug() << " ++ Added GEP SOURCE:" << ptrOp << "\n");
-      DEBUG(CTX.DOT.addRelation(gep, ptrOp, "gep via store"));
+      DEBUG(CTX.DOT.addRelation(gep, ptrOp, "gep-alias"));
       taintSet.add(ptrOp);
 
       if (isa<Instruction>(ptrOp))
@@ -22,7 +22,7 @@ class AliasHelper {
       const LoadInst& load = cast<LoadInst>(target);
       const Value& ptrOp = *load.getOperand(0);
       DEBUG(CTX.logger.debug() << " ++ Added LOAD SOURCE:" << ptrOp << "\n");
-      DEBUG(CTX.DOT.addRelation(load, ptrOp, "load via store"));
+      DEBUG(CTX.DOT.addRelation(load, ptrOp, "load-alias"));
       taintSet.add(ptrOp);
 
       if (isa<Instruction>(ptrOp))
@@ -35,9 +35,16 @@ class AliasHelper {
         const Value& val = *phi.getIncomingValue(j);
 
         DEBUG(CTX.logger.debug() << " ++ Added PHI SOURCE:" << val << "\n");
-        DEBUG(CTX.DOT.addRelation(phi, val, "phi via store"));
+        DEBUG(CTX.DOT.addRelation(phi, val, "phi-alias"));
         taintSet.add(val);
       }
+    } else if(isa<CastInst>(target)) {
+      //const CastInst& cast = cast<CastInst>(target);
+      const Value& val = *target.getOperand(0);
+
+      DEBUG(CTX.logger.debug() << " ++ Added CAST SOURCE:" << val << "\n");
+      DEBUG(CTX.DOT.addRelation(target, val, "cast-alias"));
+      taintSet.add(val);
     }
   }
 };
