@@ -1,0 +1,4 @@
+dyn_locks => $_retval
+dyn_locks => -1
+i => $_retval
+0 => -1
