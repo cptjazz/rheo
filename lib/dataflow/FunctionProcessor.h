@@ -63,11 +63,12 @@ public:
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
     PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()),
     CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m),
-    IHD(CTX), BH(DT, PDT, DOT, logger)
+    IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger)
   {
     _suppressPrintTaints = false;
     _shouldWriteErrors = true;
 
+    DEBUG(DOT.init());
     registerHandlers();
   }
 
@@ -113,8 +114,8 @@ private:
     IHD.registerHandler<BranchHandler>();
     IHD.registerHandler<SwitchHandler>();
     IHD.registerHandler<StoreHandler>();
-    IHD.registerHandler<IndirectBranchHandler>();
     IHD.registerHandler<CallHandler>();
+    IHD.registerHandler<IndirectBranchHandler>();
   }
 
 };

@@ -6,7 +6,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 
-void GraphExporter::initialiseFile() {
+void GraphExporter::init() {
   _file.open((_functionName + ".dot").c_str(), ios::out);
 
   _file << "digraph \"" << _functionName << "\" { \n";

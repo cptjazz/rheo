@@ -4,11 +4,11 @@
 #include "InstructionHandler.h"
 
 
-class IndirectBranchHandler : public UnsupportedInstructionHandlerTrait<IndirectBrInst> {
+class IndirectBranchHandler : public UnsupportedInstructionHandlerTrait {
 
   public:
     IndirectBranchHandler(InstructionHandlerContext& ctx)
-      : UnsupportedInstructionHandlerTrait("Indirect branching is not supported", ctx) { }
+      : UnsupportedInstructionHandlerTrait(Instruction::IndirectBr, "Indirect branching is not supported", ctx) { }
 };
 
 #endif // INDIRECTBRANCH_HANDLER_H

@@ -14,9 +14,7 @@ using namespace llvm;
 class GraphExporter {
 
 public:
-  GraphExporter(string functionName) : _functionName(functionName) {
-    initialiseFile();
-  }
+  GraphExporter(string functionName) : _functionName(functionName) { }
 
   virtual ~GraphExporter();
 
@@ -26,6 +24,7 @@ public:
   void virtual addBlockNode(const Value& b);
   void virtual addCallNode(const Value& f);
   void virtual addRelation(const Value& from, const Value& to, string reason = "");
+  void init();
 
 protected:
   GraphExporter() { }
@@ -36,7 +35,6 @@ private:
   set<pair<const Value*, const Value*> > _pairs;
   set<const Value*> _nodes;
 
-  void initialiseFile();
   string getShape(const Value& v) const;
   string getInOutNodeShape(const Value& v) const;
   string getInNodeShape(const Value& v) const;

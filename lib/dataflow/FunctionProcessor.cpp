@@ -97,6 +97,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
       applyMeet(block);
 
       processBasicBlock(block, _blockList[&block]);
+      STOP_ON_CANCEL;
     }
 
   } while(taintSet.hasChanged());

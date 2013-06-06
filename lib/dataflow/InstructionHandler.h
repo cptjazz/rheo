@@ -39,9 +39,9 @@ class InstructionHandlerTrait : public InstructionHandler {
       : InstructionHandler(opcode, ctx) { }
 
     inline void handleInstruction(const Instruction& inst, TaintSet& taintSet) const {
-        IF_PROFILING(long t = Helper::getTimestamp());
-        handleInstructionInternal(cast<T>(inst), taintSet);
-        IF_PROFILING(CTX.logger.profile() << "handleInstructionInternal took: " << Helper::getTimestampDelta(t) << "µs\n");
+      IF_PROFILING(long t = Helper::getTimestamp());
+      handleInstructionInternal(cast<T>(inst), taintSet);
+      IF_PROFILING(CTX.logger.profile() << "handleInstructionInternal took: " << Helper::getTimestampDelta(t) << "µs\n");
     }
 
   protected:
@@ -49,16 +49,15 @@ class InstructionHandlerTrait : public InstructionHandler {
 };
 
 
-template<class T>
-class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<T> {
+class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<Instruction> {
     string _msg;
 
   public:
-    UnsupportedInstructionHandlerTrait(string msg, InstructionHandlerContext& ctx)
-        : InstructionHandlerTrait<T>(0, ctx), _msg(msg) { }
+    UnsupportedInstructionHandlerTrait(unsigned int opcode, string msg, InstructionHandlerContext& ctx)
+        : InstructionHandlerTrait<Instruction>(opcode, ctx), _msg(msg) { }
 
-    void handleInstructionInternal(const T& inst, TaintSet& taintSet) const {
-        this->CTX.analysisState.stopWithError(_msg);
+    void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
+      this->CTX.analysisState.stopWithError(_msg);
     }
 };
 

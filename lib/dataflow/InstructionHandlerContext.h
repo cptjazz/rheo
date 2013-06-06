@@ -33,7 +33,7 @@ class InstructionHandlerContext {
     GraphExporter& DOT;
     const Logger& logger;
     EnqueueToWorklistFunctor enqueueBlockToWorklist;
-    AnalysisState analysisState;
+    AnalysisState& analysisState;
     BlockHelper BH;
     const Function& F;
     CircleMap& circularReferences;
