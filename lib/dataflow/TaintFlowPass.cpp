@@ -17,6 +17,7 @@
 #include "GraphExporter.h"
 #include "FunctionProcessor.h"
 #include "TaintFile.h"
+#include "RequestsFile.h"
 
 
 char TaintFlowPass::ID = 0;
@@ -160,10 +161,15 @@ bool TaintFlowPass::runOnModule(Module &module) {
   _avoidInfiniteLoopHelper.clear();
   set<const Function*> circleHelper;
 
-  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i)
-    enqueueFunctionsInCorrectOrder(i->second, circleHelper);
+  RequestsFile& requests = RequestsFile::read();
+
+  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i) {
+    if (requests.includeFunction(i->first))
+      enqueueFunctionsInCorrectOrder(i->second, circleHelper);
+  }
 
   errs() << "__enqueue:end\n";
+  errs() << "__enqueue:count:" << _functionQueue.size() << "\n";
 
   while (!_functionQueue.empty()) {
     const Function* f = _functionQueue.front();

@@ -89,7 +89,7 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
 
 void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const {
   for (ResultSet::const_iterator i = results.begin(), e = results.end(); i != e; ++i) {
-    (CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
+    DEBUG(CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
 
     Value* inVal = NULL;
     Value* outVal = NULL;
