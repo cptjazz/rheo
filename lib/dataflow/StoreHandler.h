@@ -11,10 +11,6 @@ class StoreHandler : public InstructionHandlerTrait<StoreInst> {
       : InstructionHandlerTrait(Instruction::Store, ctx) { }
 
     void handleInstructionInternal(const StoreInst& inst, TaintSet& taintSet) const;
-
-  private:
-    void recursivelyAddAllGepsAndLoads(const Instruction& target, TaintSet& taintSet) const;
-
 };
 
 #endif // STORE_HANDLER_H
