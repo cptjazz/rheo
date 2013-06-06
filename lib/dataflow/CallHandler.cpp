@@ -1,10 +1,11 @@
 #include "CallHandler.h"
+#include <cstring>
+#include <sstream>
+#include "llvm/ValueSymbolTable.h"
 #include "TaintFile.h"
 #include "IntrinsicHelper.h"
 #include "FunctionProcessor.h"
-#include "llvm/ValueSymbolTable.h"
-#include <cstring>
-#include <sstream>
+#include "AliasHelper.h"
 
 
 void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& taintSet) const {
@@ -365,13 +366,8 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
-      // Value is a pointer, so the previous load is also tainted.
-      if (isa<LoadInst>(out)) {
-        Value* op = (cast<LoadInst>(out)).getOperand(0);
-        taintSet.add(*op);
-        DEBUG(CTX.logger.debug() << " ++ Added previous load: " << out << "\n");
-        DEBUG(CTX.DOT.addRelation(*op, out, "load"));
-      }
+      if (isa<Instruction>(out))
+        AliasHelper::handleAliasing(CTX, cast<Instruction>(out), taintSet);
     }
   }
 
