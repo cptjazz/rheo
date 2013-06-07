@@ -12,11 +12,7 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
     DEBUG(CTX.DOT.addRelation(source, target, "store"));
     DEBUG(CTX.logger.debug() << " + Added STORE taint: " << source << " --> " << target << "\n");
 
-    if (isa<GetElementPtrInst>(target) || isa<LoadInst>(target) || isa<PHINode>(target)) {
-      const Instruction& inst = cast<Instruction>(target);
-      AliasHelper::handleAliasing(CTX, inst, taintSet);
-    }
-
+    AliasHelper::handleAliasing(CTX, target, taintSet);
   } else if (taintSet.contains(target)) {
     // Only do removal if value is really in set
     taintSet.remove(target);

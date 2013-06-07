@@ -8,7 +8,10 @@
 
 class AliasHelper {
   public:
-  static void handleAliasing(InstructionHandlerContext& CTX, const Instruction& target, TaintSet& taintSet) {
+  static void handleAliasing(InstructionHandlerContext& CTX, const Value& target, TaintSet& taintSet) {
+    if (!target.getType()->isPointerTy())
+      return;
+
     if (isa<GetElementPtrInst>(target)) {
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       const Value& ptrOp = *gep.getPointerOperand();
@@ -39,8 +42,8 @@ class AliasHelper {
         taintSet.add(val);
       }
     } else if(isa<CastInst>(target)) {
-      //const CastInst& cast = cast<CastInst>(target);
-      const Value& val = *target.getOperand(0);
+      const Instruction& inst = cast<Instruction>(target);
+      const Value& val = *inst.getOperand(0);
 
       DEBUG(CTX.logger.debug() << " ++ Added CAST SOURCE:" << val << "\n");
       DEBUG(CTX.DOT.addRelation(target, val, "cast-alias"));
