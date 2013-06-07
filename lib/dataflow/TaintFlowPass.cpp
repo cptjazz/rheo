@@ -15,9 +15,9 @@
 #include <stdio.h>
 #include "TaintFlowPass.h"
 #include "GraphExporter.h"
-#include "FunctionProcessor.h"
 #include "TaintFile.h"
 #include "RequestsFile.h"
+#include "FunctionProcessor.h"
 
 
 char TaintFlowPass::ID = 0;
@@ -139,23 +139,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
   }
 
   buildCircularReferenceInfo(CG);
-
-
-  for (CircleMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
-    const NodeVector& list = _circularReferences[f_i->first];
-
-    if (!f_i->first)
-      continue;
-
-    if (! list.size())
-      continue;
-
-    DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " --> ");
-    for (NodeVector::const_iterator c_i = list.begin(), c_e = list.end(); c_i != c_e; c_i++) { 
-      DEBUG(errs() << "  " << (*c_i)->getFunction()->getName());
-    }
-    DEBUG(errs() << "\n");
-  }
+  DEBUG(printCircularReferences());
 
   _queuedFunctionHelper.clear();
   _avoidInfiniteLoopHelper.clear();
@@ -171,6 +155,12 @@ bool TaintFlowPass::runOnModule(Module &module) {
   errs() << "__enqueue:end\n";
   errs() << "__enqueue:count:" << _functionQueue.size() << "\n";
 
+  processFunctionQueue(module);
+
+  return false;
+}
+
+void TaintFlowPass::processFunctionQueue(const Module& module) {
   while (!_functionQueue.empty()) {
     const Function* f = _functionQueue.front();
 
@@ -182,9 +172,10 @@ bool TaintFlowPass::runOnModule(Module &module) {
 
     if (_occurrenceCount[f]++ > 3) {
       errs() << "__error:PANIC: detected endless loop. Aborting.\n";
-      return false;
+      return;
     }
 
+    _functionInfos.insert(make_pair(f, new FunctionInfo()));
     ProcessingState state = processFunction(*f, module);
     _functionQueue.pop_front();
 
@@ -207,7 +198,28 @@ bool TaintFlowPass::runOnModule(Module &module) {
     _deferredFunctions.erase(f);
   }
 
-  return false;
+  // Clean up FunctionInfo objects
+  for (FunctionInfos::iterator f_i = _functionInfos.begin(), f_e = _functionInfos.end(); f_i != f_e; f_i++)
+    delete (f_i->second);
+}
+
+void TaintFlowPass::printCircularReferences() {
+  for (CircleMap::const_iterator f_i = _circularReferences.begin(), f_e = _circularReferences.end(); f_i != f_e; ++f_i) {
+    const NodeVector& list = _circularReferences[f_i->first];
+
+    if (!f_i->first)
+      continue;
+
+    if (! list.size())
+      continue;
+
+    DEBUG(errs() << "Found circ-ref: " << f_i->first->getName() << " --> ");
+    for (NodeVector::const_iterator c_i = list.begin(), c_e = list.end(); c_i != c_e; c_i++) { 
+      DEBUG(errs() << "  " << (*c_i)->getFunction()->getName());
+    }
+    DEBUG(errs() << "\n");
+  }
+
 }
 
 ProcessingState TaintFlowPass::processFunction(const Function& func, const Module& module) {
@@ -216,7 +228,7 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
 
   long time = Helper::getTimestamp();
 
-  FunctionProcessor proc(*this, func, _circularReferences, module, logger);
+  FunctionProcessor proc(*this, func, _circularReferences, module, logger, _functionInfos);
   proc.processFunction();
   ResultSet result = proc.getResult();
 

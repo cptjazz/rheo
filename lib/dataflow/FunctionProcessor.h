@@ -32,6 +32,7 @@
 #include "DefaultHandler.h"
 #include "Logger.h"
 #include "SetHelper.h"
+#include "FunctionInfo.h"
 
 using namespace llvm;
 using namespace std;
@@ -50,21 +51,22 @@ class FunctionProcessor {
   InstructionHandlerContext CTX;
   InstructionHandlerDispatcher IHD;
   BlockHelper BH;
+  AnalysisState _analysisState;
+  FunctionInfos& _functionInfos;
 
   map<const BasicBlock*, TaintSet> _blockList;
   deque<const BasicBlock*> _workList;
 
   bool _suppressPrintTaints;
   bool _shouldWriteErrors;
-  AnalysisState _analysisState;
 
 public:
-  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger)
+  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, FunctionInfos& functionInfos)
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
     PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()),
-    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m),
-    IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger)
-  {
+    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m, functionInfos, *functionInfos[&F]),
+    IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger), _functionInfos(functionInfos)
+   {
     _suppressPrintTaints = false;
     _shouldWriteErrors = true;
 
@@ -74,6 +76,15 @@ public:
 
   void processFunction();
 
+  static FunctionProcessor& from(InstructionHandlerContext& ctx, const Function& func) {
+    // Because this method is used when analysing mutual recursive
+    // calls, we must ensure a FRESH FunctionInfo object is created for
+    // the (not yet analysed) mutual recursive callee.
+    ctx.functionInfos.erase(&func);
+    ctx.functionInfos.insert(make_pair(&func, new FunctionInfo()));
+
+    return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.functionInfos);
+  }
 
   AnalysisState getAnalysisState() {
     return _analysisState;

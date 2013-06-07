@@ -4,7 +4,6 @@
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/GlobalVariable.h"
-#include "llvm/ValueSymbolTable.h"
 #include "llvm/InstrTypes.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -18,6 +17,7 @@
 #include <stdio.h>
 #include "FunctionProcessor.h"
 #include "TaintSet.h"
+#include "FunctionHelper.h"
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
@@ -189,6 +189,9 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
     return;
   }
 
+  if (isa<BranchInst>(inst) && (cast<BranchInst>(inst)).isUnconditional())
+    return;
+
   taintSet.add(inst);
   DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
@@ -203,6 +206,8 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(*a_i);
   }
 
+  FunctionHelper fh(CTX, F);
+
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
     const GlobalVariable& g = *g_i;
 
@@ -210,8 +215,16 @@ void FunctionProcessor::findArguments() {
     if (g.isConstant())
       continue;
 
+    if (!fh.usesGlobal(g)) {
+      DEBUG(logger.debug() << "Skipping unused global `" << g << "`\n");
+      continue;
+    }
+
+    CTX.FI.addGlobalUsage(g);
+
     handleFoundArgument(g);
   }
+
 
   // In a perfect world, compilers would use the LLVM va_arg instruction
   // to copy over the current vararg-element. But neither Clang nor gcc-llvm

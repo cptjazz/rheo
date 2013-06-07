@@ -2,6 +2,8 @@
 #define INSTRUCTION_HANDLER_DISPATCHER_H
 
 #include "InstructionHandler.h"
+#include "Core.h"
+#include "InstructionHandler.h"
 #include "AnalysisState.h"
 #include "Helper.h"
 

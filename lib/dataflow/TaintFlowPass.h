@@ -1,6 +1,7 @@
 #ifndef TAINTFLOWPASS_H
 #define TAINTFLOWPASS_H
 
+#include <queue>
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -11,7 +12,7 @@
 #include "Core.h"
 #include "AnalysisState.h"
 #include "Logger.h"
-#include <queue>
+#include "FunctionInfo.h"
 
 using namespace llvm;
 using namespace std;
@@ -23,6 +24,7 @@ using namespace std;
     multimap<const Function*, const Function*> _deferredFunctions;
     deque<const Function*> _functionQueue;
     map<const Function*, int> _occurrenceCount;
+    FunctionInfos _functionInfos;
 
     CircleMap _circularReferences;
     set<Function*> _queuedFunctionHelper;
@@ -41,6 +43,8 @@ using namespace std;
     void buildCircularReferenceInfo(CallGraph& CG);
     bool buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences);
     void addFunctionForProcessing(Function* f); 
+    void printCircularReferences();
+    void processFunctionQueue(const Module& module);
     ProcessingState processFunction(const Function& func, const Module& module);
 
 public:

@@ -6,6 +6,9 @@
 #include "llvm/Function.h"
 #include "SetHelper.h"
 #include "TaintFlowPass.h"
+#include "FunctionInfo.h"
+#include "GraphExporter.h"
+#include "BlockHelper.h"
 
 struct EnqueueToWorklistFunctor {
     deque<const BasicBlock*>& _worklist;
@@ -24,9 +27,11 @@ class InstructionHandlerContext {
   public:
     InstructionHandlerContext(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
                               deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
-                              CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module)
+                              CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module,
+                              FunctionInfos& fInfos, FunctionInfo& functionInfo)
         : DT(dt), PDT(pdt), DOT(dot), logger(logger), enqueueBlockToWorklist(worklist), analysisState(analysisState),
-          BH(dt, pdt, dot, logger), F(f), circularReferences(circRef), setHelper(setHelper), PASS(pass), M(module)
+          BH(dt, pdt, dot, logger), F(f), circularReferences(circRef), setHelper(setHelper), PASS(pass), M(module),
+          functionInfos(fInfos), FI(functionInfo)
     { }
 
     const DominatorTree& DT;
@@ -41,6 +46,8 @@ class InstructionHandlerContext {
     SetHelper& setHelper;
     TaintFlowPass& PASS;
     const Module& M;
+    FunctionInfos& functionInfos;
+    FunctionInfo& FI;
     map<const CallInst*, ResultSet> mappingCache;
 };
 

@@ -31,6 +31,7 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     ResultSet taintResults;
     buildMappingWithHeuristic(callInst, taintResults);
     processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
+    CTX.FI.setCallsFunctionPointer(true);
 
     // If the function to be called is tained
     // (eg. because the function is selected inside
@@ -58,8 +59,8 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
 
   // Start a second instance of the analysis to process 
   // the callee with the current partial map of the current
-  // function. Tha partial map war already written to a file.
-  FunctionProcessor refFp(CTX.PASS, func, CTX.circularReferences, CTX.M, CTX.logger);
+  // function. Tha partial map was already written to a file.
+  FunctionProcessor& refFp = FunctionProcessor::from(CTX, func);
   refFp.suppressPrintTaints();
   refFp.setShouldWriteErrors(false);
   refFp.processFunction();
@@ -84,7 +85,7 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   }
 
   writeMapForRecursive(callInst, func, refResult, taintResults);
-
+  delete(&refFp);
   IF_PROFILING(CTX.logger.profile() << "buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
@@ -183,6 +184,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     //
     DEBUG(CTX.logger.debug() << "calling to undefined external. using heuristic.\n");
     buildMappingWithHeuristic(callInst, taintResults);
+    CTX.FI.setCallsExternal(true);
   } else if (&callee == &CTX.F) {
     //
     // A self-recursive call
@@ -366,8 +368,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
-      if (isa<Instruction>(out))
-        AliasHelper::handleAliasing(CTX, cast<Instruction>(out), taintSet);
+      AliasHelper::handleAliasing(CTX, out, taintSet);
     }
   }
 
