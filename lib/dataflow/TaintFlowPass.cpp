@@ -14,7 +14,6 @@
 #include <fstream>
 #include <stdio.h>
 #include "TaintFlowPass.h"
-#include "GraphExporter.h"
 #include "TaintFile.h"
 #include "RequestsFile.h"
 #include "FunctionProcessor.h"
@@ -33,6 +32,7 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     return;
   } else {
     circleHelper.insert(f);
+    DOT->addCGFunction(*f);
   }
 
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
@@ -49,6 +49,7 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
       continue;
     }
 
+    DOT->addCGCall(*f, *kf);
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
 
@@ -60,13 +61,10 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     if (!kf)
       continue;
 
-    NodeVector& circle = _circularReferences[kf];
-    for (NodeVector::iterator c_i = circle.begin(), c_e = circle.end(); c_i != c_e; ++c_i) {
-      enqueueFunctionsInCorrectOrder(kid, circleHelper);
-    }
-
+    DOT->addCGCall(*f, *kf);
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
+  
 
   if (!f)
     return;
@@ -130,6 +128,8 @@ void TaintFlowPass::addFunctionForProcessing(Function* f) {
 
 bool TaintFlowPass::runOnModule(Module &module) {
   CallGraph& CG = getAnalysis<CallGraph>();
+  DOT = new GraphExporter("callgraph");
+  DOT->init();
 
   errs() << "__enqueue:start\n";
   _avoidInfiniteLoopHelper.clear();
@@ -154,6 +154,8 @@ bool TaintFlowPass::runOnModule(Module &module) {
 
   errs() << "__enqueue:end\n";
   errs() << "__enqueue:count:" << _functionQueue.size() << "\n";
+
+  delete (DOT);
 
   processFunctionQueue(module);
 

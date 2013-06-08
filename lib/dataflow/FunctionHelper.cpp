@@ -38,12 +38,18 @@ bool FunctionHelper::usedByCallee(const GlobalVariable& g) {
     if (!callee->size())
       return true;
 
-    FunctionInfo& info = *CTX.functionInfos[callee];
+    FunctionInfo* info = CTX.functionInfos[callee];
 
-    if (info.getCallsExternal() || info.getCallsFunctionPointer())
+    // There are situations (within mutual recursion handling)
+    // where no function-info is present for the given callee.
+    // We convervatively assume it makes use of the given global.
+    if (!info)
       return true;
 
-    if (info.usesGlobal(g))
+    if (info->getCallsExternal() || info->getCallsFunctionPointer())
+      return true;
+
+    if (info->usesGlobal(g))
       return true;
   }
 

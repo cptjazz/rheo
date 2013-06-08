@@ -1,7 +1,7 @@
 #ifndef GRAPHEXPORTER_H
 #define GRAPHEXPORTER_H
 
-#include <cstring>
+#include <string>
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -16,14 +16,18 @@ class GraphExporter {
 public:
   GraphExporter(string functionName) : _functionName(functionName) { }
 
-  virtual ~GraphExporter();
+  ~GraphExporter();
 
-  void virtual addInOutNode(const Value& inout);
-  void virtual addInNode(const Value& in);
-  void virtual addOutNode(const Value& out);
-  void virtual addBlockNode(const Value& b);
-  void virtual addCallNode(const Value& f);
-  void virtual addRelation(const Value& from, const Value& to, string reason = "");
+  void addInOutNode(const Value& inout);
+  void addInNode(const Value& in);
+  void addOutNode(const Value& out);
+  void addBlockNode(const Value& b);
+  void addCallNode(const Value& f);
+  void addRelation(const Value& from, const Value& to, string reason = "");
+
+  void addCGFunction(const Function& f);
+  void addCGCall(const Function& from, const Function& to);
+    
   void init();
 
 protected:

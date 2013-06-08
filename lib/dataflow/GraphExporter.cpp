@@ -148,3 +148,14 @@ string GraphExporter::getNodeCaption(const Value& v) const {
   ss << v.getName().str();
   return ss.str();
 }
+
+void GraphExporter::addCGFunction(const Function& f) {
+  _file << "    " << getNodeName(f) << " [label=\"" << getNodeCaption(f) << "\"" 
+        << ", weight=3];\n";
+}
+
+void GraphExporter::addCGCall(const Function& from, const Function& to) {
+    _file << getNodeName(from) << " -> " << getNodeName(to) 
+          <<  ";\n";
+}
+

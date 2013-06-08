@@ -13,13 +13,13 @@
 #include "AnalysisState.h"
 #include "Logger.h"
 #include "FunctionInfo.h"
+#include "GraphExporter.h"
 
 using namespace llvm;
 using namespace std;
 
-  const unsigned int OUTPUT_RELEASE = 0;
 
-  class TaintFlowPass : public ModulePass {
+class TaintFlowPass : public ModulePass {
 
     multimap<const Function*, const Function*> _deferredFunctions;
     deque<const Function*> _functionQueue;
@@ -30,7 +30,7 @@ using namespace std;
     set<Function*> _queuedFunctionHelper;
     set<Function*> _avoidInfiniteLoopHelper;
     Logger logger;
-
+    GraphExporter* DOT;
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<CallGraph>();
