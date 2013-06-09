@@ -5,4 +5,16 @@ Prerequisites
 * Ruby >= 1.9.2
 * Ruby gem `rake` (sudo gem install rake)
 * Ruby gem `rainbow` (sudo gem install rainbow)
-* LLVM 3.2
+* LLVM 3.3
+
+
+Install
+=======
+
+* Build and install LLVM (configure, make, make install)
+* check `opt --version` -- it should be 3.3
+* Adapt autoconf/configure.ac to suit you LLVM installation
+* run autoconf/AutoRegen.sh
+* run ./configure
+* run make
+* Run tests: rake test
