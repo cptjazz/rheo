@@ -2,14 +2,10 @@
 #define FUNCTION_PROCESSOR_H
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/InstrTypes.h"
 #include <algorithm>
 #include <deque>
 #include <cstring>
@@ -82,6 +78,10 @@ public:
     // the (not yet analysed) mutual recursive callee.
     ctx.functionInfos.erase(&func);
     ctx.functionInfos.insert(make_pair(&func, new FunctionInfo()));
+
+    // Force re-evaluation of Dominator Trees
+    //ctx.DT.runOnFunction(const_cast<Function&>(func));
+    //ctx.PDT.runOnFunction(const_cast<Function&>(func));
 
     return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.functionInfos);
   }

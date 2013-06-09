@@ -22,16 +22,19 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   const BasicBlock& brTrue = *inst.getSuccessor(0);
   const BasicBlock& brFalse = *inst.getSuccessor(1);
 
+
+
+  DEBUG(CTX.logger.debug() << "Inst Parent: " << inst.getParent()->getName() << "\n");
+  
   const BasicBlock& join = *const_cast<const BasicBlock*>(CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
 
-  DEBUG(CTX.logger.debug() << "   Nearest Common Post-Dominator for tr/fa: " << join << "\n");
+  DEBUG(CTX.logger.debug() << "   Nearest Common Post-Dominator for tr/fa: " << join.getName() << "\n");
 
   // true branch is always tainted
   taintSet.add(brTrue);
   DEBUG(CTX.DOT.addBlockNode(brTrue));
   DEBUG(CTX.DOT.addRelation(inst, brTrue, "br-true"));
-  DEBUG(CTX.logger.debug() << " + Added TRUE branch to taint set:\n");
-  DEBUG(CTX.logger.debug() << brTrue.getName() << "\n");
+  DEBUG(CTX.logger.debug() << " + Added TRUE branch to taint set: " << brTrue.getName() << "\n");
 
   CTX.BH.followTransientBranchPaths(brTrue, join, taintSet);
 
@@ -41,8 +44,7 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
     taintSet.add(brFalse);
     DEBUG(CTX.DOT.addBlockNode(brFalse));
     DEBUG(CTX.DOT.addRelation(inst, brFalse, "br-false"));
-    DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set:\n");
-    DEBUG(CTX.logger.debug() << brFalse.getName() << "\n");
+    DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set: " << brFalse.getName() << "\n");
 
     CTX.BH.followTransientBranchPaths(brFalse, join, taintSet);
   }

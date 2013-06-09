@@ -1,16 +1,15 @@
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/InstrTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Intrinsics.h"
+#include "llvm/IR/Intrinsics.h"
 #include <map>
 #include <set>
 #include <algorithm>
@@ -142,7 +141,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
 
     IF_PROFILING(long t = Helper::getTimestamp());
 
-    Instruction& inst = cast<Instruction>(*inst_i);
+    const Instruction& inst = cast<Instruction>(*inst_i);
 
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
@@ -161,8 +160,8 @@ void FunctionProcessor::printTaints() {
   bool isFirstTime = true;
 
   for (ResultSet::const_iterator i = setHelper.resultSet.begin(), e = setHelper.resultSet.end(); i != e; ++i) {
-    Value& arg = cast<Value>(*i->first);
-    Value& retval = cast<Value>(*i->second);
+    const Value& arg = cast<Value>(*i->first);
+    const Value& retval = cast<Value>(*i->second);
 
     logger.output() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << Helper::getValueNameOrDefault(retval);
     isFirstTime = false;
