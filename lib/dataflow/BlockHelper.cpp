@@ -40,8 +40,7 @@ void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBl
 
     DEBUG(DOT.addBlockNode(*brSuccessor));
     DEBUG(DOT.addRelation(brTerminator, *brSuccessor, "block-taint"));
-    DEBUG(logger.debug() << " ++ Added TRANSIENT block:\n");
-    DEBUG(logger.debug() << *brSuccessor << "\n");
+    DEBUG(logger.debug() << " ++ Added TRANSIENT block: " << brSuccessor->getName() << "\n");
 
     taintSet.add(*brSuccessor);
     followTransientBranchPaths(*brSuccessor, join, taintSet);

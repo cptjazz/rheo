@@ -2,7 +2,6 @@
 #define BLOCK_HELPER_H
 
 #include "Core.h"
-#include "llvm/Function.h"
 #include "GraphExporter.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"

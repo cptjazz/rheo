@@ -4,7 +4,7 @@
 #include "Core.h"
 #include "TaintSet.h"
 #include "InstructionHandlerContext.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 class AliasHelper {
   public:

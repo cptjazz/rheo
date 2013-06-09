@@ -2,7 +2,7 @@
 #define INTRINSICHELPER_H
 
 #include "IntrinsicHelper.h"
-#include <llvm/Intrinsics.h>
+#include "llvm/IR/Intrinsics.h"
 
 bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
 

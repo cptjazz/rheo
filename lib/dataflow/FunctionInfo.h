@@ -2,7 +2,6 @@
 #define FUNCTION_INFO_H
 
 #include "Core.h"
-#include "llvm/Function.h"
 
 
 struct FunctionInfo {

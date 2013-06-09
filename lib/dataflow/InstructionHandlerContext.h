@@ -2,8 +2,8 @@
 #define INSTRUCTION_HANDLER_CONTEXT_H
 
 #include <deque>
+#include "Core.h"
 #include "AnalysisState.h"
-#include "llvm/Function.h"
 #include "SetHelper.h"
 #include "TaintFlowPass.h"
 #include "FunctionInfo.h"

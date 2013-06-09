@@ -4,7 +4,6 @@
 #include "Core.h"
 #include <string>
 #include <fstream>
-#include "llvm/Function.h"
 
 class RequestsFile {
   private:

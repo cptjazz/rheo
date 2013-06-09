@@ -4,10 +4,13 @@
 #include <set>
 #include <map>
 #include <string>
-#include <llvm/Value.h>
-#include <llvm/ADT/SmallPtrSet.h>
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Support/raw_ostream.h"
 #include "TaintSet.h"
 
 //#define PROFILING

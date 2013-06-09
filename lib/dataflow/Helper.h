@@ -2,14 +2,13 @@
 #define HELPER_H
 
 #include <string>
+#include <math.h>
 #include "Core.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "Helper.h"
-#include <llvm/Argument.h>
-#include <llvm/GlobalVariable.h>
-#include <algorithm>
-#include <math.h>
 
 using namespace std;
 using namespace llvm;

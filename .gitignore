@@ -12,3 +12,6 @@ Release+Asserts
 Release+Profile+Asserts
 configure.out
 output/**
+Makefile.common
+Makefile.llvm.config
+configure

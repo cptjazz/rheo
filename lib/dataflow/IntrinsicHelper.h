@@ -1,4 +1,3 @@
-#include <llvm/Function.h>
 #include "Core.h"
 
 using namespace llvm;

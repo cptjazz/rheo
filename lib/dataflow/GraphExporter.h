@@ -5,11 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <set>
-#include <llvm/Value.h>
-#include <llvm/Function.h>
+#include "Core.h"
 
-using namespace std;
-using namespace llvm;
 
 class GraphExporter {
 

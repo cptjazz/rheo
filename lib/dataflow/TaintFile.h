@@ -3,8 +3,7 @@
 
 #include <string>
 #include <map>
-#include <llvm/Function.h>
-#include "llvm/Support/raw_ostream.h"
+#include "Core.h"
 #include "Helper.h"
 #include "Logger.h"
 

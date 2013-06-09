@@ -1,9 +1,6 @@
 #include "GraphExporter.h"
 #include <sstream>
-#include <algorithm>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/IR/Instructions.h"
 
 
 void GraphExporter::init() {
@@ -129,9 +126,9 @@ string GraphExporter::getNodeName(const Value& i) const {
 string GraphExporter::getNodeCaption(const Value& v) const {
    if (!v.hasName()) {
     if (isa<SwitchInst>(v))
-      return "switch";
+      return "switch " + getNodeName(v);
     else if (isa<BranchInst>(v))
-      return "br";
+      return "br " + getNodeName(v);
     else {
       string s;
       raw_string_ostream rstr(s);
@@ -140,7 +137,7 @@ string GraphExporter::getNodeCaption(const Value& v) const {
       replace( s.begin(), s.end(), '[', '(');
       replace( s.begin(), s.end(), ']', ')');
       replace( s.begin(), s.end(), '\n', ' ');
-      return s;
+      return s + " " + getNodeName(v);
     }
   }
 

@@ -3,7 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdio.h>
-#include <llvm/Instructions.h>
+#include "llvm/IR/Instructions.h"
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
