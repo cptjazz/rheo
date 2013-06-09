@@ -1,7 +1,6 @@
 #include "CallHandler.h"
 #include <cstring>
 #include <sstream>
-#include "llvm/ValueSymbolTable.h"
 #include "TaintFile.h"
 #include "IntrinsicHelper.h"
 #include "FunctionProcessor.h"

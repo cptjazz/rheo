@@ -3,12 +3,10 @@
 
 #include <queue>
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Support/raw_ostream.h"
 #include "Core.h"
 #include "AnalysisState.h"
 #include "Logger.h"
@@ -36,6 +34,7 @@ class TaintFlowPass : public ModulePass {
       AU.addRequired<CallGraph>();
       AU.addRequired<DominatorTree>();
       AU.addRequired<PostDominatorTree>();
+      AU.setPreservesAll();
     }
 
     bool runOnModule(Module &module); 

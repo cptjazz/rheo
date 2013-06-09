@@ -3,10 +3,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/InstrTypes.h"
 #include <queue>
 #include <algorithm>
 #include <cstring>
@@ -32,7 +29,8 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     return;
   } else {
     circleHelper.insert(f);
-    DOT->addCGFunction(*f);
+    if (f)
+      DOT->addCGFunction(*f);
   }
 
   for (CallGraphNode::const_iterator i = node->begin(), e = node->end(); i != e; ++i) { 
@@ -49,7 +47,8 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
       continue;
     }
 
-    DOT->addCGCall(*f, *kf);
+    if (f)
+      DOT->addCGCall(*f, *kf);
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
 
@@ -61,7 +60,8 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     if (!kf)
       continue;
 
-    DOT->addCGCall(*f, *kf);
+    if (f)
+      DOT->addCGCall(*f, *kf);
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
   
