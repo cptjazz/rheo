@@ -25,7 +25,7 @@ struct EnqueueToWorklistFunctor {
 
 class InstructionHandlerContext {
   public:
-    InstructionHandlerContext(GraphExporter& dot, const DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
+    InstructionHandlerContext(GraphExporter& dot, DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
                               deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
                               CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module,
                               FunctionInfos& fInfos, FunctionInfo& functionInfo)
@@ -34,7 +34,7 @@ class InstructionHandlerContext {
           functionInfos(fInfos), FI(functionInfo)
     { }
 
-    const DominatorTree& DT;
+    DominatorTree& DT;
     PostDominatorTree& PDT;
     GraphExporter& DOT;
     const Logger& logger;
@@ -49,6 +49,11 @@ class InstructionHandlerContext {
     FunctionInfos& functionInfos;
     FunctionInfo& FI;
     map<const CallInst*, ResultSet> mappingCache;
+
+    void refreshDomTrees() {
+      DT.runOnFunction(const_cast<Function&>(F));
+      PDT.runOnFunction(const_cast<Function&>(F));
+    }
 };
 
 

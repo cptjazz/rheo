@@ -36,7 +36,7 @@ using namespace std;
 
 class FunctionProcessor {
   const Function& F;
-  const DominatorTree& DT;
+  DominatorTree& DT;
   PostDominatorTree& PDT;
   const Module& M;
   TaintFlowPass& PASS;
@@ -78,10 +78,6 @@ public:
     // the (not yet analysed) mutual recursive callee.
     ctx.functionInfos.erase(&func);
     ctx.functionInfos.insert(make_pair(&func, new FunctionInfo()));
-
-    // Force re-evaluation of Dominator Trees
-    //ctx.DT.runOnFunction(const_cast<Function&>(func));
-    //ctx.PDT.runOnFunction(const_cast<Function&>(func));
 
     return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.functionInfos);
   }

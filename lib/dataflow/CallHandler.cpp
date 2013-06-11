@@ -67,11 +67,13 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   ResultSet refResult = refFp.getResult();
   AnalysisState state = refFp.getAnalysisState();
   ProcessingState processingState = state.getProcessingState();
+  bool didFinish = refFp.didFinish();
+  delete (&refFp);
 
-  DEBUG(CTX.logger.debug() << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << refFp.didFinish() << "\n");
+  DEBUG(CTX.logger.debug() << "build circular ref mapping for " << func.getName() << " -- funcProc result was: " << didFinish << "\n");
   DEBUG(CTX.logger.debug() << "state was: " << processingState << "\n");
 
-  if (!refFp.didFinish()) {
+  if (!didFinish) {
     CTX.analysisState.stopWithError("", processingState);
 
     if (processingState == ErrorMissingDefinition || processingState == Deferred) {
@@ -84,8 +86,9 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   }
 
   writeMapForRecursive(callInst, func, refResult, taintResults);
-  delete(&refFp);
+
   IF_PROFILING(CTX.logger.profile() << "buildMappingForCircularReferenceCall() took " << Helper::getTimestampDelta(t) << " µs\n");
+  CTX.refreshDomTrees();
 }
 
 void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const {

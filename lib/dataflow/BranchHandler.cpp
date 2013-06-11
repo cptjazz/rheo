@@ -23,7 +23,8 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   const BasicBlock& brFalse = *inst.getSuccessor(1);
 
 
-
+  DEBUG(CTX.logger.debug() << "PDT Addr: " << (unsigned long)(&CTX.PDT)<< "\n");
+  DEBUG(CTX.PDT.print(CTX.logger.debug(), &CTX.M));
   DEBUG(CTX.logger.debug() << "Inst Parent: " << inst.getParent()->getName() << "\n");
   
   const BasicBlock& join = *const_cast<const BasicBlock*>(CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
