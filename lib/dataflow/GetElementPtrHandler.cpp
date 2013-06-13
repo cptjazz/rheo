@@ -10,7 +10,8 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
     DEBUG(CTX.logger.debug() << " + Added GEP taint: `" << inst << "`\n");
   }
 
-  for (size_t i = 0; i < inst.getNumIndices(); i++) {
+  const size_t numIndices = inst.getNumIndices();
+  for (size_t i = 0; i < numIndices; i++) {
     const Value& idx = *inst.getOperand(i + 1);
 
     if (taintSet.contains(idx)) {

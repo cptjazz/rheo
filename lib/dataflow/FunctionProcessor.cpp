@@ -20,7 +20,6 @@
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
-#define ERROR_LOG(x) if (_shouldWriteErrors) _stream << "__error:" << x 
 
 using namespace llvm;
 using namespace std;
@@ -29,6 +28,7 @@ using namespace std;
 void FunctionProcessor::processFunction() {
   DEBUG(printInstructions());
 
+  logger.debug() << "Spawning analysis for: " << F.getName() << "\n";
   findReturnStatements();
   findArguments();
 
@@ -55,7 +55,9 @@ void FunctionProcessor::processFunction() {
 
       taintSet.resetChangedFlag();
 
-      logger.info() << "arg_no:" << argIdx << "\n";
+      if (!_suppressPrintTaints)
+        logger.info() << "arg_no:" << argIdx << "\n";
+
       buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL;
     }
