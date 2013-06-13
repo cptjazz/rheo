@@ -55,13 +55,26 @@ def analyse(args)
         begin
           externals = []
           function_count = i_th_func = 1
+          arg_count = 0
+          arg_no = 0
+          line_title = ""
 
           r.each do |line|
             log_file.puts line
             log_file.flush
 
+            if line =~ /__info:arg_count:(.*)/
+              arg_count = $1.to_i
+            end
+
+            if line =~ /__info:arg_no:(.*)/
+              arg_no = $1.to_i
+              print "\b" * 100
+              print line_title + "%0#{arg_count.to_s.length}d/%d" % [arg_no, arg_count]
+            end
+
             if line =~ /__log:start:(.*)/
-              print " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
+              line_title = " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
             end
 
             if line =~ /__logtime:(.*):(.*)/
@@ -72,6 +85,7 @@ def analyse(args)
             if line =~ /__taints:(.*)\((.*)\)/
               taints = ($2 || "").strip
               taints = taints[0..40] + "..." + " [and many more]".color(:magenta) if taints.length > 50
+              print "\b" * (arg_count.to_s.length*2 + 1)
               print "done".color(:green) +  "  #{taints}".color("#aaaaaa")
               i_th_func += 1
             end

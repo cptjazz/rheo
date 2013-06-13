@@ -34,6 +34,9 @@ void FunctionProcessor::processFunction() {
 
   int resultIteration = 0;
 
+  const size_t argCount = setHelper.arguments.size();
+  logger.info() << "arg_count:" << argCount << "\n";
+
   do {
     setHelper.resetResultSetChanged();
 
@@ -42,12 +45,17 @@ void FunctionProcessor::processFunction() {
     TaintMap::iterator arg_i = setHelper.arguments.begin();
     TaintMap::iterator arg_e = setHelper.arguments.end();
       
+    size_t argIdx = 0;
+
     for(; arg_i != arg_e; ++arg_i) {
+      argIdx++;
+
       const Value& arg = *arg_i->first;
       TaintSet& taintSet = arg_i->second;
 
       taintSet.resetChangedFlag();
 
+      logger.info() << "arg_no:" << argIdx << "\n";
       buildTaintSetFor(arg, taintSet);
       STOP_ON_CANCEL;
     }
@@ -220,7 +228,6 @@ void FunctionProcessor::findArguments() {
     }
 
     CTX.FI.addGlobalUsage(g);
-
     handleFoundArgument(g);
   }
 

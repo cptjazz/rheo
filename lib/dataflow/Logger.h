@@ -27,6 +27,11 @@ class Logger {
       return errStream;
     }
 
+    inline raw_ostream& info() const {
+      errStream << "__info:";
+      return errStream;
+    }
+
     inline raw_ostream& output() const {
       return errStream;
     }
