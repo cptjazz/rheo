@@ -1,0 +1,6 @@
+sem => sval
+0 => 1
+sem => $_retval
+0 => -1
+sval => $_retval
+1 => -1

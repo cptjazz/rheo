@@ -1,0 +1,8 @@
+a => b
+0 => 1
+b => a
+1 => 0
+swaptype => a
+3 => 0
+swaptype => b
+3 => 1

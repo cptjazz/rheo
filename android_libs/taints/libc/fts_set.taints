@@ -1,0 +1,4 @@
+instr => p
+2 => 1
+instr => $_retval
+2 => -1

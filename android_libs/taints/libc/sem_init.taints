@@ -1,0 +1,8 @@
+sem => $_retval
+0 => -1
+pshared => sem
+1 => 0
+value => sem
+2 => 0
+value => $_retval
+2 => -1

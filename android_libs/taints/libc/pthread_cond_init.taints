@@ -1,0 +1,4 @@
+cond => $_retval
+0 => -1
+attr => cond
+1 => 0

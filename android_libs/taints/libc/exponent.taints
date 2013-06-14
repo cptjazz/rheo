@@ -1,0 +1,10 @@
+p0 => $_retval
+0 => -1
+exp => p0
+1 => 0
+exp => $_retval
+1 => -1
+fmtch => p0
+2 => 0
+fmtch => $_retval
+2 => -1

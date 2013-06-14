@@ -1,0 +1,4 @@
+one => $_retval
+0 => -1
+two => $_retval
+1 => -1

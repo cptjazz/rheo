@@ -1,0 +1,8 @@
+stack_base => attr
+1 => 0
+stack_base => $_retval
+1 => -1
+stack_size => attr
+2 => 0
+stack_size => $_retval
+2 => -1

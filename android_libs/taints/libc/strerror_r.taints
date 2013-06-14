@@ -1,0 +1,8 @@
+errnum => strerrbuf
+0 => 1
+errnum => $_retval
+0 => -1
+buflen => strerrbuf
+2 => 1
+buflen => $_retval
+2 => -1

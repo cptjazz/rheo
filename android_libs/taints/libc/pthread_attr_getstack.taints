@@ -1,0 +1,4 @@
+attr => stack_base
+0 => 1
+attr => stack_size
+0 => 2

@@ -1,0 +1,4 @@
+mode => optr
+0 => 1
+mode => $_retval
+0 => -1

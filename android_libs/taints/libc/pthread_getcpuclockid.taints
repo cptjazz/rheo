@@ -1,0 +1,4 @@
+tid => clockid
+0 => 1
+tid => $_retval
+0 => -1

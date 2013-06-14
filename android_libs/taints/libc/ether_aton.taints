@@ -1,0 +1,6 @@
+ether_aton.addr => $_retval
+ether_aton.addr => -1
+asc => ether_aton.addr
+0 => -2
+asc => $_retval
+0 => -1

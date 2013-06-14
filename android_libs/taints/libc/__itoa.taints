@@ -1,0 +1,16 @@
+num => buffer
+0 => 2
+num => $_retval
+0 => -1
+sign => buffer
+1 => 2
+sign => $_retval
+1 => -1
+start => buffer
+3 => 2
+start => $_retval
+3 => -1
+end => buffer
+4 => 2
+end => $_retval
+4 => -1

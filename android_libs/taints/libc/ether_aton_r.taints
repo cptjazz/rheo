@@ -1,0 +1,6 @@
+asc => addr
+0 => 1
+asc => $_retval
+0 => -1
+addr => $_retval
+1 => -1

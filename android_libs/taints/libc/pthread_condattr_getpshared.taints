@@ -1,0 +1,6 @@
+attr => pshared
+0 => 1
+attr => $_retval
+0 => -1
+pshared => $_retval
+1 => -1

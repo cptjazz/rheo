@@ -1,0 +1,6 @@
+__rand48_add => xseed
+__rand48_add => 0
+__rand48_add => $_retval
+__rand48_add => -1
+xseed => $_retval
+0 => -1

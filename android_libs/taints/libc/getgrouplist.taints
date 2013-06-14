@@ -1,0 +1,6 @@
+group => groups
+1 => 2
+ngroups => groups
+3 => 2
+ngroups => $_retval
+3 => -1

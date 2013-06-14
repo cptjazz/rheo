@@ -1,0 +1,12 @@
+_ctype_ => dst
+_ctype_ => 1
+_ctype_ => $_retval
+_ctype_ => -1
+src => dst
+0 => 1
+src => $_retval
+0 => -1
+pton => dst
+2 => 1
+pton => $_retval
+2 => -1

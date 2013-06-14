@@ -1,0 +1,4 @@
+fmt => tab
+1 => 0
+fmt => $_retval
+1 => -1
