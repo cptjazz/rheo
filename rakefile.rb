@@ -76,11 +76,6 @@ def analyse(args)
             if line =~ /__log:start:(.*)/
               line_title = " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
             end
-
-            if line =~ /__logtime:(.*):(.*)/
-              time = $2
-              puts (", took " + time).color("#444444")
-            end
             
             if line =~ /__taints:(.*)\((.*)\)/
               taints = ($2 || "").strip
@@ -94,7 +89,7 @@ def analyse(args)
               dependency = ($2 || "").strip
               dependency_string = dependency ? " (waiting for `#{dependency}` to complete)" : ""
               print "\b" * (arg_count.to_s.length*2 + 1)
-              print "deferred".color(:yellow) + dependency_string.color("#333333")
+              puts "deferred".color(:yellow) + dependency_string.color("#333333")
             end
 
             if line =~ /__error:(.*)/

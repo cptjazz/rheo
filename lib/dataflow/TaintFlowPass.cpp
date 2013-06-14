@@ -228,15 +228,10 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  long time = Helper::getTimestamp();
-
   FunctionProcessor proc(*this, func, _circularReferences, module, logger, _functionInfos);
   proc.processFunction();
   ResultSet result = proc.getResult();
 
-  time = Helper::getTimestampDelta(time);
-
-  errs() << "__logtime:" << func.getName() << ":" << time << " µs\n";
   AnalysisState analysisState = proc.getAnalysisState();
   ProcessingState state = analysisState.getProcessingState();
   const Function* missing = analysisState.getMissingDefinition();
