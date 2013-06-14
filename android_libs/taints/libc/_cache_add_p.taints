@@ -1,0 +1,6 @@
+cache => e
+0 => 2
+e => cache
+2 => 0
+e => lookup
+2 => 1

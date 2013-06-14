@@ -1,0 +1,10 @@
+modifier => $_retval
+0 => -1
+normal => $_retval
+1 => -1
+underscore => $_retval
+2 => -1
+dash => $_retval
+3 => -1
+zero => $_retval
+4 => -1

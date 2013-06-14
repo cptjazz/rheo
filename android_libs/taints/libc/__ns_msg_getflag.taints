@@ -1,0 +1,4 @@
+handle => $_retval
+0 => -1
+flag => $_retval
+1 => -1

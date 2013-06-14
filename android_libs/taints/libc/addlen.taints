@@ -1,0 +1,4 @@
+len => buf
+0 => 1
+len => buflen
+0 => 2

@@ -1,0 +1,2 @@
+__get_h_errno.panic => $_retval
+__get_h_errno.panic => -1

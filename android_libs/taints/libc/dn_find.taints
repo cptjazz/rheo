@@ -1,0 +1,8 @@
+msg => $_retval
+1 => -1
+dnptrs => $_retval
+2 => -1
+lastdnptr => $_retval
+3 => -1
+domain => $_retval
+0 => -1

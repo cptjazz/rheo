@@ -1,0 +1,8 @@
+minuend.coerce0 => $_retval
+0 => -1
+minuend.coerce1 => $_retval
+1 => -1
+subtrahend.coerce0 => $_retval
+2 => -1
+subtrahend.coerce1 => $_retval
+3 => -1

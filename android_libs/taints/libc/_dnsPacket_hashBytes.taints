@@ -1,0 +1,4 @@
+numBytes => packet
+1 => 0
+hash => $_retval
+2 => -1

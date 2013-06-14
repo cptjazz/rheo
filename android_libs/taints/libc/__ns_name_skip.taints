@@ -1,0 +1,6 @@
+ptrptr => $_retval
+0 => -1
+eom => ptrptr
+1 => 0
+eom => $_retval
+1 => -1

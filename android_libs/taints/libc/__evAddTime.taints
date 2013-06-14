@@ -1,0 +1,8 @@
+addend1.coerce0 => $_retval
+0 => -1
+addend1.coerce1 => $_retval
+1 => -1
+addend2.coerce0 => $_retval
+2 => -1
+addend2.coerce1 => $_retval
+3 => -1

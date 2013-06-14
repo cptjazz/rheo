@@ -1,0 +1,8 @@
+ptr => $_retval
+0 => -1
+eom => $_retval
+1 => -1
+section => $_retval
+2 => -1
+count => $_retval
+3 => -1
