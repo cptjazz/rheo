@@ -258,7 +258,8 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
       break;
 
     case Success:
-      TaintFile::writeResult(func, result);
+      TaintFile::writeTempResult(func, result);
+      TaintFile::persistResult(func);
       break;
 
     default:

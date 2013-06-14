@@ -56,8 +56,12 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
     file.open(("taintlib/" + filename).c_str(), ios::in);
 
     if (!file.is_open()) {
-      logger.debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
-      return false;
+      file.open((filename + ".temp").c_str(), ios::in);
+
+      if (!file.is_open()) {
+        logger.debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
+        return false;
+      }
     }
   }
 
@@ -167,8 +171,12 @@ bool TaintFile::exists(const Function& f) {
   if (!file.is_open()) {
     file.open(("taintlib/" + filename).c_str(), ios::in);
 
-    if (!file.is_open())
-      return false;
+    if (!file.is_open()) {
+      file.open((filename + ".temp").c_str(), ios::in);
+
+      if (!file.is_open())
+        return false;
+    }
   }
   
   return file.good();
@@ -178,7 +186,7 @@ bool TaintFile::exists(const Function& f) {
  * Removes the taint file for the specified function
  */
 void TaintFile::remove(const Function& f) {
-  ::remove(getFilename(f).c_str());
+  ::remove((getFilename(f) + ".temp").c_str());
 }
 
 /**
@@ -192,10 +200,10 @@ string TaintFile::getFilename(const Function& f) {
  * Writes the provided ResultSet to a taint file
  * for the provided Function
  */
-void TaintFile::writeResult(const Function& f, const ResultSet result) {
+void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
   ofstream file;
 
-  file.open((f.getName().str() + ".taints").c_str(), ios::out);
+  file.open((f.getName().str() + ".taints.temp").c_str(), ios::out);
 
   for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
     const Value& arg = *i->first;
@@ -235,4 +243,8 @@ void TaintFile::writeResult(const Function& f, const ResultSet result) {
 
   // Remove from cache because the mapping changed
   _mappingCache.erase(&f);
+}
+
+void TaintFile::persistResult(const Function& f) {
+  ::rename((getFilename(f) + ".temp").c_str(), getFilename(f).c_str());
 }

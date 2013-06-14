@@ -15,7 +15,8 @@ typedef map<const Function*, FunctionTaintMap> TaintFileCache;
 class TaintFile {
 public:
   static bool exists(const Function& f);
-  static void writeResult(const Function& f, const ResultSet result);
+  static void writeTempResult(const Function& f, const ResultSet result);
+  static void persistResult(const Function& f);
   static void remove(const Function& f);
   static const FunctionTaintMap* getMapping(const Function& func, const Logger& logger);
 

@@ -35,7 +35,8 @@ void FunctionProcessor::processFunction() {
   int resultIteration = 0;
 
   const size_t argCount = setHelper.arguments.size();
-  logger.info() << "arg_count:" << argCount << "\n";
+  if (!_suppressPrintTaints)
+    logger.info() << "arg_count:" << argCount << "\n";
 
   do {
     setHelper.resetResultSetChanged();

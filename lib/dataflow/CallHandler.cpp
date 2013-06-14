@@ -222,7 +222,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
       // Write out currently available taint mapping of this function
       // because the dependent function needs this information.
       CTX.setHelper.buildResultSet();
-      TaintFile::writeResult(CTX.F, CTX.setHelper.resultSet);
+      TaintFile::writeTempResult(CTX.F, CTX.setHelper.resultSet);
 
       buildMappingForCircularReferenceCall(callInst, callee, taintResults);
 
@@ -333,6 +333,13 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     const Value& out = *i->second;
+
+    // Skip mapping if one of the parameters
+    // is null. This happens when using 
+    // taint-files with globals not available
+    // in the currently inspected assembly.
+    if (!i->first || !i->second)
+      continue;
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
