@@ -1,6 +1,7 @@
 #!/bin/bash
 make
 rm *.taints
+rm *.taints.temp
 cd test/
 ./compile.rb
 cd ..
