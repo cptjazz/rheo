@@ -187,6 +187,7 @@ bool TaintFile::exists(const Function& f) {
  */
 void TaintFile::remove(const Function& f) {
   ::remove((getFilename(f) + ".temp").c_str());
+  _mappingCache.erase(&f);
 }
 
 /**

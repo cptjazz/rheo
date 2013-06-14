@@ -57,7 +57,6 @@ def analyse(args)
           function_count = i_th_func = 1
           arg_count = 0
           arg_no = 0
-          line_title = ""
 
           r.each do |line|
             log_file.puts line
@@ -65,23 +64,25 @@ def analyse(args)
 
             if line =~ /__info:arg_count:(.*)/
               arg_count = $1.to_i
+              print "%0#{arg_count.to_s.length}d/%d" % [0, arg_count]
             end
 
             if line =~ /__info:arg_no:(.*)/
               arg_no = $1.to_i
-              print "\b" * 100
-              print line_title + "%0#{arg_count.to_s.length}d/%d" % [arg_no, arg_count]
+              print "\b" * (arg_count.to_s.length*2 + 1)
+              print "%0#{arg_count.to_s.length}d/%d" % [arg_no, arg_count]
             end
 
             if line =~ /__log:start:(.*)/
-              line_title = " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
+              print " (%0#{function_count.to_s.length}d/%d) ".color("#888888") % [i_th_func, function_count] + $1.strip.bright + " ... "
             end
             
             if line =~ /__taints:(.*)\((.*)\)/
               taints = ($2 || "").strip
               taints = taints[0..40] + "..." + " [and many more]".color(:magenta) if taints.length > 50
+              taints = " " * 10 if taints.length == 0
               print "\b" * (arg_count.to_s.length*2 + 1)
-              print "done".color(:green) +  "  #{taints}".color("#aaaaaa")
+              puts "done".color(:green) +  "  #{taints}".color("#aaaaaa")
               i_th_func += 1
             end
 
@@ -150,24 +151,21 @@ def run_tests(show_only, args)
       `clang -emit-llvm -c #{file}.c -o #{file}.bc`
 
       @opts.each do |opt|
-        `rm *.taints`
-        `rm *.taints.temp`
-        FileUtils.cp Dir.glob("../taintlib/*.taints"), "." if Dir.exist?("../taintlib")
+        `rm *.taints 2>/dev/null`
+        `rm *.taints.temp 2>/dev/null`
         create_taint_file(def_map)
 
         out_map = {}
-        out_logs = {}
 
         opt_out = `opt -load ../Release+Asserts/lib/dataflow.so #{opt} -debug -globalopt -scalarrepl -instnamer -dataflow < #{file}.bc -o /dev/null 2>&1`
         
         opt_out.scan(/__taints:(.+)\((.*)\)/) { |m| out_map[m[0]] = m[1].split(', ') }
-        opt_out.scan(/__logtime:(.*):(.*)/) { |m| out_logs[m[0]] = m[1] }
 
         File.open(file + "#{opt}.log", "w") do |logfile|
           logfile.puts opt_out
         end
 
-        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, out_logs, opt, show_only)
+        (test_result, passed_count, failed_count) = test(file, exp_map, out_map, opt, show_only)
 
         overall_passed += passed_count
         overall_failed += failed_count
@@ -184,7 +182,7 @@ def run_tests(show_only, args)
   end
 end
 
-def test(file, exp_map, out_map, out_logs, opts, show_only)
+def test(file, exp_map, out_map, opts, show_only)
   test_result = true
   failed_count = 0
   passed_count = 0
@@ -229,8 +227,7 @@ def test(file, exp_map, out_map, out_logs, opts, show_only)
   
     next unless single_taint_check_result
 
-    time = out_logs[function]
-    print_passed(file, function, time, opts) if show_only == :all
+    print_passed(file, function, opts) if show_only == :all
     passed_count += 1
   end
 
@@ -254,12 +251,11 @@ def print_failed(file, function, reason, opts)
   print "\n"
 end
 
-def print_passed(file, function, time, opts)
+def print_passed(file, function, opts)
   print " * " + "PASSED".bright.color(:green)
   print " [#{opts}]".color("#AAAAAA")
   print " : " + file.color(:blue) 
   print "." + function.italic
-  print (", took " + time).color("#444444")
   print "\n"
 end
 
