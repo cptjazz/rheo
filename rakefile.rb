@@ -156,6 +156,7 @@ def run_tests(show_only, args)
 
       @opts.each do |opt|
         `rm *.taints`
+        `rm *.taints.temp`
         FileUtils.cp Dir.glob("../taintlib/*.taints"), "." if Dir.exist?("../taintlib")
         create_taint_file(def_map)
 
