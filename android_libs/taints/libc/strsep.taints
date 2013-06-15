@@ -1,0 +1,6 @@
+stringp => $_retval
+0 => -1
+delim => stringp
+1 => 0
+delim => $_retval
+1 => -1

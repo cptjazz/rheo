@@ -1,0 +1,6 @@
+strm => pending
+0 => 1
+strm => bits
+0 => 2
+strm => $_retval
+0 => -1

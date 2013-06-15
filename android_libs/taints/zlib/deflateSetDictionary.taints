@@ -1,0 +1,14 @@
+static_bl_desc => strm
+static_bl_desc => 0
+static_d_desc => strm
+static_d_desc => 0
+static_l_desc => strm
+static_l_desc => 0
+strm => $_retval
+0 => -1
+dictionary => strm
+1 => 0
+dictionary => $_retval
+1 => -1
+dictLength => strm
+2 => 0

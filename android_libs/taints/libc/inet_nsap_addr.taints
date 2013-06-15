@@ -1,0 +1,8 @@
+_ctype_ => $_retval
+_ctype_ => -1
+_toupper_tab_ => $_retval
+_toupper_tab_ => -1
+ascii => $_retval
+0 => -1
+maxlen => $_retval
+2 => -1

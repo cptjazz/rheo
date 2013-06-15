@@ -1,0 +1,4 @@
+_tolower_tab_ => $_retval
+_tolower_tab_ => -1
+wc => $_retval
+0 => -1

@@ -1,0 +1,4 @@
+lclmem => $_retval
+lclmem => -1
+timep => $_retval
+0 => -1

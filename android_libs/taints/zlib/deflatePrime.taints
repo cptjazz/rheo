@@ -1,0 +1,14 @@
+strm => $_retval
+0 => -1
+static_bl_desc => strm
+static_bl_desc => 0
+static_d_desc => strm
+static_d_desc => 0
+static_l_desc => strm
+static_l_desc => 0
+bits => strm
+1 => 0
+bits => $_retval
+1 => -1
+value => strm
+2 => 0

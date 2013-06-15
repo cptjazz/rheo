@@ -1,0 +1,6 @@
+adler1 => $_retval
+0 => -1
+adler2 => $_retval
+1 => -1
+len2 => $_retval
+2 => -1

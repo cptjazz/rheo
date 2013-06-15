@@ -1,0 +1,12 @@
+static_bl_desc => s
+static_bl_desc => 0
+static_d_desc => s
+static_d_desc => 0
+static_l_desc => s
+static_l_desc => 0
+lcodes => s
+1 => 0
+dcodes => s
+2 => 0
+blcodes => s
+3 => 0

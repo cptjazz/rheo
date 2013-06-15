@@ -1,0 +1,16 @@
+static_bl_desc => s
+static_bl_desc => 0
+static_bl_desc => desc
+static_bl_desc => 1
+static_d_desc => s
+static_d_desc => 0
+static_d_desc => desc
+static_d_desc => 1
+static_l_desc => s
+static_l_desc => 0
+static_l_desc => desc
+static_l_desc => 1
+s => desc
+0 => 1
+desc => s
+1 => 0

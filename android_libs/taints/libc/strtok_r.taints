@@ -1,0 +1,10 @@
+s => last
+0 => 2
+s => $_retval
+0 => -1
+delim => last
+1 => 2
+delim => $_retval
+1 => -1
+last => $_retval
+2 => -1

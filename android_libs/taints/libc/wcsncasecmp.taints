@@ -1,0 +1,8 @@
+_tolower_tab_ => $_retval
+_tolower_tab_ => -1
+s1 => $_retval
+0 => -1
+s2 => $_retval
+1 => -1
+n => $_retval
+2 => -1

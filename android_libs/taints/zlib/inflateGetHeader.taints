@@ -1,0 +1,4 @@
+strm => head
+0 => 1
+strm => $_retval
+0 => -1

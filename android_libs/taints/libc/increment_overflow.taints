@@ -1,0 +1,6 @@
+number => $_retval
+0 => -1
+delta => number
+1 => 0
+delta => $_retval
+1 => -1

@@ -1,0 +1,10 @@
+strm => $_retval
+0 => -1
+good_length => strm
+1 => 0
+max_lazy => strm
+2 => 0
+nice_length => strm
+3 => 0
+max_chain => strm
+4 => 0

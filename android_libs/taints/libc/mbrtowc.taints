@@ -1,0 +1,8 @@
+s => pwc
+1 => 0
+s => $_retval
+1 => -1
+n => pwc
+2 => 0
+n => $_retval
+2 => -1
