@@ -120,6 +120,9 @@ inline void TaintFlowPass::buildCircularReferenceInfo(CallGraph& CG) {
 
 void TaintFlowPass::addFunctionForProcessing(Function* f) {
   if (!_queuedFunctionHelper.count(f)) {
+    if (TaintFile::exists(*f))
+      return;
+
     _functionQueue.push_back(f);
     _queuedFunctionHelper.insert(f);
     DEBUG(errs() << "Enqueued: " << f->getName() << "\n");
@@ -165,12 +168,6 @@ bool TaintFlowPass::runOnModule(Module &module) {
 void TaintFlowPass::processFunctionQueue(const Module& module) {
   while (!_functionQueue.empty()) {
     const Function* f = _functionQueue.front();
-
-    // Skip if function was already processed.
-    if (TaintFile::exists(*f)) {
-      _functionQueue.pop_front();
-      continue;
-    }
 
     if (_occurrenceCount[f]++ > 3) {
       errs() << "__error:PANIC: detected endless loop. Aborting.\n";
