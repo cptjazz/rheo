@@ -49,7 +49,7 @@ def analyse(args)
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
 
-    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -globaldce -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
+    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -globaldce -adce -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
