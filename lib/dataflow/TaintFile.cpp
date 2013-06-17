@@ -217,11 +217,12 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
 
     // Specify the taint a second time in numeric form, eg 0 => -1 
     // (except for globals, they keep their name)
+
     if (isa<Argument>(arg)) {
       ostringstream convert;
       convert << cast<Argument>(arg).getArgNo(); 
       source = convert.str();
-    } else if (!isa<GlobalVariable>(arg)) {
+    } else if (!isa<GlobalValue>(arg)) {
       // Varargs
       source = "-2";
     }
@@ -232,7 +233,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(retval).getArgNo();
       sink = convert.str();
-    } else if (!isa<GlobalVariable>(arg)) {
+    } else if (!isa<GlobalValue>(retval)) {
       // Varargs
       sink = "-2";
     }
