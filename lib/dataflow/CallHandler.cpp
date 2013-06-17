@@ -132,6 +132,8 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
   vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
+  bool isExternal = callInst.getCalledFunction() != NULL;
+
   arguments.reserve(argCount + 30);
   for (size_t j = 0; j < argCount; j++) {
     arguments.push_back(callInst.getArgOperand(j));
@@ -143,6 +145,11 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     // Skip constants (eg. string literals)
     if (g.isConstant())
       continue;
+
+    if (isExternal && (g.hasInternalLinkage() || g.hasPrivateLinkage())) {
+      //CTX.logger.error() << "skipping private global: " << g.getName() << "\n";
+      continue;
+    }
 
     arguments.push_back(&g);
   }

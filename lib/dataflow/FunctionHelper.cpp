@@ -31,12 +31,19 @@ bool FunctionHelper::usedByCallee(const GlobalVariable& g) {
     const Function* callee = call.getCalledFunction();
 
     // Function Pointer
-    if (!callee)
+    // (ASM is treated as external call)
+    if (!callee && !call.isInlineAsm()) {
+      DEBUG(CTX.logger.debug() << "Globals `" << F.getName() << "` used by FunctionPointer\n");
       return true;
+    }
 
     // External
-    if (!callee->size())
-      return true;
+    if (call.isInlineAsm() || !callee->size()) {
+      // Internal globals are not passed to external
+      // functions.
+      DEBUG(CTX.logger.debug() << "Globals `" << F.getName() << "` used by external call\n");
+      return !(g.hasInternalLinkage() || g.hasPrivateLinkage());
+    }
 
     FunctionInfo* info = CTX.functionInfos[callee];
 
