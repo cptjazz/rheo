@@ -1,40 +1,37 @@
-#ifndef REQUESTS_FILE_H
-#define REQUESTS_FILE_H
+#ifndef EXCLUDE_FILE_H
+#define EXCLUDE_FILE_H
 
 #include "Core.h"
 #include <string>
 #include <fstream>
 
-class RequestsFile {
+class ExcludeFile {
   private:
     set<string> functions;
     bool hasFile;
 
-    RequestsFile() { 
+    ExcludeFile() { 
       hasFile = false;
     }
 
   public:
     inline bool includesFunction(const Function* function) {
-      // If we do not have any special requests
-      // we analyse everything.
+      // Default: no exclusions
       if (!hasFile)
-        return true;
+        return false;
 
       // This handles the virtual root node
-      // of the CallGraph. Since we have a file
-      // we do not want this to be analysed 
-      // (would cause cascading everything)
+      // of the CallGraph. 
       if (function == NULL)
         return false;
 
       return functions.count(function->getName().str());
     }
 
-    static RequestsFile& read() {
-      RequestsFile* req = new RequestsFile();
+    static ExcludeFile& read() {
+      ExcludeFile* req = new ExcludeFile();
 
-      ifstream file("requests.list", ios::in);
+      ifstream file("exclude.list", ios::in);
       if (!file.is_open())
         return *req;
 
@@ -51,4 +48,4 @@ class RequestsFile {
 
 };
 
-#endif // REQUESTS_FILE_H
+#endif // EXCLUDE_FILE_H

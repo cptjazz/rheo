@@ -13,6 +13,7 @@
 #include "TaintFlowPass.h"
 #include "TaintFile.h"
 #include "RequestsFile.h"
+#include "ExcludeFile.h"
 #include "FunctionProcessor.h"
 
 
@@ -134,6 +135,22 @@ bool TaintFlowPass::runOnModule(Module &module) {
   DOT = new GraphExporter("callgraph");
   DOT->init();
 
+  // Handle exclustion list
+  ExcludeFile& excludes = ExcludeFile::read();
+  for (CallGraph::iterator i = CG.begin(), e = CG.end(); i != e; ++i) {
+    CallGraphNode* node = i->second;
+    Function& f = *node->getFunction();
+
+    // We delete the function body to
+    // "convert" this function to external
+    // and let the external heuristic do
+    // its job.
+    if (excludes.includesFunction(&f)) {
+      f.deleteBody();
+      continue;
+    }
+  }
+
   errs() << "__enqueue:start\n";
   _avoidInfiniteLoopHelper.clear();
   for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
@@ -150,9 +167,12 @@ bool TaintFlowPass::runOnModule(Module &module) {
 
   RequestsFile& requests = RequestsFile::read();
 
-  for (CallGraph::const_iterator i = CG.begin(), e = CG.end(); i != e; ++i) {
-    if (requests.includeFunction(i->first))
-      enqueueFunctionsInCorrectOrder(i->second, circleHelper);
+  for (CallGraph::iterator i = CG.begin(), e = CG.end(); i != e; ++i) {
+    CallGraphNode* node = i->second;
+    Function& f = *node->getFunction();
+
+    if (requests.includesFunction(&f))
+      enqueueFunctionsInCorrectOrder(node, circleHelper);
   }
 
   errs() << "__enqueue:end\n";
