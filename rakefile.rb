@@ -46,6 +46,10 @@ def analyse(args)
     `cp requests.list output/`
   end
 
+  if File.exist?("exclude.list")
+    `cp exclude.list output/`
+  end
+
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
 
