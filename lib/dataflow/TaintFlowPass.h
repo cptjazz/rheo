@@ -12,6 +12,7 @@
 #include "Logger.h"
 #include "FunctionInfo.h"
 #include "GraphExporter.h"
+#include "ExcludeFile.h"
 
 using namespace llvm;
 using namespace std;
@@ -43,8 +44,8 @@ class TaintFlowPass : public ModulePass {
     bool buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences);
     void addFunctionForProcessing(Function* f); 
     void printCircularReferences();
-    void processFunctionQueue(const Module& module);
-    ProcessingState processFunction(const Function& func, const Module& module);
+    void processFunctionQueue(const Module& module, ExcludeFile& exclusions);
+    ProcessingState processFunction(const Function& func, const Module& module, ExcludeFile& exclusions);
 
 public:
     static char ID;

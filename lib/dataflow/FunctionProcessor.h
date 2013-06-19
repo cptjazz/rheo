@@ -29,6 +29,7 @@
 #include "Logger.h"
 #include "SetHelper.h"
 #include "FunctionInfo.h"
+#include "ExcludeFile.h"
 
 using namespace llvm;
 using namespace std;
@@ -57,10 +58,10 @@ class FunctionProcessor {
   bool _shouldWriteErrors;
 
 public:
-  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, FunctionInfos& functionInfos)
+  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, FunctionInfos& functionInfos, ExcludeFile& exclusions)
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
     PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()),
-    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m, functionInfos, *functionInfos[&F]),
+    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m, functionInfos, *functionInfos[&F], exclusions),
     IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger), _functionInfos(functionInfos)
    {
     _suppressPrintTaints = false;
@@ -79,7 +80,7 @@ public:
     ctx.functionInfos.erase(&func);
     ctx.functionInfos.insert(make_pair(&func, new FunctionInfo()));
 
-    return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.functionInfos);
+    return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.functionInfos, ctx.EXCL);
   }
 
   AnalysisState getAnalysisState() {

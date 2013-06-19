@@ -9,6 +9,7 @@
 #include "FunctionInfo.h"
 #include "GraphExporter.h"
 #include "BlockHelper.h"
+#include "ExcludeFile.h"
 
 struct EnqueueToWorklistFunctor {
     deque<const BasicBlock*>& _worklist;
@@ -28,10 +29,10 @@ class InstructionHandlerContext {
     InstructionHandlerContext(GraphExporter& dot, DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
                               deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
                               CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module,
-                              FunctionInfos& fInfos, FunctionInfo& functionInfo)
+                              FunctionInfos& fInfos, FunctionInfo& functionInfo, ExcludeFile& exclusions)
         : DT(dt), PDT(pdt), DOT(dot), logger(logger), enqueueBlockToWorklist(worklist), analysisState(analysisState),
           BH(dt, pdt, dot, logger), F(f), circularReferences(circRef), setHelper(setHelper), PASS(pass), M(module),
-          functionInfos(fInfos), FI(functionInfo)
+          functionInfos(fInfos), FI(functionInfo), EXCL(exclusions)
     { }
 
     DominatorTree& DT;
@@ -49,6 +50,7 @@ class InstructionHandlerContext {
     FunctionInfos& functionInfos;
     FunctionInfo& FI;
     map<const CallInst*, ResultSet> mappingCache;
+    ExcludeFile& EXCL;
 
     void refreshDomTrees() {
       DT.runOnFunction(const_cast<Function&>(F));

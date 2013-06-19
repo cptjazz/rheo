@@ -146,8 +146,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     if (g.isConstant())
       continue;
 
-    if (isExternal && (g.hasInternalLinkage() || g.hasPrivateLinkage())) {
-      //CTX.logger.error() << "skipping private global: " << g.getName() << "\n";
+    if (isExternal && !CTX.EXCL.includesFunction(&CTX.F) && (g.hasInternalLinkage() || g.hasPrivateLinkage())) {
       continue;
     }
 

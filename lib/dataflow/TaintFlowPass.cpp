@@ -13,7 +13,6 @@
 #include "TaintFlowPass.h"
 #include "TaintFile.h"
 #include "RequestsFile.h"
-#include "ExcludeFile.h"
 #include "FunctionProcessor.h"
 
 
@@ -135,7 +134,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
   DOT = new GraphExporter("callgraph");
   DOT->init();
 
-  // Handle exclustion list
+  // Handle exclusion list
   ExcludeFile& excludes = ExcludeFile::read();
   for (CallGraph::iterator i = CG.begin(), e = CG.end(); i != e; ++i) {
     CallGraphNode* node = i->second;
@@ -180,12 +179,12 @@ bool TaintFlowPass::runOnModule(Module &module) {
 
   delete (DOT);
 
-  processFunctionQueue(module);
+  processFunctionQueue(module, excludes);
 
   return false;
 }
 
-void TaintFlowPass::processFunctionQueue(const Module& module) {
+void TaintFlowPass::processFunctionQueue(const Module& module, ExcludeFile& exclusions) {
   while (!_functionQueue.empty()) {
     const Function* f = _functionQueue.front();
 
@@ -195,7 +194,7 @@ void TaintFlowPass::processFunctionQueue(const Module& module) {
     }
 
     _functionInfos.insert(make_pair(f, new FunctionInfo()));
-    ProcessingState state = processFunction(*f, module);
+    ProcessingState state = processFunction(*f, module, exclusions);
     _functionQueue.pop_front();
 
     // If the current function was deferred,
@@ -241,11 +240,11 @@ void TaintFlowPass::printCircularReferences() {
 
 }
 
-ProcessingState TaintFlowPass::processFunction(const Function& func, const Module& module) {
+ProcessingState TaintFlowPass::processFunction(const Function& func, const Module& module, ExcludeFile& exclusions) {
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  FunctionProcessor proc(*this, func, _circularReferences, module, logger, _functionInfos);
+  FunctionProcessor proc(*this, func, _circularReferences, module, logger, _functionInfos, exclusions);
   proc.processFunction();
   ResultSet result = proc.getResult();
 
