@@ -1,0 +1,8 @@
+cleanse_ctr => ptr
+cleanse_ctr => 0
+ptr => cleanse_ctr
+0 => cleanse_ctr
+len => cleanse_ctr
+1 => cleanse_ctr
+len => ptr
+1 => 0

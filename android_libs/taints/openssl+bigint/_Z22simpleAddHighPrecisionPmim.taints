@@ -1,0 +1,10 @@
+arg1 => $_retval
+0 => -1
+length => arg1
+1 => 0
+length => $_retval
+1 => -1
+arg2 => arg1
+2 => 0
+arg2 => $_retval
+2 => -1

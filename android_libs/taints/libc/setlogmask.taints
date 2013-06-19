@@ -1,4 +1,4 @@
 sdata => $_retval
 sdata => -1
 pmask => sdata
-0 => -2
+0 => sdata

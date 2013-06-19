@@ -1,0 +1,8 @@
+b => buf
+0 => 2
+b => $_retval
+0 => -1
+top => buf
+1 => 2
+top => $_retval
+1 => -1

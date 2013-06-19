@@ -1,0 +1,12 @@
+min => nump
+2 => 1
+min => $_retval
+2 => -1
+max => nump
+3 => 1
+max => $_retval
+3 => -1
+strp => nump
+0 => 1
+strp => $_retval
+0 => -1

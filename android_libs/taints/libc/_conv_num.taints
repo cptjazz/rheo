@@ -1,0 +1,12 @@
+buf => dest
+0 => 1
+buf => $_retval
+0 => -1
+llim => dest
+2 => 1
+llim => $_retval
+2 => -1
+ulim => dest
+3 => 1
+ulim => $_retval
+3 => -1

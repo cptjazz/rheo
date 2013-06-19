@@ -1,14 +1,2 @@
-static_bl_desc => file
-static_bl_desc => 0
-static_bl_desc => $_retval
-static_bl_desc => -1
-static_d_desc => file
-static_d_desc => 0
-static_d_desc => $_retval
-static_d_desc => -1
-static_l_desc => file
-static_l_desc => 0
-static_l_desc => $_retval
-static_l_desc => -1
 file => $_retval
 0 => -1

@@ -1,10 +1,10 @@
 strtok.last => $_retval
 strtok.last => -1
 s => strtok.last
-0 => -2
+0 => strtok.last
 s => $_retval
 0 => -1
 delim => strtok.last
-1 => -2
+1 => strtok.last
 delim => $_retval
 1 => -1
