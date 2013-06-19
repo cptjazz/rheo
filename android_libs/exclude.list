@@ -1,0 +1,5 @@
+__res_get_static
+syslog_r
+__sbprintf
+CRYPTO_destroy_dynlockid
+CRYPTO_get_dynlock_value
