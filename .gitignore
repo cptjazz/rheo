@@ -1,4 +1,4 @@
-# Bulid products
+#:Bulid products
 *.a
 *.o
 *.so
@@ -15,3 +15,5 @@ output/**
 Makefile.common
 Makefile.llvm.config
 configure
+.cproject
+.project
