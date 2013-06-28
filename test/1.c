@@ -20,7 +20,7 @@ int indirect(int a, int b) {
   return i + j;
 }
 
-// __expected:foo(a => $_retval, b => $_retval) 
+// __expected:foo(a => $_retval, b => $_retval, b => c, a => c, c => $_retval) 
 int foo(int a, int b, int* c) {
   int d = a;
   int x = a + b;
