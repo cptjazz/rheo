@@ -24,10 +24,6 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
     const Value& retval = *ret_i->first;
     const TaintSet retTaintSet = ret_i->second;
 
-    if (&retval == &arg) {
-      DEBUG(logger.debug() << "Skipping detected self-taint\n");
-      continue;
-    }
 
     DEBUG(logger.debug() << "Ret-set for `" << retval << "`:\n");
     DEBUG(retTaintSet.printTo(logger.debug()));

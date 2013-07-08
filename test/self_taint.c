@@ -1,4 +1,4 @@
-// __expected:f_1()
+// __expected:f_1(a => a, b => b)
 void f_1(int* a, int* b) {
 }
 
