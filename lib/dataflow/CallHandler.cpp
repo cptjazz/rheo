@@ -336,6 +336,16 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
   bool needToAddGraphNodeForFunction = false;
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
+
+  map<const Value*, bool> isInTaintSet;
+  for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
+    const Value& in = *i->first;
+    if (!isInTaintSet.count(&in)) {
+      isInTaintSet.insert(make_pair(&in, taintSet.contains(in)));
+      taintSet.remove(in);
+    }
+  }
+
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     const Value& out = *i->second;
@@ -349,7 +359,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
-    if (taintSet.contains(in)) {
+    if (isInTaintSet[&in]) {
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.

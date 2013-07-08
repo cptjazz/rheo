@@ -15,7 +15,10 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
     AliasHelper::handleAliasing(CTX, target, taintSet);
   } else if (taintSet.contains(target)) {
     // Only do removal if value is really in set
+    DEBUG(CTX.logger.debug() << "Set size before: " << taintSet.size() << "\n");
     taintSet.remove(target);
+    DEBUG(CTX.logger.debug() << "Set size after: " << taintSet.size() << "\n");
+
     DEBUG(CTX.logger.debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n");
     DEBUG(CTX.DOT.addRelation(source, target, "non-taint overwrite"));
   }
