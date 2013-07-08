@@ -5,7 +5,7 @@ int get_some_index(int i, int j) {
   return 20;
 }
 
-// __expected:create_2d_array(l => neighbours, values => neighbours)
+// __expected:create_2d_array(l => neighbours, values => neighbours, values => values, neighbours => neighbours)
 void create_2d_array(short* values, short*** neighbours, int l) {
   for (int i = 0; i < l * l; i++) {
     // __define:malloc()
@@ -16,12 +16,12 @@ void create_2d_array(short* values, short*** neighbours, int l) {
   }
 }
 
-// __expected:store_addressof(source => target)
+// __expected:store_addressof(source => target, source => source, target => target)
 void store_addressof(int* source, int** target) {
   target[0] = &source[1];
 }
 
-// __expected:store_addressof_double_indexing(source => target)
+// __expected:store_addressof_double_indexing(source => target, source => source, target => target)
 void store_addressof_double_indexing(int* source, int*** target) {
   target[0][1] = &source[1];
 }
