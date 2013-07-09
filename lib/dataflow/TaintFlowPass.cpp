@@ -193,7 +193,6 @@ void TaintFlowPass::processFunctionQueue(const Module& module, ExcludeFile& excl
       return;
     }
 
-    _functionInfos.insert(make_pair(f, new FunctionInfo()));
     ProcessingState state = processFunction(*f, module, exclusions);
     _functionQueue.pop_front();
 
@@ -215,10 +214,6 @@ void TaintFlowPass::processFunctionQueue(const Module& module, ExcludeFile& excl
 
     _deferredFunctions.erase(f);
   }
-
-  // Clean up FunctionInfo objects
-  for (FunctionInfos::iterator f_i = _functionInfos.begin(), f_e = _functionInfos.end(); f_i != f_e; f_i++)
-    delete (f_i->second);
 }
 
 void TaintFlowPass::printCircularReferences() {
@@ -244,7 +239,7 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  FunctionProcessor proc(*this, func, _circularReferences, module, logger, _functionInfos, exclusions);
+  FunctionProcessor proc(*this, func, _circularReferences, module, logger, exclusions);
   proc.processFunction();
   ResultSet result = proc.getResult();
 
@@ -256,8 +251,10 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
     case Deferred:
       if (missing) {
         errs() << "__defer:" << func.getName();
+
         if (missing->hasName())
           errs()  << ":" << missing->getName();
+
         errs() << "\n";
 
         _deferredFunctions.insert(make_pair(missing, &func));

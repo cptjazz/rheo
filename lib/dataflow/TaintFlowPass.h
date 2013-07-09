@@ -10,7 +10,6 @@
 #include "Core.h"
 #include "AnalysisState.h"
 #include "Logger.h"
-#include "FunctionInfo.h"
 #include "GraphExporter.h"
 #include "ExcludeFile.h"
 
@@ -23,7 +22,6 @@ class TaintFlowPass : public ModulePass {
     multimap<const Function*, const Function*> _deferredFunctions;
     deque<const Function*> _functionQueue;
     map<const Function*, int> _occurrenceCount;
-    FunctionInfos _functionInfos;
 
     CircleMap _circularReferences;
     set<Function*> _queuedFunctionHelper;

@@ -1,7 +1,7 @@
 // From: http://p2p.wrox.com/visual-c/66347-quick-sort-c-code.html
 // 
 
-// __expected:q_sort(left => numbers, right => numbers)
+// __expected:q_sort(left => numbers, right => numbers, numbers => numbers)
 void q_sort(int numbers[], int left, int right)
 {
   int pivot, l_hold, r_hold;

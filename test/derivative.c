@@ -7,7 +7,7 @@ const double H = 0.001;
 const double PI = 3.14159265;
 
 
-// __expected:derive(input => output, elements => output)
+// __expected:derive(input => output, elements => output, input => input, output => output)
 void derive(double* input, long elements, double* output) {
   for (int i = 1; i < elements - 1; i++) {
     output[i - 1] = (input[i + 1] - input[i - 1])/ (2 * H);

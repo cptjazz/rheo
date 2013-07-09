@@ -4,7 +4,7 @@
 // pointer or value types, we stay conservative and assume they 
 // are pointers.
 //
-// __expected:average(count => $_retval, ... => $_retval, count => ...)
+// __expected:average(count => $_retval, ... => $_retval, count => ..., ... => ...)
 double average(int count, ...)
 {
   va_list ap;

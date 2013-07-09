@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include "FunctionProcessor.h"
 #include "TaintSet.h"
-#include "FunctionHelper.h"
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
@@ -81,7 +80,6 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   _blockList.clear();
   _workList.clear();
 
-  DEBUG(CTX.logger.debug() << "FP:Set size all-all-before: " << taintSet.size() << "\n");
   for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     const BasicBlock& block = cast<BasicBlock>(*b_i);
     TaintSet blockTaintSet;
@@ -97,7 +95,6 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   _blockList[firstBlock].add(arg);
 
 
-  DEBUG(CTX.logger.debug() << "FP:Set size all-before: " << taintSet.size() << "\n");
   do {
     STOP_ON_CANCEL;
 
@@ -116,13 +113,11 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   } while(taintSet.hasChanged());
 
-  DEBUG(CTX.logger.debug() << "FP:Set size before: " << taintSet.size() << "\n");
 
   // The last block represents the result.
   // Every taint flows were propagated to this
   // block due to the meet-operation
   taintSet.addAll(_blockList[lastBlock]);
-  DEBUG(CTX.logger.debug() << "FP:Set size after: " << taintSet.size() << "\n");
 
   DEBUG(logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
   DEBUG(taintSet.printTo(logger.debug()));
@@ -164,9 +159,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
 
-    DEBUG(CTX.logger.debug() << "IH:Set size before: " << taintSet.size() << "\n");
     IHD.dispatch(inst, taintSet);
-    DEBUG(CTX.logger.debug() << "IH:Set size after: " << taintSet.size() << "\n");
 
     IF_PROFILING(logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -225,8 +218,6 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(*a_i);
   }
 
-  FunctionHelper fh(CTX, F);
-
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
     const GlobalVariable& g = *g_i;
 
@@ -234,12 +225,6 @@ void FunctionProcessor::findArguments() {
     if (g.isConstant())
       continue;
 
-    if (!fh.usesGlobal(g)) {
-      DEBUG(logger.debug() << "Skipping unused global `" << g << "`\n");
-      continue;
-    }
-
-    CTX.FI.addGlobalUsage(g);
     handleFoundArgument(g);
   }
 

@@ -16,7 +16,7 @@
 int cpy = 23;
 int global_base_ = 0;
 
-// __expected:copy(base => global_base_, a => global_base_, base => $_retval, a => $_retval)
+// __expected:copy(base => global_base_, a => global_base_, base => $_retval, a => $_retval, global_base_ => global_base_)
 int copy(int base, int a) {
   //int i = INT_MIN;
   while (base < a) {
@@ -26,7 +26,7 @@ int copy(int base, int a) {
   return base;
 }
 
-// __expected:main(cpy => global_base_)
+// __expected:main(cpy => global_base_, global_base_ => global_base_)
 int main() {
   int base = 0;
   // __define:scanf()

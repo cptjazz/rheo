@@ -1,4 +1,4 @@
-// __expected:findMaxElem(list => $_retval, size => $_retval)
+// __expected:findMaxElem(list => $_retval, size => $_retval, list => list)
 int findMaxElem(int* list, int size) {
   int max = list[0];
 

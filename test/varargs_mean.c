@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
  
-// __expected:manipulate_pointers(count => ...)
+// __expected:manipulate_pointers(count => ..., ... => ...)
 void manipulate_pointers(int count, ...)
 {
   va_list ap;

@@ -8,7 +8,7 @@ int midpoint(int min, int max) {
   return (min + max) / 2;
 }
 
-// __expected:binary_search_recursive(imin => $_retval, imax => $_retval, key => $_retval, A => $_retval)
+// __expected:binary_search_recursive(imin => $_retval, imax => $_retval, key => $_retval, A => $_retval, A => A)
 int binary_search_recursive(int A[], int key, int imin, int imax)
 {
   // test if array is empty
@@ -32,7 +32,7 @@ int binary_search_recursive(int A[], int key, int imin, int imax)
   }
 }
 
-// __expected:binary_search_iterative(imin => $_retval, imax => $_retval, key => $_retval, A => $_retval)
+// __expected:binary_search_iterative(imin => $_retval, imax => $_retval, key => $_retval, A => $_retval, A => A)
 int binary_search_iterative(int A[], int key, int imin, int imax)
 {
   // continue searching while [imin,imax] is not empty

@@ -10,7 +10,7 @@ struct node
 };
 
 // Test if tree_node contains i; return 1 if so, 0 if not.
-// __expected:tree_contains(tree_node => $_retval, i => $_retval)
+// __expected:tree_contains(tree_node => $_retval, i => $_retval, tree_node => tree_node)
 int tree_contains(struct node* tree_node, int i) {
   if (tree_node == NULL)
     return 0;  // base case
@@ -21,7 +21,7 @@ int tree_contains(struct node* tree_node, int i) {
 }
 
 // Inorder traversal:
-// __expected:tree_print()
+// __expected:tree_print(tree_node => tree_node)
 void tree_print(struct node* tree_node) {
   if (tree_node != NULL) {            // base case
     tree_print(tree_node->left);      // go left

@@ -4,7 +4,7 @@ int L(int x, int y) {
 }
 
 // Both arguments taint because of heuristic
-// __expected:function_with_function_pointer_arg(a => $_retval, b => $_retval, lambda => $_retval)
+// __expected:function_with_function_pointer_arg(a => $_retval, b => $_retval, lambda => $_retval, lambda => lambda)
 int function_with_function_pointer_arg(int a, int b, int (lambda)(int, int)) {
   return lambda(a, b);
 }

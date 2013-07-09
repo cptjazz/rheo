@@ -30,7 +30,6 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     ResultSet taintResults;
     buildMappingWithHeuristic(callInst, taintResults);
     processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
-    CTX.FI.setCallsFunctionPointer(true);
 
     // If the function to be called is tained
     // (eg. because the function is selected inside
@@ -192,7 +191,6 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     //
     DEBUG(CTX.logger.debug() << "calling to undefined external. using heuristic.\n");
     buildMappingWithHeuristic(callInst, taintResults);
-    CTX.FI.setCallsExternal(true);
   } else if (&callee == &CTX.F) {
     //
     // A self-recursive call
@@ -337,6 +335,12 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   bool needToAddGraphNodeForFunction = false;
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
 
+  // Store information if the in-value is
+  // currently in taint-set. Do this for
+  // all in-values and remove them from the taint-set.
+  // We do this to simulate possible kills of the value
+  // in the taint-mapping. If the value stays tainted,
+  // it is re-added.
   map<const Value*, bool> isInTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
@@ -409,7 +413,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
  *
  * @return the position of the argument in this call, -3 if not found
  */
-int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) const {
+inline int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) const {
   const size_t argCount = c.getNumArgOperands();
 
   for (size_t i = 0; i < argCount; ++i) {
@@ -427,7 +431,7 @@ int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) const {
  *
  * @return the position of the parameter in the corresponding Function, -3 if not found
  */
-int CallHandler::getArgumentPosition(const Function& f, const Value& v) const {
+inline int CallHandler::getArgumentPosition(const Function& f, const Value& v) const {
   if (isa<ReturnInst>(v))
     return -1;
 
