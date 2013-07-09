@@ -163,7 +163,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *arguments.at(j);
 
-      if (&source != &sink && sink.getType()->isPointerTy()) {
+      if (sink.getType()->isPointerTy()) {
         DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => " << j << "\n");
         taintResults.insert(make_pair(&source, &sink));
       }
