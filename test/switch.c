@@ -53,7 +53,7 @@ int default_block(int a, int* b) {
   return x;
 }
 
-// __expected:default_block_2(a => $_retval, a => b)
+// __expected:default_block_2(a => $_retval, a => b, b => b)
 int default_block_2(int a, int* b) {
   int x;
 

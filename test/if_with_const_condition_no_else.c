@@ -1,4 +1,4 @@
-// __expected:const_expr(x => out)
+// __expected:const_expr(x => out, out => out)
 int const_expr(int x, int* out) {
   if (x)
     *out = 9;

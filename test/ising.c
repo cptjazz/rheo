@@ -52,12 +52,12 @@ int get_neighbour_indices_for(int i, int l, int a) {
 	}
 }
 
-// __expected:get_neighbour_sum(neighbours => $_retval, i => $_retval)
+// __expected:get_neighbour_sum(neighbours => $_retval, i => $_retval, spins => spins, neighbours => neighbours)
 short get_neighbour_sum(short *spins, short*** neighbours, int i, int l) {
 	return *neighbours[i][0] + *neighbours[i][1] + *neighbours[i][2] + *neighbours[i][3];
 }
 
-// __expected:do_monte_carlo_update(l => spins, neighbours => spins, j => spins, h => spins, kT => spins)
+// __expected:do_monte_carlo_update(l => spins, neighbours => spins, j => spins, h => spins, kT => spins, spins => spins, neighbours => neighbours)
 void do_monte_carlo_update(short* spins, short*** neighbours, int l, double j, double h, double kT) {
 	for (int i = 0; i < l * l; i++) {
 		short sig = spins[i];
@@ -71,13 +71,13 @@ void do_monte_carlo_update(short* spins, short*** neighbours, int l, double j, d
 	}
 }
 
-// __expected:equilibrate(l => spins, neighbours => spins, j => spins, h => spins, kT => spins)
+// __expected:equilibrate(l => spins, neighbours => spins, j => spins, h => spins, kT => spins, spins => spins, neighbours => neighbours)
 void equilibrate(short* spins, short*** neighbours, int l, double j, double h, double kT) {
 	for (int i = 0; i < EQUI; i++)
 		do_monte_carlo_update(spins, neighbours, l, j, h, kT);
 }
 
-// __expected:get_magnetization(spins => $_retval, l => $_retval)
+// __expected:get_magnetization(spins => $_retval, l => $_retval, spins => spins)
 double get_magnetization(short* spins, int l) {
 	int sum = 0;
 	
@@ -88,7 +88,7 @@ double get_magnetization(short* spins, int l) {
 	return fabs(sum)  / (l * l);
 }
 
-// __expected:get_energy(spins => $_retval, l => $_retval, j => $_retval, h => $_retval, neighbours => $_retval)
+// __expected:get_energy(spins => $_retval, l => $_retval, j => $_retval, h => $_retval, neighbours => $_retval, spins => spins, neighbours => neighbours)
 double get_energy(short* spins, short*** neighbours, int l, double j, double h) {
 	double sum = 0;
 	
@@ -98,7 +98,7 @@ double get_energy(short* spins, short*** neighbours, int l, double j, double h) 
 	return sum  / (l * l);
 }
 
-// __expected:measure(l => spins, neighbours => spins, j => spins, h => spins, kT => spins, l => energy, neighbours => energy, j => energy, h => energy, kT => energy, spins => energy, l => energy2, neighbours => energy2, j => energy2, h => energy2, kT => energy2, spins => energy2, l => magnetization, neighbours => magnetization, j => magnetization, h => magnetization, kT => magnetization, spins => magnetization, l => magnetization2, neighbours => magnetization2, j => magnetization2, h => magnetization2, kT => magnetization2, spins => magnetization2)
+// __expected:measure(l => spins, neighbours => spins, j => spins, h => spins, kT => spins, l => energy, neighbours => energy, j => energy, h => energy, kT => energy, spins => energy, l => energy2, neighbours => energy2, j => energy2, h => energy2, kT => energy2, spins => energy2, l => magnetization, neighbours => magnetization, j => magnetization, h => magnetization, kT => magnetization, spins => magnetization, l => magnetization2, neighbours => magnetization2, j => magnetization2, h => magnetization2, kT => magnetization2, spins => magnetization2, spins => spins, neighbours => neighbours)
 void measure(short* spins, short*** neighbours, int l, double j, double h, double kT, double* energy, double* magnetization, double* energy2, double* magnetization2) {
 	double e = 0.0;
 	double e2 = 0.0;
@@ -133,13 +133,13 @@ void measure(short* spins, short*** neighbours, int l, double j, double h, doubl
 	(*magnetization2) = sqrt(m2 - m * m);
 }
 
-// __expected:create_lattice(l => spins)
+// __expected:create_lattice(l => spins, spins => spins)
 void create_lattice(short* spins, int l) {
 	for (int i = 0; i < l * l; i++) 
 		spins[i] = (rand() % 2 > 0) ? 1 : -1;
 }
 
-// __expected:create_neighbours(l => neighbours, spins => neighbours)
+// __expected:create_neighbours(l => neighbours, spins => neighbours, spins => spins, neighbours => neighbours)
 void create_neighbours(short* spins, short*** neighbours, int l) {
 	for (int i = 0; i < l * l; i++) {
     // __define:malloc()
@@ -150,7 +150,7 @@ void create_neighbours(short* spins, short*** neighbours, int l) {
 	}
 }
 
-// __expected:write_file()
+// __expected:write_file(kT => kT, energies => energies, magnetization => magnetization, energies2 => energies2, magnetization2 => magnetization2)
 void write_file(double j, double* kT, double* energies, double* magnetization, double* energies2, double* magnetization2, int l) {
 	char filename[255];
 	FILE *fp;

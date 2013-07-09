@@ -2,13 +2,13 @@
 
 int (*operation)(int x, int y);
 
-// __expected:op1(x => $_retval)
+// __expected:op1(x => $_retval, operation => operation)
 int op1(int x, int y)
 {
   return x;
 }
 
-// __expected:op2(y => $_retval)
+// __expected:op2(y => $_retval, operation => operation)
 int op2(int x, int y)
 {
   return y;

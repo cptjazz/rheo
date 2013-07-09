@@ -49,7 +49,7 @@ char isOdd_2(int number) {
   return 0;
 }
 
-// __expected:mutual_first(a => $_retval, b => $_retval, b => c, a => c)
+// __expected:mutual_first(a => $_retval, b => $_retval, b => c, a => c, c => c)
 int mutual_first(int a, int b, int* c) {
 
   if (a)
@@ -59,7 +59,7 @@ int mutual_first(int a, int b, int* c) {
 
 }
 
-// __expected:mutual_second(a => $_retval, c => $_retval, a => b, c => b)
+// __expected:mutual_second(a => $_retval, c => $_retval, a => b, c => b, b => b)
 int mutual_second(int a, int* b, int c) {
 
   if (c) {

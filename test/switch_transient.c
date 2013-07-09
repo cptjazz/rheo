@@ -1,4 +1,4 @@
-// __expected:switch_transient(a => $_retval, a => c)
+// __expected:switch_transient(a => $_retval, a => c, c => c)
 int switch_transient(int a, int b, int* c) {
   int y = 5;
   int x;

@@ -1,4 +1,4 @@
-// __expected:switch_goto(a => $_retval, a => c)
+// __expected:switch_goto(a => $_retval, a => c, b => b, c => c)
 int switch_goto(int a, int* b, int* c) {
   int y = 5;
   int x;
@@ -23,7 +23,7 @@ xxx:
   return x;
 }
 
-// __expected:switch_goto_2(a => $_retval, a => b)
+// __expected:switch_goto_2(a => $_retval, a => b, b => b, c => c)
 int switch_goto_2(int a, int* b, int* c) {
   int y = 5;
   int x;

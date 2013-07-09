@@ -11,7 +11,7 @@ int with_globals(int fu, int baz)
   return y;
 }
 
-// __expected:with_globals_and_out_pointer(my_global => $_retval, fu => $_retval, baz => $_retval, my_global => baz, fu => baz)
+// __expected:with_globals_and_out_pointer(my_global => $_retval, fu => $_retval, baz => $_retval, my_global => baz, fu => baz, baz => baz)
 int with_globals_and_out_pointer(int fu, int* baz)
 {
   int (*operation2)(int x, int* y);

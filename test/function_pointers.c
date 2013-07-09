@@ -2,13 +2,13 @@
 
 int (*operation)(int x, int y);
 
-// __expected:op1(x => $_retval, y => $_retval)
+// __expected:op1(x => $_retval, y => $_retval, operation => operation)
 int op1(int x, int y)
 {
   return x + y;
 }
 
-// __expected:op2()
+// __expected:op2(operation => operation)
 int op2(int x, int y)
 {
   return 33;
@@ -27,13 +27,13 @@ int variable_operation(int foo, int bar, int fu, int baz)
   return x + y;
 }
 
-// __expected:op3(x => $_retval)
+// __expected:op3(x => $_retval, operation => operation)
 int op3(int x, int y)
 {
   return x;
 }
 
-// __expected:op4(y => $_retval)
+// __expected:op4(y => $_retval, operation => operation)
 int op4(int x, int y)
 {
   return y;

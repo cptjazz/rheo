@@ -1,6 +1,6 @@
 int global_option, g2;
 
-// __expected:m1(global_option => g2)
+// __expected:m1(global_option => g2, global_option => global_option, g2 => g2)
 void m1() {
   if (global_option) {
     g2 = 5;
