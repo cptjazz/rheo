@@ -1,6 +1,6 @@
 int global_option, g2;
 
-// __expected:m1(global_option => g2, global_option => global_option, g2 => g2)
+// __expected:m1(@global_option => @g2, @global_option => @global_option, @g2 => @g2)
 void m1() {
   if (global_option) {
     g2 = 5;
@@ -8,7 +8,7 @@ void m1() {
 }
 
 
-// __expected:hidden_flow(local_option => $_retval, g2 => $_retval)
+// __expected:hidden_flow(local_option => $_retval, @g2 => $_retval)
 int hidden_flow(int local_option, int b) {
   // local_option => global_option
   global_option = local_option;

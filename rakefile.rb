@@ -211,9 +211,9 @@ def test(file, exp_map, out_map, opts, show_only)
     unless taints.length == out_taints.length
       print_failed(file, function, "Taint count mismatch. Expected #{taints.length} but was #{out_taints.length}", opts)
       puts " --- Expected ---".color(:yellow)
-      puts taints
+      puts taints.sort
       puts " --- But was ---".color(:yellow)
-      puts out_taints
+      puts out_taints.sort
       test_result &&= false
       failed_count += 1
       next

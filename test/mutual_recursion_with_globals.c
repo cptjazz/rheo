@@ -21,7 +21,7 @@ int mutual_second(int a, int* b, int c);
 // __define:abs(0 => $_retval)
 // __define:printf()
 
-// __expected:isEven(number => $_retval, some_global => some_global)
+// __expected:isEven(number => $_retval, @some_global => @some_global)
 char isEven(int number) {
   if (some_global)
     printf("debug...");
@@ -32,7 +32,7 @@ char isEven(int number) {
     return isOdd(abs(number) - 1);
 }
 
-// __expected:isOdd(number => $_retval, some_global => some_global)
+// __expected:isOdd(number => $_retval, @some_global => @some_global)
 char isOdd(int number) {
   if (some_global)
     printf("debug...");
@@ -43,7 +43,7 @@ char isOdd(int number) {
     return isEven(abs(number) - 1);
 }
 
-// __expected:isEven_2(number => $_retval, some_global => some_global)
+// __expected:isEven_2(number => $_retval, @some_global => @some_global)
 char isEven_2(int number) {
   if (some_global)
     printf("debug...");
@@ -54,7 +54,7 @@ char isEven_2(int number) {
   return 0;
 }
 
-// __expected:isOdd_2(number => $_retval, some_global => some_global)
+// __expected:isOdd_2(number => $_retval, @some_global => @some_global)
 char isOdd_2(int number) {
   if (some_global)
     printf("debug...");
@@ -65,7 +65,7 @@ char isOdd_2(int number) {
   return 0;
 }
 
-// __expected:mutual_first(a => $_retval, b => $_retval, b => c, a => c, c => c, some_global => some_global)
+// __expected:mutual_first(a => $_retval, b => $_retval, b => c, a => c, c => c, @some_global => @some_global)
 int mutual_first(int a, int b, int* c) {
   if (some_global)
     printf("debug...");
@@ -77,7 +77,7 @@ int mutual_first(int a, int b, int* c) {
 
 }
 
-// __expected:mutual_second(a => $_retval, c => $_retval, a => b, c => b, b => b, some_global => some_global)
+// __expected:mutual_second(a => $_retval, c => $_retval, a => b, c => b, b => b, @some_global => @some_global)
 int mutual_second(int a, int* b, int c) {
   if (some_global)
     printf("debug...");

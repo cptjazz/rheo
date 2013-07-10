@@ -2,7 +2,7 @@ int b;
 int c;
 int d;
 
-// __expected:no_transitivity_1(a => b, d => c, d => d)
+// __expected:no_transitivity_1(a => @b, @d => @c, @d => @d)
 int no_transitivity_1(int a) {
   c = d;
   b = c;
@@ -12,7 +12,7 @@ int no_transitivity_1(int a) {
   return 0;
 }
 
-// __expected:no_transitivity_2(c => d, b => c, a => b)
+// __expected:no_transitivity_2(@c => @d, @b => @c, a => @b)
 int no_transitivity_2(int a) {
   d = c;
   c = b;
@@ -21,7 +21,7 @@ int no_transitivity_2(int a) {
   return 0;
 }
 
-// __expected:no_transitivity_3(b => d, b => c, a => b)
+// __expected:no_transitivity_3(@b => @d, @b => @c, a => @b)
 int no_transitivity_3(int a) {
   c = b;
   d = c;
@@ -30,7 +30,7 @@ int no_transitivity_3(int a) {
   return 0;
 }
 
-// __expected:no_transitivity_4(a => d, a => b)
+// __expected:no_transitivity_4(a => @d, a => @b)
 int no_transitivity_4(int a) {
   d = a;
   a = 5;

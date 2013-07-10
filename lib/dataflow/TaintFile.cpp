@@ -131,6 +131,8 @@ int TaintFile::getValuePosition(const Function& func, const Logger& logger, cons
       return position;
     }
     
+    DEBUG(logger.debug() << "Searching for value `" << valName << "`\n");
+
     // If integer conversion failed, the arguments
     // in the file are specified by their names so we 
     // have to search the corresponing argument positions.
@@ -149,7 +151,6 @@ int TaintFile::getValuePosition(const Function& func, const Logger& logger, cons
     } else {
       position = -3;
 
-      DEBUG(logger.debug() << "Searching argument-list for value `" << valName << "`\n");
       for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
         if (valName.compare(a_i->getName().str()) == 0) {
           position = i;

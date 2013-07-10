@@ -16,7 +16,7 @@
 int cpy = 23;
 int global_base_ = 0;
 
-// __expected:copy(base => global_base_, a => global_base_, base => $_retval, a => $_retval, global_base_ => global_base_, cpy => cpy)
+// __expected:copy(base => @global_base_, a => @global_base_, base => $_retval, a => $_retval, @global_base_ => @global_base_, @cpy => @cpy)
 int copy(int base, int a) {
   //int i = INT_MIN;
   while (base < a) {
@@ -26,10 +26,12 @@ int copy(int base, int a) {
   return base;
 }
 
-// __expected:main(cpy => global_base_, global_base_ => global_base_)
+// __expected:main(@cpy => @global_base_, @cpy => @cpy)
 int main() {
   int base = 0;
-  // __define:scanf()
+
+  // Clang seems to replace the name of scanf()
+  // __define:__isoc99_scanf()
   scanf("Enter base: %d\n", &base);
   global_base_ = base;
   int cpyd = copy(base, cpy);

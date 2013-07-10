@@ -374,10 +374,21 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   map<const Value*, bool> isInTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
+
     if (!isInTaintSet.count(&in)) {
       isInTaintSet.insert(make_pair(&in, taintSet.contains(in)));
       taintSet.remove(in);
     }
+  }
+
+  // Remove out-pointer and global-sinks.
+  // Do this in separate loop to not disturb
+  // the taintSet.contains used above.
+  for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
+    const Value& out = *i->second;
+
+    if (out.getType()->isPointerTy())
+      taintSet.remove(out);
   }
 
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {

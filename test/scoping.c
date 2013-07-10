@@ -12,6 +12,7 @@ int foo(int a, int b) {
 // __expected:bar(d => @a, d => $_retval)
 int bar(int c, int d) {
   int x = foo(c, d);
+  // __define:printf(1 => 0)
   printf("%d\n", a);
   return x;
 }
