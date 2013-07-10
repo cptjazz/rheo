@@ -128,6 +128,18 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
  * 2) Every parameter taints all out pointers
  */
 void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet& taintResults) const {
+  // Caching call instruction arguments-to-value mappings
+  // per-function. This is a benefit if blocks are inspected
+  // several times. This is the case if we have more than
+  // one function parameter or have loops in the CFG.
+  // Caching must be done per call (not per function!) as
+  // the arguments are different for each call.
+  if (CTX.mappingCache.count(&callInst)) {
+    taintResults = CTX.mappingCache[&callInst];
+    DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
+    return;
+  } 
+
   vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
@@ -152,24 +164,37 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     arguments.push_back(&g);
   }
 
-  for (size_t i = 0; i < arguments.size(); i++) {
+  const size_t argumentsCount = arguments.size();
+
+  for (size_t i = 0; i < argumentsCount; i++) {
     const Value& source = *arguments.at(i);
+    int sourcePos = isa<GlobalVariable>(source) ? -3 : i;
 
     // Every argument taints the return value
     taintResults.insert(make_pair(&source, &callInst));
-    DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << i << " => -1\n");
+    DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
-    for (size_t j = 0; j < argCount; j++) {
+    for (size_t j = 0; j < argumentsCount; j++) {
       const Value& sink = *arguments.at(j);
+      int sinkPos = isa<GlobalVariable>(sink) ? -3 : j;
 
-      if (sink.getType()->isPointerTy()) {
-        DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << i << " => " << j << "\n");
+      if (sink.getType()->isPointerTy() || isa<GlobalVariable>(sink)) {
+        DEBUG(CTX.logger.debug() << "Heuristic: type" << *sink.getType() << "\n");
+        // GlobalVariable is a subclass of `Constant`, so we have to check if
+        // the Constant is not a GlobalVariable to really be a constant.
+        // Constant (now used as adjective, not the class name) globals are 
+        // already filtered above, so this should work.
+        if (isa<Constant>(sink) && !isa<GlobalVariable>(sink))
+          continue;
+
+        DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => " << sinkPos << "\n");
         taintResults.insert(make_pair(&source, &sink));
       }
     }
   }
 
+  CTX.mappingCache.insert(make_pair(&callInst, taintResults));
 }
 
 
