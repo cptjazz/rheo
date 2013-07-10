@@ -2,18 +2,16 @@
 
 int a;
 
+// __expected:foo(@a => $_retval, b => @a)
 int foo(int a, int b) {
   extern int a;
   a = b;
   return a;
 }
 
+// __expected:bar(d => @a, @a => $_retval, d => $_retval)
 int bar(int c, int d) {
   int x = foo(c, d);
   printf("%d\n", a);
   return x;
-}
-
-int main() {
-  bar(1,2);
 }

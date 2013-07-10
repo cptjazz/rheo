@@ -24,6 +24,7 @@
 #include "SwitchHandler.h"
 #include "StoreHandler.h"
 #include "IndirectBranchHandler.h"
+#include "IntToPtrHandler.h"
 #include "CallHandler.h"
 #include "DefaultHandler.h"
 #include "Logger.h"
@@ -116,6 +117,7 @@ private:
     IHD.registerHandler<StoreHandler>();
     IHD.registerHandler<CallHandler>();
     IHD.registerHandler<IndirectBranchHandler>();
+    IHD.registerHandler<IntToPtrHandler>();
   }
 
 };
