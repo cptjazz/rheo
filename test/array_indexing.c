@@ -33,12 +33,12 @@ void call_array_manipulator_4(int len, int* a, int* b) {
   copy_2(len, a, b + 50);
 }
 
-// __expected:call_array_manipulator_5(len => b, a => b, a => a, b => b)
+// __expected:call_array_manipulator_5(len => b, a => b, a => a, b => b, index => b)
 void call_array_manipulator_5(int len, int* a, int* b, int index) {
   copy_2(len, a, b + (++index));
 }
 
-// __expected:call_array_manipulator_6(len => b, a => b, a => a, b => b)
+// __expected:call_array_manipulator_6(len => b, a => b, a => a, b => b, index => b)
 void call_array_manipulator_6(int len, int* a, long* b, int index) {
   copy_2(len, a, ((int*)b) + (++index));
 }
