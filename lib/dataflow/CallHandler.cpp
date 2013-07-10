@@ -157,14 +157,14 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
 
     // Every argument taints the return value
     taintResults.insert(make_pair(&source, &callInst));
-    DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => -1\n");
+    DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << i << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argCount; j++) {
       const Value& sink = *arguments.at(j);
 
       if (sink.getType()->isPointerTy()) {
-        DEBUG(CTX.logger.debug() << "Function pointers: inserting mapping " << i << " => " << j << "\n");
+        DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << i << " => " << j << "\n");
         taintResults.insert(make_pair(&source, &sink));
       }
     }
@@ -278,7 +278,9 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     } else if (paramPos == -3) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sourceName << "\n");
-      const Value* glob = CTX.M.getNamedGlobal(i->sourceName);
+      string globName = i->sourceName.substr(1, i->sourceName.length() - 1);
+
+      const Value* glob = CTX.M.getNamedGlobal(globName);
       sources.insert(glob);
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else {
@@ -297,9 +299,12 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       sinks.insert(&callInst);
     } else if (retvalPos == -3) {
       // Seems to be a global
-      const Value* glob = CTX.M.getNamedGlobal(i->sinkName);
+      DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sinkName << "\n");
+      string globName = i->sinkName.substr(1, i->sinkName.length() - 1);
+      
+      const Value* glob = CTX.M.getNamedGlobal(globName);
       sinks.insert(glob);
-      DEBUG(CTX.logger.debug() << " no position mapping. using global: " << *glob << "\n");
+      DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else if (retvalPos == -2) {
       // Varargs
       // These can also be taint sinks, namely if pointers
@@ -372,7 +377,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       stringstream reas("");
 
       if (isa<GlobalVariable>(in))
-        DEBUG(reas << "in, via " << in.getName().str());
+        DEBUG(reas << "in, via " << Helper::getValueName(in));
       else
         DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in));
 
@@ -383,6 +388,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         taintSet.add(out);
       }
 
+      DEBUG(CTX.logger.debug() << " + Added " << out << "\n");
       taintSet.add(out);
       if (&out == &callInst) {
         DEBUG(CTX.DOT.addRelation(callee, callInst, "ret"));
@@ -390,7 +396,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         stringstream outReas("");
 
         if (isa<GlobalVariable>(out))
-          DEBUG(outReas << "out, via " << out.getName().str());
+          DEBUG(outReas << "out, via " << Helper::getValueName(out));
         else
           DEBUG(outReas << "out, arg# " << getArgumentPosition(callInst, out));
 

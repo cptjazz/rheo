@@ -18,9 +18,11 @@ class Helper {
     /**
      * @return if the provided Value is either an Argument or a GlobalVariable, its name is returned. '$_retval' otherwise.
      */
-    inline static string getValueNameOrDefault(const Value& v) {
-      if (isa<Argument>(v) || isa<GlobalVariable>(v))
+    inline static string getValueName(const Value& v) {
+      if (isa<Argument>(v))
         return v.getName().str();
+      else if (isa<GlobalVariable>(v))
+        return ("@" + v.getName()).str();
       else if (isa<ReturnInst>(v))
         return "$_retval";
       else 

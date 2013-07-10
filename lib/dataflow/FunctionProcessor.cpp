@@ -75,7 +75,7 @@ void FunctionProcessor::processFunction() {
 
 
 void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
-  DEBUG(logger.debug() << " *** Creating taint set for argument `" << arg.getName() << "`\n");
+  DEBUG(logger.debug() << " *** Creating taint set for argument `" << Helper::getValueName(arg) << "`\n");
 
   _blockList.clear();
   _workList.clear();
@@ -176,7 +176,7 @@ void FunctionProcessor::printTaints() {
     const Value& arg = cast<Value>(*i->first);
     const Value& retval = cast<Value>(*i->second);
 
-    logger.output() << (isFirstTime ? "" : ", ") << arg.getName() << " => " << Helper::getValueNameOrDefault(retval);
+    logger.output() << (isFirstTime ? "" : ", ") << Helper::getValueName(arg) << " => " << Helper::getValueName(retval);
     isFirstTime = false;
   }
 
@@ -262,7 +262,7 @@ void FunctionProcessor::findArguments() {
 void FunctionProcessor::handleFoundArgument(const Value& arg) {
   bool isInOutNode = false;
 
-  DEBUG(logger.debug() << " -- Inspecting argument or global `" << arg.getName() << "`\n");
+  DEBUG(logger.debug() << " -- Inspecting argument or global `" << Helper::getValueName(arg) << "`\n");
 
   if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
@@ -272,7 +272,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     DEBUG(DOT.addInOutNode(arg));
     isInOutNode = true;
 
-    DEBUG(logger.debug() << "added arg `" << arg.getName() << "` to out-list\n");
+    DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to out-list\n");
   }
 
   TaintSet taintSet;
@@ -281,7 +281,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     DEBUG(DOT.addInNode(arg));
 
   setHelper.arguments.insert(make_pair(&arg, taintSet));
-  DEBUG(logger.debug() << "added arg `" << arg.getName() << "` to arg-list\n");
+  DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to arg-list\n");
 }
 
 void FunctionProcessor::findReturnStatements() {

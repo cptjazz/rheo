@@ -70,88 +70,26 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
   while (file.good()) {
     getline(file, line);
     
-    string paramName;
-    string valName;
+    string sourceName;
+    string sinkName;
     istringstream iss(line);
 
-    iss >> paramName;
+    iss >> sourceName;
     // consume => :
-    iss >> valName;
-    iss >> valName;
+    iss >> sinkName;
+    iss >> sinkName;
 
-    int paramPos;
-    int retvalPos;
-    int i = 0;
-
-    if (paramName.size() == 0 || valName.size() == 0) {
+    if (sourceName.size() == 0 || sinkName.size() == 0) {
       continue;
     }
 
-    // Convert left hand side of => 
-    //
+    // Convert names to positions
+    int sourcePos = getValuePosition(func, logger, sourceName);
+    int sinkPos = getValuePosition(func, logger, sinkName);
 
-    stringstream convert1(paramName);
-    // If integer conversion failed, the arguments
-    // in the file are specified by their names so we 
-    // have to search the corresponing argument positions.
-    if( !(convert1 >> paramPos)) {
-      paramPos = -3;
-      DEBUG(logger.debug() << "Searching for param " << paramName << "\n");
-
-      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-        if (a_i->getName().str() == paramName) {
-          paramPos = i;
-          DEBUG(logger.debug() << " Found at #" << i << "\n");
-          break;
-        }
-
-        i++;
-      }
-
-      if (paramName.compare("...") == 0)
-        paramPos = -2;
-
-    } else {
-      DEBUG(logger.debug() << "Param-info from file: seem to be at #" << paramPos << "\n");
-    }
-
-    // Convert right hand side of => 
-    //
-
-    i = 0;
-    stringstream convert2(valName);
-    // If integer conversion failed, the arguments
-    // in the file are specified by their names so we 
-    // have to search the corresponing argument positions.
-    if( !(convert2 >> retvalPos)) {
-      retvalPos = -3;
-      DEBUG(logger.debug() << "Searching for retval " << valName << "\n");
-      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
-        if (a_i->getName().str() == valName) {
-          retvalPos = i;
-          DEBUG(logger.debug() << " Found at #" << i << "\n");
-          break;
-        }
-
-        i++;
-      }
-
-      if (valName.compare("...") == 0) {
-        retvalPos = -2;
-        DEBUG(logger.debug() << " Interpreting as varargs\n");
-      }
-
-      if (valName.compare("$_retval") == 0) {
-        retvalPos = -1;
-        DEBUG(logger.debug() << " Interpreting as return value\n");
-      }
-    } else {
-      DEBUG(logger.debug() << "Retval-info from file: seem to be at #" << retvalPos << "\n");
-    }
-
-    DEBUG(logger.debug() << "Insert mapping: " << paramPos << " => " << retvalPos << " ");
-    DEBUG(logger.debug() << "with names: " << paramName << " => " << valName << "\n");
-    mapping.insert(FunctionTaint(paramName, paramPos, valName, retvalPos));
+    DEBUG(logger.debug() << "Insert mapping: " << sourcePos << " => " << sinkPos << " ");
+    DEBUG(logger.debug() << "with names: " << sourceName << " => " << sinkName << "\n");
+    mapping.insert(FunctionTaint(sourceName, sourcePos, sinkName, sinkPos));
   }
 
   file.close();
@@ -182,6 +120,50 @@ bool TaintFile::exists(const Function& f) {
   return file.good();
 }
 
+int TaintFile::getValuePosition(const Function& func, const Logger& logger, const string valName) {
+    int i = 0;
+    int position;
+
+    stringstream convert(valName);
+
+    if(convert >> position) {
+      DEBUG(logger.debug() << "Using value position from file: `" << valName << "` is at #" << position << "\n");
+      return position;
+    }
+    
+    // If integer conversion failed, the arguments
+    // in the file are specified by their names so we 
+    // have to search the corresponing argument positions.
+
+    // Check for known special names first before scanning
+    // the argument list
+    if (valName.compare("...") == 0) {
+      position = -2;
+      DEBUG(logger.debug() << " Interpreting as varargs\n");
+    } else if (valName.compare("$_retval") == 0) {
+      position = -1;
+      DEBUG(logger.debug() << " Interpreting as return value\n");
+    } else if (valName.compare(0, 1, "@") == 0) {
+      position = -3;
+      DEBUG(logger.debug() << " Interpreting as global value\n");
+    } else {
+      position = -3;
+
+      DEBUG(logger.debug() << "Searching argument-list for value `" << valName << "`\n");
+      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+        if (valName.compare(a_i->getName().str()) == 0) {
+          position = i;
+          DEBUG(logger.debug() << " Found at #" << i << "\n");
+          break;
+        }
+
+        i++;
+      }
+    }
+
+    return position;
+}
+
 /**
  * Removes the taint file for the specified function
  */
@@ -204,14 +186,14 @@ string TaintFile::getFilename(const Function& f) {
 void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
   ofstream file;
 
-  file.open((f.getName().str() + ".taints.temp").c_str(), ios::out);
+  file.open((getFilename(f) + ".temp").c_str(), ios::out);
 
   for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
     const Value& arg = *i->first;
     const Value& retval = *i->second;
 
-    string source = arg.getName().str();
-    string sink = Helper::getValueNameOrDefault(retval);
+    string source = Helper::getValueName(arg);
+    string sink = Helper::getValueName(retval);
 
     file << source << " => " << sink << "\n";
 

@@ -36,8 +36,8 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
     if (intersect.size()) {
       addTaint(arg, retval);
 
-      DEBUG(logger.debug() << "Values that lead to taint " << Helper::getValueNameOrDefault(arg) << " -> "
-              << Helper::getValueNameOrDefault(retval) << ":\n");
+      DEBUG(logger.debug() << "Values that lead to taint " << Helper::getValueName(arg) << " -> "
+              << Helper::getValueName(retval) << ":\n");
       DEBUG(intersect.printTo(logger.debug()));
     }
   }

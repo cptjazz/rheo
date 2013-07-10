@@ -25,6 +25,7 @@ private:
 
   static bool read(const Function& func, const Logger& logger, FunctionTaintMap& mapping);
   static string getFilename(const Function& f);
+  static int getValuePosition(const Function& func, const Logger& logger, const string valName);
 };
 
 #endif // TAINTFILE_H
