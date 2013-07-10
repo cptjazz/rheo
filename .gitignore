@@ -17,3 +17,4 @@ Makefile.llvm.config
 configure
 .cproject
 .project
+autoconf/aclocal.m4
