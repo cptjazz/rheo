@@ -3,3 +3,4 @@ syslog_r
 __sbprintf
 CRYPTO_destroy_dynlockid
 CRYPTO_get_dynlock_value
+BN_sub_word
