@@ -57,6 +57,7 @@ struct FunctionTaint {
   int sinkPosition;
 };
 
+typedef SmallPtrSet<const Value*, 16> ValueSet;
 typedef map<const Value*, TaintSet> TaintMap;
 typedef pair<const Value*, const Value*> TaintPair;
 typedef set<TaintPair> ResultSet;

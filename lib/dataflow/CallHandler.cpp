@@ -128,18 +128,6 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
  * 2) Every parameter taints all out pointers
  */
 void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet& taintResults) const {
-  // Caching call instruction arguments-to-value mappings
-  // per-function. This is a benefit if blocks are inspected
-  // several times. This is the case if we have more than
-  // one function parameter or have loops in the CFG.
-  // Caching must be done per call (not per function!) as
-  // the arguments are different for each call.
-  if (CTX.mappingCache.count(&callInst)) {
-    taintResults = CTX.mappingCache[&callInst];
-    DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
-    return;
-  } 
-
   vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
@@ -202,6 +190,22 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
   DEBUG(CTX.logger.debug() << " * Calling function `" << callee.getName() << "`\n");
 
   ResultSet taintResults;
+  
+  // Caching call instruction arguments-to-value mappings
+  // per-function. This is a benefit if blocks are inspected
+  // several times. This is the case if we have more than
+  // one function parameter or have loops in the CFG.
+  // Caching must be done per call (not per function!) as
+  // the arguments are different for each call.
+  IF_PROFILING(long t = Helper::getTimestamp());
+  if (CTX.mappingCache.count(&callInst)) {
+    DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
+
+    ResultSet& res = CTX.mappingCache[&callInst];
+    processFunctionCallResultSet(callInst, callee, res, taintSet);
+    IF_PROFILING(CTX.logger.profile() << " processFCRS :: read 2 from cache took " << Helper::getTimestampDelta(t) << " µs\n");
+    return;
+  } 
 
   if (TaintFile::exists(callee) && !Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
     //
@@ -279,25 +283,27 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
 
-  size_t calleeArgCount = callee.getArgumentList().size();
-  size_t callArgCount = callInst.getNumArgOperands();
+  const size_t calleeArgCount = callee.getArgumentList().size();
+  const size_t callArgCount = callInst.getNumArgOperands();
+
+  ValueSet sources;
+  ValueSet sinks;
 
   DEBUG(CTX.logger.debug() << " Got " << mapping.size() << " taint mappings for " << callee.getName() << "\n");
   for (FunctionTaintMap::const_iterator i = mapping.begin(), e = mapping.end(); i != e; ++i) {
-    int paramPos = i->sourcePosition;
-    int retvalPos = i->sinkPosition;
-
-    set<const Value*> sources;
-    set<const Value*> sinks;
+    const int paramPos = i->sourcePosition;
+    const int retvalPos = i->sinkPosition;
 
     DEBUG(CTX.logger.debug() << " Converting mapping: " << paramPos << " => " << retvalPos << "\n");
 
     // Build set for sources
     //
 
+    IF_PROFILING(long t2 = Helper::getTimestamp());
+    sources.clear();
     if (paramPos == -2) {
       // VarArgs
-      for (size_t i = calleeArgCount; i < callArgCount; i++) {
+      for (size_t i = calleeArgCount; i < callArgCount; ++i) {
         sources.insert(callInst.getArgOperand(i));
       }
     } else if (paramPos == -3) {
@@ -315,10 +321,13 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     }
 
     DEBUG(CTX.logger.debug() << "processed source-mappings\n");
+    //IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sources took " << Helper::getTimestampDelta(t2) << " µs\n");
 
     // Build set for sinks
     // 
     
+    IF_PROFILING(t2 = Helper::getTimestamp());
+    sinks.clear();
     if (retvalPos == -1) {
       // Return value
       sinks.insert(&callInst);
@@ -346,10 +355,11 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     }
 
     DEBUG(CTX.logger.debug() << "processed sink-mappings\n");
+    //IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sinks took " << Helper::getTimestampDelta(t2) << " µs\n");
 
-    for (set<const Value*>::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; so_i++) {
+    for (ValueSet::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; ++so_i) {
       const Value* source = *so_i;
-      for (set<const Value*>::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; si_i++) {
+      for (ValueSet::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; ++si_i) {
         const Value* sink = *si_i;
 
         taintResults.insert(make_pair(source, sink));
@@ -365,22 +375,25 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   bool needToAddGraphNodeForFunction = false;
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
 
+  IF_PROFILING(long t1 = Helper::getTimestamp());
   // Store information if the in-value is
   // currently in taint-set. Do this for
   // all in-values and remove them from the taint-set.
   // We do this to simulate possible kills of the value
   // in the taint-mapping. If the value stays tainted,
   // it is re-added.
-  map<const Value*, bool> isInTaintSet;
+  ValueSet inTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
 
-    if (!isInTaintSet.count(&in)) {
-      isInTaintSet.insert(make_pair(&in, taintSet.contains(in)));
+    if (!inTaintSet.count(&in) && taintSet.contains(in)) {
+      inTaintSet.insert(&in);
       taintSet.remove(in);
     }
   }
+  IF_PROFILING(CTX.logger.profile() << "PFCR 1 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
+  IF_PROFILING(t1 = Helper::getTimestamp());
   // Remove out-pointer and global-sinks.
   // Do this in separate loop to not disturb
   // the taintSet.contains used above.
@@ -390,7 +403,9 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
     if (out.getType()->isPointerTy())
       taintSet.remove(out);
   }
+  IF_PROFILING(CTX.logger.profile() << "PFCR 2 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
+  IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     const Value& out = *i->second;
@@ -404,11 +419,11 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
-    if (isInTaintSet[&in]) {
+    if (inTaintSet.count(&in)) {
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
-      needToAddGraphNodeForFunction = true;
+      DEBUG(needToAddGraphNodeForFunction = true);
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
       stringstream reas("");
 
@@ -439,9 +454,12 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
+      //IF_PROFILING(long t2 = Helper::getTimestamp());
       AliasHelper::handleAliasing(CTX, out, taintSet);
+      //IF_PROFILING(CTX.logger.profile() << "PFCR AliasHandling took " << Helper::getTimestampDelta(t2) << " µs\n");
     }
   }
+  IF_PROFILING(CTX.logger.profile() << "PFCR 3 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
 
   if (needToAddGraphNodeForFunction)
@@ -485,17 +503,6 @@ inline int CallHandler::getArgumentPosition(const Function& f, const Value& v) c
 
 
 void CallHandler::buildMappingFromTaintFile(const CallInst& callInst, const Function& callee, ResultSet& taintResults) const {
-  // Caching call instruction arguments-to-value mappings
-  // per-function. This is a benefit if blocks are inspected
-  // several times. This is the case if we have more than
-  // one function parameter or have loops in the CFG.
-  // Caching must be done per call (not per function!) as
-  // the arguments are different for each call.
-  if (CTX.mappingCache.count(&callInst)) {
-    taintResults = CTX.mappingCache[&callInst];
-    DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
-    return;
-  } 
 
   const FunctionTaintMap* mapping = TaintFile::getMapping(callee, CTX.logger);
 
