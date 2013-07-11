@@ -196,9 +196,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
     string source = Helper::getValueName(arg);
     string sink = Helper::getValueName(retval);
 
-    file << source << " => " << sink << "\n";
-
-    // Specify the taint a second time in numeric form, eg 0 => -1 
+    // Specify the taint in numeric form, eg 0 => -1 
     // (except for globals, they keep their name)
 
     if (isa<Argument>(arg)) {
