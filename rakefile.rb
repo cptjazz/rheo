@@ -3,7 +3,7 @@ require 'rainbow'
 require 'rake/clean'
 require 'pty'
 
-OPTS = ["", "-mem2reg", "-scalarrepl", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp", "-lowerswitch", "-reassociate"]
+OPTS = ["", "-mem2reg", "-scalarrepl", "-reg2mem", "-mem2reg -reg2mem", "-adce", "-mem2reg -adce", "-licm", "-constmerge", "-constprop", "-globaldce", "-dse", "-deadargelim", "-mergereturn", "-sink", "-loop-unroll", "-loop-simplify", "-sccp", "-lowerswitch", "-reassociate", "-tailcallelim"]
 
 @opts = []
 1.times do |i| 
@@ -53,7 +53,7 @@ def analyse(args)
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
 
-    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -globaldce -adce -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
+    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -globaldce -tailcallelim -licm -sink -adce -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
