@@ -91,34 +91,60 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
 }
 
 void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const {
+  const size_t callInstArgCount = callInst.getNumArgOperands();
+
   for (ResultSet::const_iterator i = results.begin(), e = results.end(); i != e; ++i) {
     DEBUG(CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
 
-    Value* inVal = NULL;
-    Value* outVal = NULL;
+    ValueSet sources;
+    ValueSet sinks;
 
     if (isa<GlobalVariable>(i->first)) {
-      inVal = const_cast<Value*>(i->first);
+      sources.insert(i->first);
     } else {
       int inPos = getArgumentPosition(func, *i->first);
-      inVal = callInst.getArgOperand(inPos);
+
+      if (inPos == -3) {
+        // Not a global and not found in argument list,
+        // must be a varargs array.
+        for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
+          sources.insert(callInst.getArgOperand(c));
+        }
+      } else {
+        sources.insert(callInst.getArgOperand(inPos));
+      }
     }
 
     if (isa<GlobalVariable>(i->second)) {
-      outVal = const_cast<Value*>(i->second);
+      sinks.insert(i->second);
+    } else if (isa<ReturnInst>(i->second)) {
+      sinks.insert(&callInst);
     } else {
       int outPos = getArgumentPosition(func, *i->second);
-      outVal = const_cast<Value*>(outPos >= 0 ? callInst.getArgOperand(outPos) : &callInst);
+
+      if (outPos == -3) {
+        // must be a varargs array.
+        for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
+          const Value* out = callInst.getArgOperand(c);
+          if (out->getType()->isPointerTy())
+            sinks.insert(out);
+        }
+      } else {
+        sinks.insert(callInst.getArgOperand(outPos));
+      }
     }
 
-    if (!inVal || !outVal) {
-      CTX.analysisState.stopWithError("Could not resolve argument when processing function mapping: " 
-          + i->first->getName().str() + " => " + i->second->getName().str() + " for " + func.getName().str(), Error);
-    }
 
-    taintResults.insert(make_pair(inVal, outVal));
+    for (ValueSet::const_iterator s_i = sources.begin(), s_e = sources.end(); s_i != s_e; ++s_i) {
+      for (ValueSet::const_iterator d_i = sinks.begin(), d_e = sinks.end(); d_i != d_e; ++d_i) {
+        const Value* inVal = *s_i;
+        const Value* outVal = *d_i;
+
+        DEBUG(CTX.logger.debug() << "added mapping: " << *inVal << " => " << *outVal << "\n");
+        taintResults.insert(make_pair(inVal, outVal));
+      }
+    }
   }
-
 }
 
 
@@ -311,7 +337,16 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sourceName << "\n");
       string globName = i->sourceName.substr(1, i->sourceName.length() - 1);
 
-      const Value* glob = CTX.M.getNamedGlobal(globName);
+      Value* glob = CTX.M.getNamedAlias(globName);
+
+      if (glob == NULL)
+        glob = CTX.M.getNamedValue(globName);
+
+      if (glob == NULL)
+        glob = CTX.M.getNamedGlobal(globName);
+
+      assert("Global" && glob != NULL);
+
       sources.insert(glob);
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else {
@@ -385,6 +420,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   ValueSet inTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
+    assert("LHS must not be NULL" && i->first != NULL);
 
     if (!inTaintSet.count(&in) && taintSet.contains(in)) {
       inTaintSet.insert(&in);
@@ -399,6 +435,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   // the taintSet.contains used above.
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& out = *i->second;
+    assert("RHS must not be NULL" && i->second != NULL);
 
     if (out.getType()->isPointerTy())
       taintSet.remove(out);
