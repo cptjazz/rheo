@@ -52,6 +52,7 @@ def analyse(args)
 
   FileUtils.cd("output") do
     log_file = File.open("analysis.log", "w")
+    puts " * Preprocessing BC file"
 
     opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so -globalopt -globaldce -tailcallelim -licm -sink -adce -scalarrepl -dataflow < #{file} -o /dev/null 2>&1"
     begin
