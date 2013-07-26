@@ -11,9 +11,12 @@ void DefaultHandler::handleInstruction(const Instruction& inst, TaintSet& taintS
     const Value& operand = *inst.getOperand(o_i);
     IF_PROFILING(CTX.logger.profile() << "Get operand took " << Helper::getTimestampDelta(t) << "µs\n");
 
+    //CTX.logger.debug() << "Set contains `" << operand << "` (" << &operand << ")? " << taintSet.contains(operand) << "\n";
+    //taintSet.printTo(CTX.logger.debug());
+
     if (taintSet.contains(operand)) {
       IF_PROFILING(t = Helper::getTimestamp());
-      taintSet.add(inst);
+      taintSet.add(Taint::make_infered(inst));
       IF_PROFILING(CTX.logger.profile() << "add to taint set took " << Helper::getTimestampDelta(t) << "µs\n");
 
       IF_PROFILING(t = Helper::getTimestamp());

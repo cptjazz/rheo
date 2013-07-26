@@ -34,7 +34,7 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
     DEBUG(CTX.DOT.addRelation(inst, caseBlock, "case"));
     DEBUG(CTX.logger.debug() << " + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
 
-    taintSet.add(caseBlock);
+    taintSet.add(Taint::make_infered(caseBlock));
     CTX.BH.followTransientBranchPaths(caseBlock, join, taintSet);
   }
 }

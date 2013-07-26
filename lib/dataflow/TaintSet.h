@@ -2,10 +2,15 @@
 #define TAINTSET_H
 
 #include "llvm/Support/raw_ostream.h"
+//#include "llvm/ADT/SmallPtrSet.h"
+#include <map>
+#include "Taint.h"
 
 using namespace llvm;
+using namespace std;
 
-typedef SmallPtrSet<const Value*, 32> InternalTaintSet;
+
+typedef map<const Value*, const Taint*> InternalTaintSet;
 
 class TaintSet {
 
@@ -16,6 +21,11 @@ class TaintSet {
       resetChangedFlag();
     }
 
+    ~TaintSet() {
+
+      // TODO: free memory for elements?
+    }
+
     inline void resetChangedFlag() {
       _taintSetChanged = false;
     }
@@ -24,12 +34,16 @@ class TaintSet {
      * Add the provided Value to the provided TaintSet and
      * switch _taintSetChanged flag if the taint is new
      */
-    inline void add(const Value& v) {
-      _taintSetChanged |= _taintSet.insert(&v);
+    inline void add(const Taint& v) {
+      _taintSetChanged |= _taintSet.insert(make_pair(&(v.value), &v)).second;
     }
 
     inline bool contains(const Value& val) const {
       return _taintSet.count(&val);
+    }
+
+    inline bool contains(const Taint& t) const {
+      return contains(t.value);
     }
 
     /**
@@ -38,7 +52,7 @@ class TaintSet {
      */
     inline void intersect(const TaintSet& set, TaintSet& intersect) const {
       for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        if (set._taintSet.count(*i))
+        if (set._taintSet.count(i->first))
           intersect._taintSet.insert(*i);
       }
     }
@@ -47,9 +61,13 @@ class TaintSet {
       _taintSet.erase(&val);
     }
 
+    inline void remove(const Taint& t) {
+      remove(t.value);
+    }
+
     inline void addAll(TaintSet& set) {
       for (InternalTaintSet::const_iterator t_i = set._taintSet.begin(), t_e = set._taintSet.end(); t_i != t_e; ++t_i) {
-        add(**t_i);
+        add(*t_i->second);
       }
     }
     
@@ -63,7 +81,8 @@ class TaintSet {
 
     inline void printTo(raw_ostream& stream) const {
       for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        stream << **i << " | ";
+        const Taint& t = *i->second;
+        stream << "{" << t.value << ", val_addr: " << &(t.value) << ", t_addr:" << &t << "} | ";
       }
 
       stream << "\n";

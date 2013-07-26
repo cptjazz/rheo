@@ -32,7 +32,7 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   DEBUG(CTX.logger.debug() << "   Nearest Common Post-Dominator for tr/fa: " << join.getName() << "\n");
 
   // true branch is always tainted
-  taintSet.add(brTrue);
+  taintSet.add(Taint::make_infered(brTrue));
   DEBUG(CTX.DOT.addBlockNode(brTrue));
   DEBUG(CTX.DOT.addRelation(inst, brTrue, "br-true"));
   DEBUG(CTX.logger.debug() << " + Added TRUE branch to taint set: " << brTrue.getName() << "\n");
@@ -42,7 +42,7 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   // false branch is only tainted if successor
   // is not the same as jump target after true branch
   if (&join != &brFalse) {
-    taintSet.add(brFalse);
+    taintSet.add(Taint::make_infered(brFalse));
     DEBUG(CTX.DOT.addBlockNode(brFalse));
     DEBUG(CTX.DOT.addRelation(inst, brFalse, "br-false"));
     DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set: " << brFalse.getName() << "\n");

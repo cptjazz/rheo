@@ -36,7 +36,7 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     // of an if or switch, the return value is also
     // tainted.
     if (taintSet.contains(*calleeValue)) {
-      taintSet.add(callInst);
+      taintSet.add(Taint::make_infered(callInst));
       DEBUG(CTX.DOT.addRelation(*calleeValue, callInst));
     }
   }
@@ -94,54 +94,54 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
   const size_t callInstArgCount = callInst.getNumArgOperands();
 
   for (ResultSet::const_iterator i = results.begin(), e = results.end(); i != e; ++i) {
-    DEBUG(CTX.logger.debug() << "found mapping: " << *i->first << " => " << *i->second << "\n");
+    DEBUG(CTX.logger.debug() << "found mapping: " << (*i).source.value << " => " << (*i).sink.value << "\n");
 
     ValueSet sources;
     ValueSet sinks;
 
-    if (isa<GlobalVariable>(i->first)) {
-      sources.insert(i->first);
+    if (i->source.isa<GlobalVariable>()) {
+      sources.insert(&i->source);
     } else {
-      int inPos = getArgumentPosition(func, *i->first);
+      int inPos = getArgumentPosition(func, i->source.value);
 
       if (inPos == -3) {
         // Not a global and not found in argument list,
         // must be a varargs array.
         for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
-          sources.insert(callInst.getArgOperand(c));
+          sources.insert(&Taint::make_infered(callInst.getArgOperand(c)));
         }
       } else {
-        sources.insert(callInst.getArgOperand(inPos));
+        sources.insert(&Taint::make_infered(callInst.getArgOperand(inPos)));
       }
     }
 
-    if (isa<GlobalVariable>(i->second)) {
-      sinks.insert(i->second);
-    } else if (isa<ReturnInst>(i->second)) {
-      sinks.insert(&callInst);
+    if (isa<GlobalVariable>(i->sink)) {
+      sinks.insert(&i->sink);
+    } else if (isa<ReturnInst>(i->sink)) {
+      sinks.insert(&Taint::make_infered(callInst));
     } else {
-      int outPos = getArgumentPosition(func, *i->second);
+      int outPos = getArgumentPosition(func, i->sink.value);
 
       if (outPos == -3) {
         // must be a varargs array.
         for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
           const Value* out = callInst.getArgOperand(c);
           if (out->getType()->isPointerTy())
-            sinks.insert(out);
+            sinks.insert(&Taint::make_infered(out));
         }
       } else {
-        sinks.insert(callInst.getArgOperand(outPos));
+        sinks.insert(&Taint::make_infered(callInst.getArgOperand(outPos)));
       }
     }
 
 
     for (ValueSet::const_iterator s_i = sources.begin(), s_e = sources.end(); s_i != s_e; ++s_i) {
       for (ValueSet::const_iterator d_i = sinks.begin(), d_e = sinks.end(); d_i != d_e; ++d_i) {
-        const Value* inVal = *s_i;
-        const Value* outVal = *d_i;
+        const Taint* inVal = *s_i;
+        const Taint* outVal = *d_i;
 
-        DEBUG(CTX.logger.debug() << "added mapping: " << *inVal << " => " << *outVal << "\n");
-        taintResults.insert(make_pair(inVal, outVal));
+        DEBUG(CTX.logger.debug() << "added mapping: " << inVal->value << " => " << outVal->value << "\n");
+        taintResults.insert(TaintPair::make(inVal, outVal));
       }
     }
   }
@@ -185,7 +185,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     int sourcePos = isa<GlobalVariable>(source) ? -3 : i;
 
     // Every argument taints the return value
-    taintResults.insert(make_pair(&source, &callInst));
+    taintResults.insert(TaintPair::make(Taint::make_infered(source), Taint::make_infered(callInst)));
     DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
@@ -203,7 +203,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
           continue;
 
         DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => " << sinkPos << "\n");
-        taintResults.insert(make_pair(&source, &sink));
+        taintResults.insert(TaintPair::make(Taint::make_infered(source), Taint::make_infered(sink)));
       }
     }
   }
@@ -330,7 +330,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     if (paramPos == -2) {
       // VarArgs
       for (size_t i = calleeArgCount; i < callArgCount; ++i) {
-        sources.insert(callInst.getArgOperand(i));
+        sources.insert(&Taint::make_infered(callInst.getArgOperand(i)));
       }
     } else if (paramPos == -3) {
       // Seems to be a global
@@ -347,12 +347,12 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
       assert("Global" && glob != NULL);
 
-      sources.insert(glob);
+      sources.insert(&Taint::make_infered(glob));
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else {
       // Normal arguments
       const Value* arg = callInst.getArgOperand(paramPos);
-      sources.insert(arg);
+      sources.insert(&Taint::make_infered(arg));
     }
 
     DEBUG(CTX.logger.debug() << "processed source-mappings\n");
@@ -365,14 +365,14 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     sinks.clear();
     if (retvalPos == -1) {
       // Return value
-      sinks.insert(&callInst);
+      sinks.insert(&Taint::make_infered(callInst));
     } else if (retvalPos == -3) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sinkName << "\n");
       string globName = i->sinkName.substr(1, i->sinkName.length() - 1);
       
       const Value* glob = CTX.M.getNamedGlobal(globName);
-      sinks.insert(glob);
+      sinks.insert(&Taint::make_infered(glob));
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
     } else if (retvalPos == -2) {
       // Varargs
@@ -381,23 +381,23 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       // the callee, we have to handle it here.
       for (size_t i = calleeArgCount; i < callArgCount; i++) {
         if (callInst.getArgOperand(i)->getType()->isPointerTy())
-          sinks.insert(callInst.getArgOperand(i));
+          sinks.insert(&Taint::make_infered(callInst.getArgOperand(i)));
       }
     } else {
       // Out pointer
       const Value* returnTarget = callInst.getArgOperand(retvalPos);
-      sinks.insert(returnTarget);
+      sinks.insert(&Taint::make_infered(returnTarget));
     }
 
     DEBUG(CTX.logger.debug() << "processed sink-mappings\n");
     //IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sinks took " << Helper::getTimestampDelta(t2) << " µs\n");
 
     for (ValueSet::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; ++so_i) {
-      const Value* source = *so_i;
+      const Taint* source = *so_i;
       for (ValueSet::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; ++si_i) {
-        const Value* sink = *si_i;
+        const Taint* sink = *si_i;
 
-        taintResults.insert(make_pair(source, sink));
+        taintResults.insert(TaintPair::make(source, sink));
       }
     }
   }
@@ -418,8 +418,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   // it is re-added.
   ValueSet inTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
-    const Value& in = *i->first;
-    assert("LHS must not be NULL" && i->first != NULL);
+    const Taint& in = i->source;
 
     if (!inTaintSet.count(&in) && taintSet.contains(in)) {
       inTaintSet.insert(&in);
@@ -433,50 +432,43 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   // Do this in separate loop to not disturb
   // the taintSet.contains used above.
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
-    const Value& out = *i->second;
-    assert("RHS must not be NULL" && i->second != NULL);
+    const Taint& out = i->sink;
 
-    if (out.getType()->isPointerTy())
+    if (out.value.getType()->isPointerTy())
       taintSet.remove(out);
   }
   IF_PROFILING(CTX.logger.profile() << "PFCR 2 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
   IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
-    const Value& in = *i->first;
-    const Value& out = *i->second;
+    const Taint& in = i->source;
+    const Taint& out = i->sink;
 
-    // Skip mapping if one of the parameters
-    // is null. This happens when using 
-    // taint-files with globals not available
-    // in the currently inspected assembly.
-    if (!i->first || !i->second)
-      continue;
 
-    DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
+    DEBUG(CTX.logger.debug() << "Processing mapping: " << in.value.getName() << " => " << out.value.getName() << "\n");
 
     if (inTaintSet.count(&in)) {
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
       DEBUG(CTX.DOT.addCallNode(callee));
-      DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
+      DEBUG(CTX.logger.debug() << "in is: " << in.value << "\n");
       stringstream reas("");
 
       if (isa<GlobalVariable>(in))
-        DEBUG(reas << "in, via " << Helper::getValueName(in));
+        DEBUG(reas << "in, via " << Helper::getValueName(in.value));
       else
-        DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in));
+        DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in.value));
 
       DEBUG(CTX.DOT.addRelation(in, callee, reas.str()));
 
       if (taintSet.contains(callee) && out.getType()->isPointerTy()) {
         DEBUG(CTX.DOT.addRelation(callee, out, "function-indirection"));
-        taintSet.add(out);
+        taintSet.add(Taint::make_infered(out));
       }
 
       DEBUG(CTX.logger.debug() << " + Added " << out << "\n");
-      taintSet.add(out);
+      taintSet.add(Taint::make_infered(out));
       if (&out == &callInst) {
         DEBUG(CTX.DOT.addRelation(callee, callInst, "ret"));
       } else {

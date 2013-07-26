@@ -9,6 +9,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
 #include <map>
 #include <set>
@@ -92,7 +93,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
 
   // Initialize the first block with
   // the currently inspected argument.
-  _blockList[firstBlock].add(arg);
+  _blockList[firstBlock].add(Taint::make_infered(arg));
 
 
   do {
@@ -160,6 +161,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
       handleBlockTainting(inst, block, taintSet);
 
     IHD.dispatch(inst, taintSet);
+    logger.debug() << "Set size: " << taintSet.size() << "\n";
 
     IF_PROFILING(logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -204,7 +206,7 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   if (isa<BranchInst>(inst) && (cast<BranchInst>(inst)).isUnconditional())
     return;
 
-  taintSet.add(inst);
+  taintSet.add(Taint::make_infered(inst));
   DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
   if (isa<StoreInst>(inst))
@@ -214,6 +216,20 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 }
 
 void FunctionProcessor::findArguments() {
+/*
+  for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+    if (!isa<CallInst>(*i))
+      continue;
+
+    const CallInst& call = cast<CallInst>(*i);
+
+    if (call.getCalledFunction()->getName().equals("fopen")) {
+      logger.debug() << "fopen found!\n";
+      handleFoundArgument(*call.getArgOperand(0));
+    }
+  }
+  */
+
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
     handleFoundArgument(*a_i);
   }
@@ -266,7 +282,7 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
 
   if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
     TaintSet returnSet;
-    returnSet.add(arg);
+    returnSet.add(Taint::make_infered(arg));
 
     setHelper.returnStatements.insert(make_pair(&arg, returnSet));
     DEBUG(DOT.addInOutNode(arg));
@@ -294,10 +310,10 @@ void FunctionProcessor::findReturnStatements() {
       const Value* retval = r.getReturnValue();
       if (retval) {
         if (isa<Constant>(retval)) {
-          taintSet.add(r);
+          taintSet.add(Taint::make_infered(r));
           DEBUG(logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
         } else {
-          taintSet.add(*retval);
+          taintSet.add(Taint::make_infered(retval));
           DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
         }
 
@@ -313,6 +329,13 @@ void FunctionProcessor::printInstructions() {
   logger.debug() << "Instructions: \n";
 
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+    if (MDNode *n = i->getMetadata("dbg")) {
+      DILocation loc(n);
+      unsigned int line = loc.getLineNumber();
+      StringRef file = loc.getFilename();
+      logger.debug() << file << ":" << line << " | ";
+    }
+
     logger.debug() << i->getParent() << " | " << &*i << " | " << (*i) << "\n";
   }
 }

@@ -25,11 +25,11 @@ class PhiNodeHandler : public InstructionHandlerTrait<PHINode> {
         // Without phi we would have an explicit (block tainted) assignment
         // or store in the block.
         if (taintSet.contains(incomingBlock)) {
-          taintSet.add(inst);
+          taintSet.add(Taint::make_infered(inst));
           DEBUG(CTX.logger.debug() << " + Added PHI from block" << incomingBlock << "\n");
           DEBUG(CTX.DOT.addRelation(incomingBlock, inst, "block-taint"));
         } else if (taintSet.contains(incomingValue)) {
-          taintSet.add(inst);
+          taintSet.add(Taint::make_infered(inst));
           DEBUG(CTX.logger.debug() << " + Added PHI from value" << incomingValue << "\n");
           DEBUG(CTX.DOT.addRelation(incomingValue, inst, "phi-value"));
         }

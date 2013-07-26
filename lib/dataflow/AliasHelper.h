@@ -17,7 +17,7 @@ class AliasHelper {
       const Value& ptrOp = *gep.getPointerOperand();
       DEBUG(CTX.logger.debug() << " ++ Added GEP SOURCE:" << ptrOp << "\n");
       DEBUG(CTX.DOT.addRelation(gep, ptrOp, "gep-alias"));
-      taintSet.add(ptrOp);
+      taintSet.add(Taint::make_infered(ptrOp));
 
       if (isa<Instruction>(ptrOp))
         handleAliasing(CTX, cast<Instruction>(ptrOp), taintSet);
@@ -26,7 +26,7 @@ class AliasHelper {
       const Value& ptrOp = *load.getOperand(0);
       DEBUG(CTX.logger.debug() << " ++ Added LOAD SOURCE:" << ptrOp << "\n");
       DEBUG(CTX.DOT.addRelation(load, ptrOp, "load-alias"));
-      taintSet.add(ptrOp);
+      taintSet.add(Taint::make_infered(ptrOp));
 
       if (isa<Instruction>(ptrOp))
         handleAliasing(CTX, cast<Instruction>(ptrOp), taintSet);
@@ -39,7 +39,7 @@ class AliasHelper {
 
         DEBUG(CTX.logger.debug() << " ++ Added PHI SOURCE:" << val << "\n");
         DEBUG(CTX.DOT.addRelation(phi, val, "phi-alias"));
-        taintSet.add(val);
+        taintSet.add(Taint::make_infered(val));
       }
     } else if(isa<CastInst>(target)) {
       const Instruction& inst = cast<Instruction>(target);
@@ -47,7 +47,7 @@ class AliasHelper {
 
       DEBUG(CTX.logger.debug() << " ++ Added CAST SOURCE:" << val << "\n");
       DEBUG(CTX.DOT.addRelation(target, val, "cast-alias"));
-      taintSet.add(val);
+      taintSet.add(Taint::make_infered(val));
     }
   }
 };
