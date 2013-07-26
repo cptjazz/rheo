@@ -240,6 +240,18 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     IF_PROFILING(long t = Helper::getTimestamp());
     buildMappingFromTaintFile(callInst, callee, taintResults);
     IF_PROFILING(CTX.logger.profile() << " buildMappingFromTaintFile() took " << Helper::getTimestampDelta(t) << " µs\n");
+  } else if (callee.isIntrinsic()) {
+    //
+    // A call to an Intrinsic
+    //
+    DEBUG(CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n");
+
+    FunctionTaintMap mapping;
+    if (IntrinsicHelper::getMapping(callee, mapping)) {
+      createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
+    } else {
+      CTX.analysisState.stopWithError("No definition of intrinsic `" + callee.getName().str() + "`.\n", ErrorMissingIntrinsic);
+    }
   } else if (callee.size() == 0 || callInst.isInlineAsm()) {
     //
     // A call to EXTERNal function
@@ -256,18 +268,6 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     IF_PROFILING(CTX.logger.profile() << " buildResultSet() took " << Helper::getTimestampDelta(t) << "\n");
 
     buildMappingForRecursiveCall(callInst, callee, taintResults);
-  } else if (callee.isIntrinsic()) {
-    //
-    // A call to an Intrinsic
-    //
-    DEBUG(CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n");
-
-    FunctionTaintMap mapping;
-    if (IntrinsicHelper::getMapping(callee, mapping)) {
-      createResultSetFromFunctionMapping(callInst, callee, mapping, taintResults);
-    } else {
-      CTX.analysisState.stopWithError("No definition of intrinsic `" + callee.getName().str() + "`.\n", ErrorMissingIntrinsic);
-    }
   } else if (Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
     //
     // A mutual-recursive call
@@ -407,7 +407,6 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
 
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
-  bool needToAddGraphNodeForFunction = false;
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
 
   IF_PROFILING(long t1 = Helper::getTimestamp());
@@ -460,7 +459,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
-      DEBUG(needToAddGraphNodeForFunction = true);
+      DEBUG(CTX.DOT.addCallNode(callee));
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
       stringstream reas("");
 
@@ -496,11 +495,8 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       //IF_PROFILING(CTX.logger.profile() << "PFCR AliasHandling took " << Helper::getTimestampDelta(t2) << " µs\n");
     }
   }
+
   IF_PROFILING(CTX.logger.profile() << "PFCR 3 took " << Helper::getTimestampDelta(t1) << " µs\n");
-
-
-  if (needToAddGraphNodeForFunction)
-    DEBUG(CTX.DOT.addCallNode(callee));
 }
 
 
