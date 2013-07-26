@@ -24,6 +24,8 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
     case Intrinsic::vastart:
     case Intrinsic::vaend:
     case Intrinsic::flt_rounds:
+    case Intrinsic::dbg_value:
+    case Intrinsic::dbg_declare:
       return true;
 
     /**
