@@ -13,19 +13,9 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
      * The following intrinsics do not taint anything 
      * and do not need a mapping
      */
-    case Intrinsic::donothing:
-    case Intrinsic::expect:
-    case Intrinsic::pcmarker:
-    case Intrinsic::prefetch:
-    case Intrinsic::lifetime_start:
-    case Intrinsic::lifetime_end:
-    case Intrinsic::invariant_start:
-    case Intrinsic::invariant_end:
     case Intrinsic::vastart:
     case Intrinsic::vaend:
     case Intrinsic::flt_rounds:
-    case Intrinsic::dbg_value:
-    case Intrinsic::dbg_declare:
       return true;
 
     /**
@@ -102,4 +92,24 @@ bool IntrinsicHelper::getMapping(const Function& f, FunctionTaintMap& mapping) {
   }
 }
 
+bool IntrinsicHelper::shouldIgnoreCall(const Function& f) {
+
+  unsigned int intrinsicId = f.getIntrinsicID();
+
+  switch (intrinsicId) {
+    case Intrinsic::donothing:
+    case Intrinsic::expect:
+    case Intrinsic::pcmarker:
+    case Intrinsic::prefetch:
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::invariant_start:
+    case Intrinsic::invariant_end:
+    case Intrinsic::dbg_value:
+    case Intrinsic::dbg_declare:
+      return true;
+  }
+
+  return false;
+}
 #endif // INTRINSICHELPER_H

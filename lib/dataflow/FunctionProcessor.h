@@ -103,7 +103,7 @@ private:
   void printTaints();
   void handleBlockTainting(const Instruction& inst, const BasicBlock& currentblock, TaintSet& taintSet);
   void findArguments();
-  void handleFoundArgument(const Value& arg);
+  void handleFoundArgument(const Value& arg, const TaintSet& initialValues = TaintSet());
   void findReturnStatements();
   void printInstructions(); 
   void applyMeet(const BasicBlock& block);

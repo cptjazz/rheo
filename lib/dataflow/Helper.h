@@ -16,7 +16,8 @@ using namespace llvm;
 class Helper {
   public:
     /**
-     * @return if the provided Value is either an Argument or a GlobalVariable, its name is returned. '$_retval' otherwise.
+     * @return if the provided Value is either an Argument, a special taint or 
+     * a GlobalVariable, its name is returned. '$_retval' otherwise.
      */
     inline static string getValueName(const Value& v) {
       if (isa<Argument>(v))
@@ -25,6 +26,8 @@ class Helper {
         return ("@" + v.getName()).str();
       else if (isa<ReturnInst>(v))
         return "$_retval";
+      else if (v.getName().startswith("+"))
+        return v.getName();
       else 
         return "...";
     }

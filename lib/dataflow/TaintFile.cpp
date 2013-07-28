@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdio.h>
 #include "llvm/IR/Instructions.h"
+#include "SpecialTaintHelper.h"
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
@@ -203,7 +204,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(arg).getArgNo(); 
       source = convert.str();
-    } else if (!isa<GlobalValue>(arg)) {
+    } else if (!isa<GlobalValue>(arg) && !SpecialTaintHelper::isSpecialTaintValue(arg)) {
       // Varargs
       source = "-2";
     }
@@ -214,7 +215,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(retval).getArgNo();
       sink = convert.str();
-    } else if (!isa<GlobalValue>(retval)) {
+    } else if (!isa<GlobalValue>(retval) && !SpecialTaintHelper::isSpecialTaintValue(retval)) {
       // Varargs
       sink = "-2";
     }

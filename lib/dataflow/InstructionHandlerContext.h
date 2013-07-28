@@ -48,6 +48,7 @@ class InstructionHandlerContext {
     const Module& M;
     map<const CallInst*, ResultSet> mappingCache;
     ExcludeFile& EXCL;
+    const Value* currentArgument;
 
     void refreshDomTrees() {
       DT.runOnFunction(const_cast<Function&>(F));

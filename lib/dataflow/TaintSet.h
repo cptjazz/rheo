@@ -47,7 +47,7 @@ class TaintSet {
       _taintSet.erase(&val);
     }
 
-    inline void addAll(TaintSet& set) {
+    inline void addAll(const TaintSet& set) {
       for (InternalTaintSet::const_iterator t_i = set._taintSet.begin(), t_e = set._taintSet.end(); t_i != t_e; ++t_i) {
         add(**t_i);
       }

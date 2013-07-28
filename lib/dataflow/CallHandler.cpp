@@ -5,6 +5,7 @@
 #include "IntrinsicHelper.h"
 #include "FunctionProcessor.h"
 #include "AliasHelper.h"
+#include "SpecialTaintHelper.h"
 
 
 void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& taintSet) const {
@@ -217,6 +218,13 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 
   ResultSet taintResults;
   
+  // For functions that create special taints (eg from files)
+  // we do no common processing at all
+  if (SpecialTaintHelper::isSpecialTaintValue(*CTX.currentArgument) && SpecialTaintHelper::hasSpecialTreatment(callee)) {
+    DEBUG(CTX.logger.debug() << "call to " << callee.getName() << " for special arg " << CTX.currentArgument->getName() << "\n");
+    return;
+  }
+
   // Caching call instruction arguments-to-value mappings
   // per-function. This is a benefit if blocks are inspected
   // several times. This is the case if we have more than
@@ -245,6 +253,11 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     // A call to an Intrinsic
     //
     DEBUG(CTX.logger.debug() << "handle intrinsic call: " << callee.getName() << "\n");
+
+    if (IntrinsicHelper::shouldIgnoreCall(callee)) {
+      DEBUG(CTX.logger.debug() << "intrinsic call is marked to be ignored: " << callee.getName() << "\n");
+      return;
+    }
 
     FunctionTaintMap mapping;
     if (IntrinsicHelper::getMapping(callee, mapping)) {
@@ -408,6 +421,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
+  taintSet.printTo(CTX.logger.debug());
 
   IF_PROFILING(long t1 = Helper::getTimestamp());
   // Store information if the in-value is
@@ -416,13 +430,13 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   // We do this to simulate possible kills of the value
   // in the taint-mapping. If the value stays tainted,
   // it is re-added.
-  ValueSet inTaintSet;
+  TaintSet inTaintSet;
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
     assert("LHS must not be NULL" && i->first != NULL);
 
-    if (!inTaintSet.count(&in) && taintSet.contains(in)) {
-      inTaintSet.insert(&in);
+    if (!inTaintSet.contains(in) && taintSet.contains(in)) {
+      inTaintSet.add(in);
       taintSet.remove(in);
     }
   }
@@ -454,8 +468,9 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       continue;
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
+    inTaintSet.printTo(CTX.logger.debug());
 
-    if (inTaintSet.count(&in)) {
+    if (inTaintSet.contains(in)) {
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.

@@ -6,4 +6,5 @@ class IntrinsicHelper {
 
 public:
   static bool getMapping(const Function& f, FunctionTaintMap& mapping);
+  static bool shouldIgnoreCall(const Function& f);
 };

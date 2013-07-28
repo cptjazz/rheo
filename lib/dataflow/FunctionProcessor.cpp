@@ -9,6 +9,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
 #include <map>
 #include <set>
@@ -16,6 +17,7 @@
 #include <stdio.h>
 #include "FunctionProcessor.h"
 #include "TaintSet.h"
+#include "SpecialTaintHelper.h"
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
@@ -53,6 +55,7 @@ void FunctionProcessor::processFunction() {
       const Value& arg = *arg_i->first;
       TaintSet& taintSet = arg_i->second;
 
+      CTX.currentArgument = &arg;
       taintSet.resetChangedFlag();
 
       if (!_suppressPrintTaints)
@@ -214,6 +217,23 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 }
 
 void FunctionProcessor::findArguments() {
+  for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+    if (!isa<CallInst>(*i))
+      continue;
+
+    CallInst& call = const_cast<CallInst&>(cast<CallInst>(*i));
+
+    TaintSet taints;
+    const Value* newTaint = SpecialTaintHelper::processExternalTaints(call, taints);
+
+    if (newTaint)
+      handleFoundArgument(*newTaint, taints);
+    //for (ValueSet::const_iterator t_i = taints.begin(), t_e = taints.end(); t_i != t_e; ++t_i) {
+      //const Value& v = **t_i;
+      //handleFoundArgument(v);
+    //}
+  }
+
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
     handleFoundArgument(*a_i);
   }
@@ -259,7 +279,7 @@ void FunctionProcessor::findArguments() {
   }
 }
 
-void FunctionProcessor::handleFoundArgument(const Value& arg) {
+void FunctionProcessor::handleFoundArgument(const Value& arg, const TaintSet& initialValues) {
   bool isInOutNode = false;
 
   DEBUG(logger.debug() << " -- Inspecting argument or global `" << Helper::getValueName(arg) << "`\n");
@@ -275,10 +295,16 @@ void FunctionProcessor::handleFoundArgument(const Value& arg) {
     DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to out-list\n");
   }
 
-  TaintSet taintSet;
-  
   if (!isInOutNode)
     DEBUG(DOT.addInNode(arg));
+
+  TaintSet taintSet;
+  
+  for (TaintSet::const_iterator i_i = initialValues.begin(), i_e = initialValues.end(); i_i != i_e; ++i_i) {
+    const Value& v = **i_i;
+    DEBUG(DOT.addRelation(arg, v, "created"));
+    taintSet.add(v);
+  }
 
   setHelper.arguments.insert(make_pair(&arg, taintSet));
   DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to arg-list\n");
@@ -313,6 +339,13 @@ void FunctionProcessor::printInstructions() {
   logger.debug() << "Instructions: \n";
 
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+    if (MDNode *n = i->getMetadata("dbg")) {  // Here I is an LLVM instruction
+      DILocation loc(n);                      // DILocation is in DebugInfo.h
+      unsigned int line = loc.getLineNumber();
+      StringRef file = loc.getFilename();
+      logger.debug() << file << ":" << line << " | ";
+    }
+
     logger.debug() << i->getParent() << " | " << &*i << " | " << (*i) << "\n";
   }
 }
