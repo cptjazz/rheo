@@ -97,7 +97,7 @@ public:
   }
 
 private:
-  void buildTaintSetFor(const Value& arg, TaintSet& taintSet);
+  void buildTaintSetFor(const Value& arg, TaintSet& taintSet, TaintSet& initialTaints);
   void addTaint(const Value& tainter, const Value& taintee);
   void processBasicBlock(const BasicBlock& block, TaintSet& taintSet);
   void printTaints();

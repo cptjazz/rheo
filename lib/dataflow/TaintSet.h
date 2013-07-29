@@ -20,6 +20,10 @@ class TaintSet {
       _taintSetChanged = false;
     }
 
+    inline void clear() {
+      _taintSet.clear();
+    }
+
     /**
      * Add the provided Value to the provided TaintSet and
      * switch _taintSetChanged flag if the taint is new

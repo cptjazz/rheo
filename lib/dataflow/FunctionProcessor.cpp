@@ -39,6 +39,15 @@ void FunctionProcessor::processFunction() {
   if (!_suppressPrintTaints)
     logger.info() << "arg_count:" << argCount << "\n";
 
+  map<const Value*, TaintSet> initialTaintMap;
+
+  TaintMap::iterator arg_i = setHelper.arguments.begin();
+  TaintMap::iterator arg_e = setHelper.arguments.end();
+
+  for(; arg_i != arg_e; ++arg_i) {
+    initialTaintMap.insert(make_pair(arg_i->first, arg_i->second));
+  }
+
   do {
     setHelper.resetResultSetChanged();
 
@@ -61,7 +70,7 @@ void FunctionProcessor::processFunction() {
       if (!_suppressPrintTaints)
         logger.info() << "arg_no:" << argIdx << "\n";
 
-      buildTaintSetFor(arg, taintSet);
+      buildTaintSetFor(arg, taintSet, initialTaintMap[&arg]);
       STOP_ON_CANCEL;
     }
 
@@ -77,7 +86,7 @@ void FunctionProcessor::processFunction() {
 
 
 
-void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
+void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, TaintSet& initialTaints) {
   DEBUG(logger.debug() << " *** Creating taint set for argument `" << Helper::getValueName(arg) << "`\n");
 
   _blockList.clear();
@@ -93,9 +102,9 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   const BasicBlock* firstBlock = _workList.front();
   const BasicBlock* lastBlock = _workList.back();
 
-  // Initialize the first block with
-  // the currently inspected argument.
-  _blockList[firstBlock].add(arg);
+  // Initialize the first block with the 
+  // taints of the currently inspected argument.
+  _blockList[firstBlock].addAll(initialTaints);
 
 
   do {
@@ -120,6 +129,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet) {
   // The last block represents the result.
   // Every taint flows were propagated to this
   // block due to the meet-operation
+  taintSet.clear();
   taintSet.addAll(_blockList[lastBlock]);
 
   DEBUG(logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
@@ -162,7 +172,13 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
 
-    IHD.dispatch(inst, taintSet);
+    DEBUG(CTX.logger.debug() << "`` Taint Set before dispatch:\n");
+    DEBUG(taintSet.printTo(CTX.logger.debug());
+
+    IHD.dispatch(inst, taintSet));
+
+    DEBUG(CTX.logger.debug() << "`` Taint Set after dispatch:\n");
+    DEBUG(taintSet.printTo(CTX.logger.debug()));
 
     IF_PROFILING(logger.profile() << " Processing instruction '" << Instruction::getOpcodeName(inst.getOpcode())
         << "' took " << Helper::getTimestampDelta(t) << " µs\n");
@@ -299,7 +315,8 @@ void FunctionProcessor::handleFoundArgument(const Value& arg, const TaintSet& in
     DEBUG(DOT.addInNode(arg));
 
   TaintSet taintSet;
-  
+  taintSet.add(arg);
+
   for (TaintSet::const_iterator i_i = initialValues.begin(), i_e = initialValues.end(); i_i != i_e; ++i_i) {
     const Value& v = **i_i;
     DEBUG(DOT.addRelation(arg, v, "created"));

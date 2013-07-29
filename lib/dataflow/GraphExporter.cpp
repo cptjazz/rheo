@@ -110,7 +110,9 @@ string GraphExporter::getInOutNodeShape(const Value& v) const {
 }
 
 string GraphExporter::getInNodeShape(const Value& v) const {
-  return "shape=record, style=filled, color=lightblue";
+  return isa<BasicBlock>(v) 
+      ? "shape=record, style=filled, color=burlywood" 
+      : "shape=record, style=filled, color=lightblue";
 }
 
 string GraphExporter::getOutNodeShape(const Value& v) const {
