@@ -1,5 +1,5 @@
 #!/bin/bash
-make
+make -j5
 rm *.taints
 rm *.taints.temp
 cd test/
