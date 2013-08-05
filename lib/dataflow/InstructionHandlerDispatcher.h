@@ -3,32 +3,48 @@
 
 #include "InstructionHandler.h"
 #include "Core.h"
-#include "InstructionHandler.h"
 #include "AnalysisState.h"
 #include "Helper.h"
+#include "SupportedInstructionFunctor.h"
 
 
 class InstructionHandlerDispatcher {
+  private:
+    map<unsigned int, InstructionHandler*> mapping;
+    InstructionHandler* _defaultHandler;
+    InstructionHandlerContext& _context;
+    SupportedInstructionFunctor unsupportedFunctor;
 
-  map<unsigned int, InstructionHandler*> mapping;
-  InstructionHandler* _defaultHandler;
-  InstructionHandlerContext& _context;
+    struct DeleteFunctor {
+      template<class T>
+        void operator()(const T& object) const {
+          delete object.second;
+        }
+    };
 
-  struct DeleteFunctor {
-    template<class T>
-    void operator()(const T& object) const {
-      delete object.second;
-    }
-  };
+    void initialize();
 
   public:
-  InstructionHandlerDispatcher(InstructionHandlerContext& ctx) : _context(ctx)
-    { }
+    InstructionHandlerDispatcher(InstructionHandlerContext& ctx) : _context(ctx) {
+      _context.registerIsSupportedInstructionCallback(unsupportedFunctor);
+    }
+
+    ~InstructionHandlerDispatcher() {
+      for_each(mapping.begin(), mapping.end(), DeleteFunctor());
+      mapping.clear();
+    }
 
     template<class T>
-    void registerHandler() {
+    T* registerHandler() {
       T* handler = new T(_context);
       mapping.insert(make_pair(handler->getOpcode(), handler));
+      return handler;
+    }
+
+    template<class T>
+    void registerHandlerForUnsupportedInstruction() {
+      T* handler = registerHandler<T>();
+      unsupportedFunctor.registerUnsupportedInstruction(handler->getOpcode());
     }
 
     template<class T>
@@ -40,16 +56,15 @@ class InstructionHandlerDispatcher {
       IF_PROFILING(long t = Helper::getTimestamp());
       InstructionHandler* handler = mapping[instruction.getOpcode()];
 
-      if (handler != NULL)
+      if (handler != NULL) {
+        DEBUG(_context.logger.output() << "USING HANDLER FOR " << instruction.getOpcode() << "\n");
         handler->handleInstruction(instruction, taintSet);
-      else
+      } else {
+        DEBUG(_context.logger.output() << "USING DEFAULT HANDLER\n");
         _defaultHandler->handleInstruction(instruction, taintSet);
-      IF_PROFILING(_context.logger.profile() << "dispatch took " << Helper::getTimestampDelta(t) << "µs\n");
-    }
+      }
 
-    ~InstructionHandlerDispatcher() {
-      for_each(mapping.begin(), mapping.end(), DeleteFunctor());
-      mapping.clear();
+      IF_PROFILING(_context.logger.profile() << "dispatch took " << Helper::getTimestampDelta(t) << "µs\n");
     }
 };
 

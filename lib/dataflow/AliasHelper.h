@@ -12,6 +12,12 @@ class AliasHelper {
     if (!target.getType()->isPointerTy())
       return;
 
+    if (!CTX.isSupportedInstruction(target)) {
+      CTX.analysisState.stopWithError(string("Unsupported instruction while resolving aliases: ") 
+          + Instruction::getOpcodeName(cast<Instruction>(target).getOpcode()));
+      return;
+    }
+
     if (isa<GetElementPtrInst>(target)) {
       const GetElementPtrInst& gep = cast<GetElementPtrInst>(target);
       const Value& ptrOp = *gep.getPointerOperand();

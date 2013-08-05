@@ -54,7 +54,6 @@ class FunctionProcessor {
   deque<const BasicBlock*> _workList;
 
   bool _suppressPrintTaints;
-  bool _shouldWriteErrors;
 
 public:
   FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, ExcludeFile& exclusions)
@@ -64,7 +63,6 @@ public:
     IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger)
    {
     _suppressPrintTaints = false;
-    _shouldWriteErrors = true;
 
     DEBUG(DOT.init());
     registerHandlers();
@@ -82,10 +80,6 @@ public:
 
   bool didFinish() {
     return !_analysisState.isCanceled();
-  }
-
-  void setShouldWriteErrors(bool val) {
-    _shouldWriteErrors = val;
   }
 
   void suppressPrintTaints() {
@@ -116,8 +110,9 @@ private:
     IHD.registerHandler<SwitchHandler>();
     IHD.registerHandler<StoreHandler>();
     IHD.registerHandler<CallHandler>();
-    IHD.registerHandler<IndirectBranchHandler>();
-    IHD.registerHandler<IntToPtrHandler>();
+
+    IHD.registerHandlerForUnsupportedInstruction<IndirectBranchHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<IntToPtrHandler>();
   }
 
 };

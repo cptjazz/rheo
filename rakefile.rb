@@ -99,6 +99,7 @@ def analyse(args)
             end
 
             if line =~ /__error:(.*)/
+              print "\b" * (arg_count.to_s.length*2 + 1)
               puts "error: #{$1.strip}".color(:red)
             end
 

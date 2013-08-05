@@ -173,9 +173,9 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
       handleBlockTainting(inst, block, taintSet);
 
     DEBUG(CTX.logger.debug() << "`` Taint Set before dispatch:\n");
-    DEBUG(taintSet.printTo(CTX.logger.debug());
+    DEBUG(taintSet.printTo(CTX.logger.debug()));
 
-    IHD.dispatch(inst, taintSet));
+    IHD.dispatch(inst, taintSet);
 
     DEBUG(CTX.logger.debug() << "`` Taint Set after dispatch:\n");
     DEBUG(taintSet.printTo(CTX.logger.debug()));

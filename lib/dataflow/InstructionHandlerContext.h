@@ -9,6 +9,7 @@
 #include "GraphExporter.h"
 #include "BlockHelper.h"
 #include "ExcludeFile.h"
+#include "SupportedInstructionFunctor.h"
 
 struct EnqueueToWorklistFunctor {
     deque<const BasicBlock*>& _worklist;
@@ -49,10 +50,19 @@ class InstructionHandlerContext {
     map<const CallInst*, ResultSet> mappingCache;
     ExcludeFile& EXCL;
     const Value* currentArgument;
+    SupportedInstructionFunctor* supportedInstructionCallback;
 
     void refreshDomTrees() {
       DT.runOnFunction(const_cast<Function&>(F));
       PDT.runOnFunction(const_cast<Function&>(F));
+    }
+
+    void registerIsSupportedInstructionCallback(SupportedInstructionFunctor& functor) {
+      supportedInstructionCallback = &functor;
+    }
+
+    inline bool isSupportedInstruction(const Value& inst) {
+      return (*supportedInstructionCallback)(inst);
     }
 };
 

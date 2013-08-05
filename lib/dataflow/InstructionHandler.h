@@ -56,8 +56,8 @@ class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<Instru
     UnsupportedInstructionHandlerTrait(unsigned int opcode, string msg, InstructionHandlerContext& ctx)
         : InstructionHandlerTrait<Instruction>(opcode, ctx), _msg(msg) { }
 
-    void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
-      this->CTX.analysisState.stopWithError(_msg);
+    inline void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
+      CTX.analysisState.stopWithError(_msg);
     }
 };
 

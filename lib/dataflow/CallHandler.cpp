@@ -61,7 +61,6 @@ void CallHandler::buildMappingForCircularReferenceCall(const CallInst& callInst,
   // function. Tha partial map was already written to a file.
   FunctionProcessor& refFp = FunctionProcessor::from(CTX, func);
   refFp.suppressPrintTaints();
-  refFp.setShouldWriteErrors(false);
   refFp.processFunction();
 
   ResultSet refResult = refFp.getResult();
@@ -421,7 +420,6 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
-  taintSet.printTo(CTX.logger.debug());
 
   IF_PROFILING(long t1 = Helper::getTimestamp());
   // Store information if the in-value is
@@ -468,7 +466,6 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       continue;
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
-    inTaintSet.printTo(CTX.logger.debug());
 
     if (inTaintSet.contains(in)) {
       // Add graph arrows and function-node only if taints
