@@ -30,6 +30,8 @@
 #include "Logger.h"
 #include "SetHelper.h"
 #include "ExcludeFile.h"
+#include "SpecialTaintHelper.h"
+#include "FopenSpecialTaintInstruction.h"
 
 using namespace llvm;
 using namespace std;
@@ -45,6 +47,7 @@ class FunctionProcessor {
   const Logger& logger;
   SetHelper setHelper;
   GraphExporter DOT;
+  SpecialTaintHelper& STH;
   InstructionHandlerContext CTX;
   InstructionHandlerDispatcher IHD;
   BlockHelper BH;
@@ -56,10 +59,10 @@ class FunctionProcessor {
   bool _suppressPrintTaints;
 
 public:
-  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, ExcludeFile& exclusions)
+  FunctionProcessor(TaintFlowPass& pass, const Function& f, CircleMap& circRef, const Module& m, const Logger& logger, ExcludeFile& exclusions, SpecialTaintHelper& sth)
   : F(f), DT(pass.getDependency<DominatorTree>(f)), PDT(pass.getDependency<PostDominatorTree>(f)), M(m),
-    PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()),
-    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m, exclusions),
+    PASS(pass), _circularReferences(circRef), logger(logger), setHelper(logger), DOT(f.getName()), STH(sth),
+    CTX(DOT, DT, PDT, logger, _workList, _analysisState, f, _circularReferences, setHelper, pass, m, exclusions, STH),
     IHD(CTX), BH(DT, PDT, DOT, logger), _analysisState(logger)
    {
     _suppressPrintTaints = false;
@@ -71,7 +74,7 @@ public:
   void processFunction();
 
   static FunctionProcessor& from(InstructionHandlerContext& ctx, const Function& func) {
-    return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.EXCL);
+    return *new FunctionProcessor(ctx.PASS, func, ctx.circularReferences, ctx.M, ctx.logger, ctx.EXCL, ctx.STH);
   }
 
   AnalysisState getAnalysisState() {
@@ -113,6 +116,8 @@ private:
 
     IHD.registerHandlerForUnsupportedInstruction<IndirectBranchHandler>();
     IHD.registerHandlerForUnsupportedInstruction<IntToPtrHandler>();
+
+    STH.registerFunction<FopenSpecialTaintInstruction>();
   }
 
 };

@@ -240,7 +240,7 @@ void FunctionProcessor::findArguments() {
     CallInst& call = const_cast<CallInst&>(cast<CallInst>(*i));
 
     TaintSet taints;
-    const Value* newTaint = SpecialTaintHelper::processExternalTaints(call, taints);
+    const Value* newTaint = STH.processExternalTaints(call, taints);
 
     if (newTaint)
       handleFoundArgument(*newTaint, taints);

@@ -4,7 +4,6 @@
 #include <sstream>
 #include <stdio.h>
 #include "llvm/IR/Instructions.h"
-#include "SpecialTaintHelper.h"
 
 map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 
@@ -185,7 +184,7 @@ string TaintFile::getFilename(const Function& f) {
  * Writes the provided ResultSet to a taint file
  * for the provided Function
  */
-void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
+void TaintFile::writeTempResult(SpecialTaintHelper& sth, const Function& f, const ResultSet result) {
   ofstream file;
 
   file.open((getFilename(f) + ".temp").c_str(), ios::out);
@@ -204,7 +203,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(arg).getArgNo(); 
       source = convert.str();
-    } else if (!isa<GlobalValue>(arg) && !SpecialTaintHelper::isSpecialTaintValue(arg)) {
+    } else if (!isa<GlobalValue>(arg) && !sth.isSpecialTaintValue(arg)) {
       // Varargs
       source = "-2";
     }
@@ -215,7 +214,7 @@ void TaintFile::writeTempResult(const Function& f, const ResultSet result) {
       ostringstream convert;
       convert << cast<Argument>(retval).getArgNo();
       sink = convert.str();
-    } else if (!isa<GlobalValue>(retval) && !SpecialTaintHelper::isSpecialTaintValue(retval)) {
+    } else if (!isa<GlobalValue>(retval) && !sth.isSpecialTaintValue(retval)) {
       // Varargs
       sink = "-2";
     }

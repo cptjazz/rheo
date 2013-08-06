@@ -2,42 +2,46 @@
 #define SPECIAL_TAINT_HELPER_H
 
 #include "Core.h"
+#include "SpecialTaintInstruction.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
+#include <map>
 
 class SpecialTaintHelper {
+  private:
+    map<string, SpecialTaintInstruction*> registry;
+    LLVMContext& _llvmContext;
+
   public:
-    static const Value* processExternalTaints(CallInst& call, TaintSet& taints) {
+    SpecialTaintHelper(LLVMContext& context) : _llvmContext(context) { }
+
+    const Value* processExternalTaints(CallInst& call, TaintSet& taints) {
       // Calling to a function pointer
       if (!call.getCalledFunction())
         return NULL;
       
       const Function& func = *call.getCalledFunction();
 
-      // TODO: better design :)
-      //
-
-      // new names must start with '+'
-      if (func.getName().equals("fopen")) {
-        // Newly created taint affects retval
-        taints.add(call);
-
-        //Value* newVal = UndefValue::get(Type::getLabelTy(call.getContext()));
-        //newVal->setName("+fopen_FILE");
-        Value* newVal = BasicBlock::Create(call.getContext(), "+fopen_FILE");
-        //Value* newVal = new PseudoSourceValue(Value::UndefValueVal);
-        //newVal->setName("+fopen_FILE");
-
-        return newVal;
+      string fName = func.getName();
+      if (registry.count(fName)) {
+        SpecialTaintInstruction& inst = *registry[fName];
+        return inst.handleInstruction(call, taints);
       }
 
       return NULL;
     }
 
-    static bool hasSpecialTreatment(const Function& func) {
-      return (func.getName().equals("fopen"));
+    template<class T>
+    void registerFunction() {
+      SpecialTaintInstruction* handler = new T(_llvmContext);
+      string name = handler->getFunctionName();
+      registry.insert(make_pair(name, handler));
     }
 
-    static bool isSpecialTaintValue(const Value& v) {
+    bool hasSpecialTreatment(const Function& func) const {
+      return registry.count(func.getName());
+    }
+
+    bool isSpecialTaintValue(const Value& v) const {
       return v.getName().startswith("+");
     }
 };

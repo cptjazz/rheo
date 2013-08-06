@@ -10,6 +10,7 @@
 #include "BlockHelper.h"
 #include "ExcludeFile.h"
 #include "SupportedInstructionFunctor.h"
+#include "SpecialTaintHelper.h"
 
 struct EnqueueToWorklistFunctor {
     deque<const BasicBlock*>& _worklist;
@@ -29,10 +30,10 @@ class InstructionHandlerContext {
     InstructionHandlerContext(GraphExporter& dot, DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
                               deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
                               CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module,
-                              ExcludeFile& exclusions)
+                              ExcludeFile& exclusions, SpecialTaintHelper& sth)
         : DT(dt), PDT(pdt), DOT(dot), logger(logger), enqueueBlockToWorklist(worklist), analysisState(analysisState),
           BH(dt, pdt, dot, logger), F(f), circularReferences(circRef), setHelper(setHelper), PASS(pass), M(module),
-          EXCL(exclusions)
+          EXCL(exclusions), STH(sth)
     { }
 
     DominatorTree& DT;
@@ -51,6 +52,7 @@ class InstructionHandlerContext {
     ExcludeFile& EXCL;
     const Value* currentArgument;
     SupportedInstructionFunctor* supportedInstructionCallback;
+    SpecialTaintHelper& STH;
 
     void refreshDomTrees() {
       DT.runOnFunction(const_cast<Function&>(F));

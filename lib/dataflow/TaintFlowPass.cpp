@@ -14,6 +14,7 @@
 #include "TaintFile.h"
 #include "RequestsFile.h"
 #include "FunctionProcessor.h"
+#include "SpecialTaintHelper.h"
 
 
 char TaintFlowPass::ID = 0;
@@ -239,7 +240,8 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  FunctionProcessor proc(*this, func, _circularReferences, module, logger, exclusions);
+  SpecialTaintHelper sth(module.getContext());
+  FunctionProcessor proc(*this, func, _circularReferences, module, logger, exclusions, sth);
   proc.processFunction();
   ResultSet result = proc.getResult();
 
@@ -266,7 +268,7 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
       break;
 
     case Success:
-      TaintFile::writeTempResult(func, result);
+      TaintFile::writeTempResult(sth, func, result);
       TaintFile::persistResult(func);
       break;
 

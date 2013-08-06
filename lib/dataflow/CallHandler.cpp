@@ -5,7 +5,6 @@
 #include "IntrinsicHelper.h"
 #include "FunctionProcessor.h"
 #include "AliasHelper.h"
-#include "SpecialTaintHelper.h"
 
 
 void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& taintSet) const {
@@ -219,7 +218,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
   
   // For functions that create special taints (eg from files)
   // we do no common processing at all
-  if (SpecialTaintHelper::isSpecialTaintValue(*CTX.currentArgument) && SpecialTaintHelper::hasSpecialTreatment(callee)) {
+  if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument) && CTX.STH.hasSpecialTreatment(callee)) {
     DEBUG(CTX.logger.debug() << "call to " << callee.getName() << " for special arg " << CTX.currentArgument->getName() << "\n");
     return;
   }
@@ -293,7 +292,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
       // Write out currently available taint mapping of this function
       // because the dependent function needs this information.
       CTX.setHelper.buildResultSet();
-      TaintFile::writeTempResult(CTX.F, CTX.setHelper.resultSet);
+      TaintFile::writeTempResult(CTX.STH, CTX.F, CTX.setHelper.resultSet);
 
       buildMappingForCircularReferenceCall(callInst, callee, taintResults);
 
