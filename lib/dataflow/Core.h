@@ -57,6 +57,20 @@ struct FunctionTaint {
   int sinkPosition;
 };
 
+enum TaintType {
+  NoTaint = 0,
+  Source = 1,
+  Sink = 2
+};
+
+inline TaintType operator|(TaintType a, TaintType b) {
+  return static_cast<TaintType>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+inline bool operator&(TaintType a, TaintType b) {
+  return (static_cast<int>(a) & static_cast<int>(b));
+}
+
 typedef SmallPtrSet<const Value*, 16> ValueSet;
 typedef map<const Value*, TaintSet> TaintMap;
 typedef pair<const Value*, const Value*> TaintPair;

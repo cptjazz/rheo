@@ -3,10 +3,13 @@
 class FopenSpecialTaintInstruction : public SpecialTaintInstruction {
   public:
     FopenSpecialTaintInstruction(LLVMContext& context)
-      : SpecialTaintInstruction(context, "fopen") { }
+      : SpecialTaintInstruction(context, "fopen", Source | Sink) { }
 
-    virtual const Value* handleInstruction(CallInst& call, TaintSet& taints) {
-      taints.add(call);
-      return createValueWithName("fopen_FILE");
+    const SpecialTaint handleInstruction(CallInst& call, TaintSet& taints) {
+      SpecialTaint st = createSpecialTaint("fopen_FILE", call);
+
+      addAffectedValue(taints, st, call);
+
+      return st;
     }
 };

@@ -216,12 +216,9 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
 
   ResultSet taintResults;
   
-  // For functions that create special taints (eg from files)
-  // we do no common processing at all
-  if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument) && CTX.STH.hasSpecialTreatment(callee)) {
-    DEBUG(CTX.logger.debug() << "call to " << callee.getName() << " for special arg " << CTX.currentArgument->getName() << "\n");
-    return;
-  }
+  // Handle special taints for current call
+  DEBUG(CTX.logger.debug() << "Special treatment call to " << callee.getName() << "\n");
+  CTX.STH.propagateTaintsFromCall(callInst, taintSet);
 
   // Caching call instruction arguments-to-value mappings
   // per-function. This is a benefit if blocks are inspected

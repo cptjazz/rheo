@@ -240,18 +240,20 @@ void FunctionProcessor::findArguments() {
     CallInst& call = const_cast<CallInst&>(cast<CallInst>(*i));
 
     TaintSet taints;
-    const Value* newTaint = STH.processExternalTaints(call, taints);
+    const SpecialTaint newTaint = STH.getExternalTaints(call, taints);
 
-    if (newTaint)
-      handleFoundArgument(*newTaint, taints);
-    //for (ValueSet::const_iterator t_i = taints.begin(), t_e = taints.end(); t_i != t_e; ++t_i) {
-      //const Value& v = **t_i;
-      //handleFoundArgument(v);
-    //}
+    if (newTaint.type != NoTaint)
+      handleFoundArgument(newTaint.type, *(newTaint.value), taints);
   }
 
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
-    handleFoundArgument(*a_i);
+    const Argument& arg = *a_i;
+
+    TaintType taintType = (arg.getType()->isPointerTy())
+      ? Source | Sink
+      : Source;
+
+    handleFoundArgument(taintType, arg);
   }
 
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
@@ -261,7 +263,7 @@ void FunctionProcessor::findArguments() {
     if (g.isConstant())
       continue;
 
-    handleFoundArgument(g);
+    handleFoundArgument(Source | Sink, g);
   }
 
 
@@ -287,7 +289,7 @@ void FunctionProcessor::findArguments() {
           Value& alloca = *gep.getOperand(0);
 
           alloca.setName("...");
-          handleFoundArgument(alloca);
+          handleFoundArgument(Source | Sink, alloca);
           break;
         }
       }
@@ -295,24 +297,21 @@ void FunctionProcessor::findArguments() {
   }
 }
 
-void FunctionProcessor::handleFoundArgument(const Value& arg, const TaintSet& initialValues) {
-  bool isInOutNode = false;
+void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& arg, const TaintSet& initialValues) {
 
   DEBUG(logger.debug() << " -- Inspecting argument or global `" << Helper::getValueName(arg) << "`\n");
 
-  if ((arg.getType()->isPointerTy() || isa<GlobalVariable>(arg))) {
+  if (taintType & Sink) {
     TaintSet returnSet;
     returnSet.add(arg);
 
     setHelper.returnStatements.insert(make_pair(&arg, returnSet));
+
     DEBUG(DOT.addInOutNode(arg));
-    isInOutNode = true;
-
     DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to out-list\n");
-  }
-
-  if (!isInOutNode)
+  } else {
     DEBUG(DOT.addInNode(arg));
+  }
 
   TaintSet taintSet;
   taintSet.add(arg);
