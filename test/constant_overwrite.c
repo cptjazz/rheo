@@ -93,11 +93,13 @@ int overwrite_7(int a) {
   return x;
 }
 
-// __expected:overwrite_7_2(a => $_retval)
+// __expected:overwrite_7_2()
 int overwrite_7_2(int a) {
   int x;
   int y = 5;
 
+  // Else branch is optimized away.
+  // -> return 3
   if (y)
     x = 3;
   else

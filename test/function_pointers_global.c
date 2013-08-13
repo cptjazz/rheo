@@ -29,20 +29,19 @@ int variable_operation_global(int fu, int baz)
   // After this line, operation is op2
   set_to_op2();
 
+  // A 'real' function pointer call, since operation is 
+  // changed in set_to_op2()
   int y = operation(fu, baz);
   return y;
 }
 
-// __expected:variable_operation_global_2(fu => $_retval, baz => $_retval, fu => @operation, baz => @operation)
+// __expected:variable_operation_global_2(fu => $_retval)
 int variable_operation_global_2(int fu, int baz)
 {
   operation = op1;
 
-  // After this line, operation is op2
-  // set_to_op2();
-  // even without calling this, we should find the function pointer
-  // alias generated in the functino. #conservatism
-
+  // operation is known to be op1() at compile time,
+  // call is replaced by ordinary function call
   int y = operation(fu, baz);
   return y;
 }

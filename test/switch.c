@@ -1,9 +1,31 @@
-// __expected:switch1(a => $_retval)
+// __expected:switch1()
 int switch1(int a, int b) {
   int y = 5;
   int x;
 
   switch (y) {
+    // Optimized away to always use the `default' target
+    case 1:
+      x = a;
+      break;
+    case 2:
+      x = a + 5;
+      break;
+    default:
+      x = 0;
+      break;
+  }
+
+  return x;
+}
+
+// __expected:switch2(a => $_retval)
+int switch2(int a, int b) {
+  int y = 2;
+  int x;
+
+  switch (y) {
+    // Optimized away to always use the `2' target
     case 1:
       x = a;
       break;

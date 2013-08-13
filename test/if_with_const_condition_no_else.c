@@ -8,12 +8,12 @@ int const_expr(int x, int* out) {
 }
 
 
-// __expected:const_expr2(x => $_retval)
+// __expected:const_expr2()
 int const_expr2(int x) {
   int a = 1;
   int b = -1;
 
-  if (a + b)
+  if (a + b) // known to be 0 - branch is optimized away
     return x;
   
   return 0;

@@ -15,17 +15,19 @@ int op2(int x, int y)
 }
 
 
-// __expected:variable_operation(foo => $_retval, bar => $_retval, fu => $_retval, baz => $_retval, fu => @operation, baz => @operation)
+// __expected:variable_operation(foo => $_retval, bar => $_retval)
 int variable_operation(int foo, int bar, int fu, int baz)
 {
   operation = op1;
+  // operation is known to be op1() at compile time,
+  // so the call is replaced by a non-function-pointer call.
   int x = operation(foo, bar);
 
-  // Here, taints foo => @operation and bar => @operation 
-  // introduced above due to heuristic are overwritten 
-  // by constant `op2`
   operation = op2;
+  // operation is known to be op2 at compile time,
+  // so the call is replaced by a non-function-pointer call.
   int y = operation(fu, baz);
+  // No information flow since op2 has constant result.
 
   return x + y;
 }

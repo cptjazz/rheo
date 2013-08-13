@@ -18,7 +18,7 @@ void create_2d_array(short* values, short*** neighbours, int l) {
 
 // __expected:store_addressof(source => target, source => source, target => target)
 void store_addressof(int* source, int** target) {
-  target[0] = &source[1];
+  target[1] = &source[1];
 }
 
 // __expected:store_addressof_double_indexing(source => target, source => source, target => target)

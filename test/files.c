@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 // __expected:something(x => $_retval, +fopen_FILE => $_retval)
 int something(int x) {
@@ -11,14 +12,23 @@ int something(int x) {
   return result;
 }
 
-// __expected:open_file(filename => filename, filename => $_retval, +fopen_FILE => $_retval)
-int open_file(const char* filename) {
+// __expected:read_file(filename => filename, filename => $_retval, +fopen_FILE => $_retval)
+int read_file(const char* filename) {
   FILE* f = fopen(filename, "r");
   char result[10];
   fread((void*)result, sizeof(char), 10, f);
   fclose(f);
 
   return result[0];
+}
+
+// __expected:write_file()
+int write_file(const char* filename, const char* some_text) {
+  FILE* f = fopen(filename, "r");
+  fwrite((void*)(some_text), sizeof(char), strlen(some_text), f);
+  fclose(f);
+
+  return 0;
 }
 
 // __expected:main()

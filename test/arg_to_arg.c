@@ -3,7 +3,7 @@
 int a2a(int a, int b, int c, int d) {
   b = a;
   c = b + 2;
-  d = a - c;
+  d = -c;
 
   return d;
 }
@@ -15,4 +15,16 @@ int a2a2(int a, int b, int c) {
   int y = a - c;
 
   return w + x + y;
+}
+
+// __expected:a2a3()
+int a2a3(int a, int b, int c, int d) {
+  b = a;
+  c = b + 2;
+  // -> c = a + 2
+  // d = a - a + 2 -> d = 2 
+  d = a - c;
+
+  // return value is now constant
+  return d;
 }

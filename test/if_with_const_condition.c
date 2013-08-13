@@ -1,7 +1,8 @@
-// __expected:const_expr(x => $_retval)
+// __expected:const_expr()
 int const_expr(int x) {
   char false = 0;
 
+  // Branch is optimized away
   if (false)
     return x;
   else
@@ -9,12 +10,13 @@ int const_expr(int x) {
 }
 
 
-// __expected:const_expr2(x => $_retval)
+// __expected:const_expr2()
 int const_expr2(int x) {
   int a = 1;
   int b = -1;
 
-  if (a + b)
+  // Branch is optimized away
+  if (a + b) // = 0
     return x;
   else
     return 5;

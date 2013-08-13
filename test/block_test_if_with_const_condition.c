@@ -1,10 +1,12 @@
 #include <stdio.h>
 
-// __expected:const_expr(x => $_retval)
+// __expected:const_expr()
 int const_expr(int x) {
   char false = 0;
   char true = 1;
 
+  // Complete branch gets optimized away.
+  // Results in return of constant.
   if (false) {
     if (true) { //should start new block
       int y = 5;
