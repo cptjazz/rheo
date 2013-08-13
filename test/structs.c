@@ -1,6 +1,6 @@
 struct point {
-  int    x;
-  int    y;
+  int x;
+  int y;
 };
 
 typedef struct point point_t;
@@ -19,7 +19,7 @@ point_t* point_compare(point_t* biggest, point_t* current) {
 point_t* biggest_point(size_t size, point_t* points)
 {
   int i;
-  point_t * biggest = NULL;
+  point_t* biggest = NULL;
 
   for (i = 0; i < size; i++) {
     biggest = point_compare(biggest, points + i);

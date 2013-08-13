@@ -147,7 +147,7 @@ def run_tests(show_only, args)
       exp_file.scan(/__expected:(.+)\((.*)\)/) { |m| exp_map[m[0]] = m[1].split(', ') }
       exp_file.scan(/__define:(.+)\((.*)\)/) { |m| def_map[m[0]] = m[1].split(', ') }
 
-      `clang -emit-llvm -c #{file}.c -o #{file}.bc`
+      `clang -emit-llvm -g -c #{file}.c -o #{file}.bc`
       `rm *.taints 2>/dev/null`
       `rm *.taints.temp 2>/dev/null`
 
