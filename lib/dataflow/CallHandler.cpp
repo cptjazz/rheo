@@ -21,12 +21,15 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
 
   if (callee != NULL) {
     // We are calling to a 'normal' function
+    DEBUG(CTX.logger.debug() << " Handle normal function. \n");
     handleFunctionCall(callInst, *callee, taintSet);
   } else {
     // We are calling to a function pointer.
     // Since we cannot determine all relisations of the pointer
     // (eg. if the function is a API function to be use from extern)
     // we need to use the same heuristic we use for external functions.
+    DEBUG(CTX.logger.debug() << " Handle function pointer. \n");
+
     ResultSet taintResults;
     buildMappingWithHeuristic(callInst, taintResults);
     processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
@@ -215,10 +218,6 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
   DEBUG(CTX.logger.debug() << " * Calling function `" << callee.getName() << "`\n");
 
   ResultSet taintResults;
-  
-  // Handle special taints for current call
-  DEBUG(CTX.logger.debug() << "Special treatment call to " << callee.getName() << "\n");
-  CTX.STH.propagateTaintsFromCall(callInst, taintSet);
 
   // Caching call instruction arguments-to-value mappings
   // per-function. This is a benefit if blocks are inspected
@@ -498,9 +497,11 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
-      //IF_PROFILING(long t2 = Helper::getTimestamp());
-      AliasHelper::handleAliasing(CTX, out, taintSet);
-      //IF_PROFILING(CTX.logger.profile() << "PFCR AliasHandling took " << Helper::getTimestampDelta(t2) << " µs\n");
+      AliasHelper::handleAliasing(CTX, &out, taintSet);
+  
+      // Handle special taints for current call
+      DEBUG(CTX.logger.debug() << "Special treatment call to " << callee.getName() << "\n");
+      CTX.STH.propagateTaintsFromCall(out, taintSet, CTX.DOT);
     }
   }
 
@@ -536,8 +537,8 @@ inline int CallHandler::getArgumentPosition(const Function& f, const Value& v) c
   if (isa<ReturnInst>(v))
     return -1;
 
-  if (isa<Argument>(v))
-    return (cast<Argument>(v)).getArgNo();
+  if (const Argument* arg = dyn_cast<Argument>(&v))
+    return arg->getArgNo();
 
   return -3;
 }

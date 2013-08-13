@@ -19,35 +19,35 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
 
   DEBUG(CTX.DOT.addRelation(cmp, inst, "condition"));
 
-  const BasicBlock& brTrue = *inst.getSuccessor(0);
-  const BasicBlock& brFalse = *inst.getSuccessor(1);
+  const BasicBlock& br1 = *inst.getSuccessor(0);
+  const BasicBlock& br2 = *inst.getSuccessor(1);
 
-
-  DEBUG(CTX.logger.debug() << "PDT Addr: " << (unsigned long)(&CTX.PDT)<< "\n");
-  DEBUG(CTX.PDT.print(CTX.logger.debug(), &CTX.M));
-  DEBUG(CTX.logger.debug() << "Inst Parent: " << inst.getParent()->getName() << "\n");
-  
-  const BasicBlock& join = *const_cast<const BasicBlock*>(CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&brFalse), const_cast<BasicBlock*>(&brTrue)));
+  const BasicBlock& join = *const_cast<const BasicBlock*>(
+      CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&br1), const_cast<BasicBlock*>(&br2)));
 
   DEBUG(CTX.logger.debug() << "   Nearest Common Post-Dominator for tr/fa: " << join.getName() << "\n");
 
   // true branch is always tainted
-  taintSet.add(brTrue);
-  DEBUG(CTX.DOT.addBlockNode(brTrue));
-  DEBUG(CTX.DOT.addRelation(inst, brTrue, "br-true"));
-  DEBUG(CTX.logger.debug() << " + Added TRUE branch to taint set: " << brTrue.getName() << "\n");
-
-  CTX.BH.followTransientBranchPaths(brTrue, join, taintSet);
-
-  // false branch is only tainted if successor
+  // branch is only tainted if successor
   // is not the same as jump target after true branch
-  if (&join != &brFalse) {
-    taintSet.add(brFalse);
-    DEBUG(CTX.DOT.addBlockNode(brFalse));
-    DEBUG(CTX.DOT.addRelation(inst, brFalse, "br-false"));
-    DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set: " << brFalse.getName() << "\n");
+  if (&join != &br1) {
+    taintSet.add(br1);
+    DEBUG(CTX.DOT.addBlockNode(br1));
+    DEBUG(CTX.DOT.addRelation(inst, br1, "br"));
+    DEBUG(CTX.logger.debug() << " + Added branch to taint set: " << br1.getName() << "\n");
 
-    CTX.BH.followTransientBranchPaths(brFalse, join, taintSet);
+    CTX.BH.followTransientBranchPaths(br1, join, taintSet);
+  }
+
+  // branch is only tainted if successor
+  // is not the same as jump target after true branch
+  if (&join != &br2) {
+    taintSet.add(br2);
+    DEBUG(CTX.DOT.addBlockNode(br2));
+    DEBUG(CTX.DOT.addRelation(inst, br2, "br"));
+    DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set: " << br2.getName() << "\n");
+
+    CTX.BH.followTransientBranchPaths(br2, join, taintSet);
   }
 }
 

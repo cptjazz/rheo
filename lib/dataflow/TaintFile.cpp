@@ -190,31 +190,31 @@ void TaintFile::writeTempResult(SpecialTaintHelper& sth, const Function& f, cons
   file.open((getFilename(f) + ".temp").c_str(), ios::out);
 
   for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
-    const Value& arg = *i->first;
-    const Value& retval = *i->second;
+    const Value* arg = i->first;
+    const Value* retval = i->second;
 
-    string source = Helper::getValueName(arg);
-    string sink = Helper::getValueName(retval);
+    string source = Helper::getValueName(*arg);
+    string sink = Helper::getValueName(*retval);
 
     // Specify the taint in numeric form, eg 0 => -1 
     // (except for globals, they keep their name)
 
-    if (isa<Argument>(arg)) {
+    if (const Argument* a = dyn_cast<Argument>(arg)) {
       ostringstream convert;
-      convert << cast<Argument>(arg).getArgNo(); 
+      convert << a->getArgNo(); 
       source = convert.str();
-    } else if (!isa<GlobalValue>(arg) && !sth.isSpecialTaintValue(arg)) {
+    } else if (!isa<GlobalValue>(arg) && !sth.isSpecialTaintValue(*arg)) {
       // Varargs
       source = "-2";
     }
 
     if (isa<ReturnInst>(retval)) {
       sink = "-1";
-    } else if (isa<Argument>(retval)) {
+    } else if (const Argument* a = dyn_cast<Argument>(retval)) {
       ostringstream convert;
-      convert << cast<Argument>(retval).getArgNo();
+      convert << a->getArgNo();
       sink = convert.str();
-    } else if (!isa<GlobalValue>(retval) && !sth.isSpecialTaintValue(retval)) {
+    } else if (!isa<GlobalValue>(retval) && !sth.isSpecialTaintValue(*retval)) {
       // Varargs
       sink = "-2";
     }

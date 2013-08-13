@@ -240,7 +240,7 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
   errs() << "# Run per function pass on `" << func.getName() << "`\n";
   errs() << "__log:start:" << func.getName() << "\n";
 
-  SpecialTaintHelper sth(module.getContext());
+  SpecialTaintHelper sth(module.getContext(), logger);
   FunctionProcessor proc(*this, func, _circularReferences, module, logger, exclusions, sth);
   proc.processFunction();
   ResultSet result = proc.getResult();

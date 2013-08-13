@@ -5,8 +5,8 @@ class FopenSpecialTaintInstruction : public SpecialTaintInstruction {
     FopenSpecialTaintInstruction(LLVMContext& context)
       : SpecialTaintInstruction(context, "fopen", Source | Sink) { }
 
-    const SpecialTaint handleInstruction(CallInst& call, TaintSet& taints) {
-      SpecialTaint st = createSpecialTaint("fopen_FILE", call);
+    const SpecialTaint handleInstruction(const CallInst& call, TaintSet& taints) {
+      SpecialTaint& st = createSpecialTaint("fopen_FILE", call);
 
       addAffectedValue(taints, st, call);
 

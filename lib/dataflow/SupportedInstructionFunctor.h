@@ -1,17 +1,21 @@
-#pragma once
+#ifndef SUPPORTEDINSTRUCTIONFUNCTOR_H
+#define SUPPORTEDINSTRUCTIONFUNCTOR_H
+
 #include "Core.h"
 
 struct SupportedInstructionFunctor {
   set<unsigned int> unsupportedInstructions;
 
-  inline bool operator()(const Value& inst) {
-    if (!isa<Instruction>(inst))
-      return true;
+  inline bool operator()(const Value& v) {
+    if (const Instruction* inst = dyn_cast<Instruction>(&v))
+      return !unsupportedInstructions.count(inst->getOpcode());
 
-    return !unsupportedInstructions.count(cast<Instruction>(inst).getOpcode());
+    return true;
   }
 
   void registerUnsupportedInstruction(const unsigned int opcode) {
     unsupportedInstructions.insert(opcode);
   }
 };
+
+#endif // SUPPORTEDINSTRUCTIONFUNCTOR_H

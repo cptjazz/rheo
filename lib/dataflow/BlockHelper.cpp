@@ -4,24 +4,21 @@ bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, Tai
   bool result = false;
 
   for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
-    if (*s_i == NULL)
-      continue;
+    const Value* v = *s_i;
 
-    if (! isa<BasicBlock>(*s_i))
-      continue;
+    if (const BasicBlock* taintedBlock = dyn_cast_or_null<BasicBlock>(v)) {
 
-    const BasicBlock& taintedBlock = cast<BasicBlock>(**s_i);
+      if (DT.dominates(taintedBlock, &currentBlock)) {
+        DEBUG(logger.debug() << " ! Dirty block `" << taintedBlock->getName() << "` dominates `" << currentBlock.getName() << "`\n");
 
-    if (DT.dominates(&taintedBlock, &currentBlock)) {
-      DEBUG(logger.debug() << " ! Dirty block `" << taintedBlock.getName() << "` dominates `" << currentBlock.getName() << "`\n");
+        if (taintedBlock != &currentBlock) {
+          taintSet.add(currentBlock);
+          DEBUG(DOT.addBlockNode(currentBlock));
+          DEBUG(DOT.addRelation(*taintedBlock, currentBlock, "block-taint"));
+        }
 
-      if (&taintedBlock != &currentBlock) {
-        taintSet.add(currentBlock);
-        DEBUG(DOT.addBlockNode(currentBlock));
-        DEBUG(DOT.addRelation(taintedBlock, currentBlock, "block-taint"));
+        result = true;
       }
-
-      result = true;
     }
   }
 

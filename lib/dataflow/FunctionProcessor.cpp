@@ -26,6 +26,8 @@ using namespace llvm;
 using namespace std;
 
 
+const SpecialTaint& SpecialTaint::Null = SpecialTaint(NULL, NoTaint);
+
 void FunctionProcessor::processFunction() {
   DEBUG(printInstructions());
 
@@ -234,16 +236,13 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 
 void FunctionProcessor::findArguments() {
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    if (!isa<CallInst>(*i))
-      continue;
+    if (const CallInst* call = dyn_cast<CallInst>(&*i)) {
+      TaintSet taints;
+      const SpecialTaint newTaint = STH.getExternalTaints(*call, taints);
 
-    CallInst& call = const_cast<CallInst&>(cast<CallInst>(*i));
-
-    TaintSet taints;
-    const SpecialTaint newTaint = STH.getExternalTaints(call, taints);
-
-    if (newTaint.type != NoTaint)
-      handleFoundArgument(newTaint.type, *(newTaint.value), taints);
+      if (newTaint.type != NoTaint)
+        handleFoundArgument(newTaint.type, *(newTaint.value), taints);
+    }
   }
 
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
@@ -266,7 +265,6 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(Source | Sink, g);
   }
 
-
   // In a perfect world, compilers would use the LLVM va_arg instruction
   // to copy over the current vararg-element. But neither Clang nor gcc-llvm
   // use this instruction, instead they immediately lower the code to use
@@ -276,20 +274,27 @@ void FunctionProcessor::findArguments() {
   // argument until we reach the struct.
   if (F.isVarArg()) {
     for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-      if (isa<CallInst>(*I)) {
-        const CallInst& call = cast<CallInst>(*I);
+      if (const CallInst* call = dyn_cast<CallInst>(&*I)) {
 
-        if (!call.getCalledFunction())
+        if (!call->getCalledFunction())
           continue;
 
-        if (call.getCalledFunction()->isIntrinsic() && call.getCalledFunction()->getIntrinsicID() == Intrinsic::vastart) {
+        const Function& calledFunction = *call->getCalledFunction();
+        if (calledFunction.isIntrinsic() && calledFunction.getIntrinsicID() == Intrinsic::vastart) {
           // Found Value of var-arg list.
-          BitCastInst& bitcast = cast<BitCastInst>(*call.getOperand(0));
-          GetElementPtrInst& gep = cast<GetElementPtrInst>(*bitcast.getOperand(0));
-          Value& alloca = *gep.getOperand(0);
+          Value* alloca;
 
-          alloca.setName("...");
-          handleFoundArgument(Source | Sink, alloca);
+          const BitCastInst* bitcast = cast<BitCastInst>(call->getOperand(0));
+
+          // Depending on -instcombine, there may (or may not) be a GEP 
+          // between the bitcast and the alloca.
+          if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(bitcast->getOperand(0)))
+            alloca = gep->getOperand(0);
+          else 
+            alloca = bitcast->getOperand(0);
+
+          alloca->setName("...");
+          handleFoundArgument(Source | Sink, *alloca);
           break;
         }
       }
@@ -328,24 +333,23 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
 
 void FunctionProcessor::findReturnStatements() {
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    if (isa<ReturnInst>(*i)) {
-      const ReturnInst& r = cast<ReturnInst>(*i);
+    if (const ReturnInst* r = dyn_cast<ReturnInst>(&*i)) {
       TaintSet taintSet;
       
       // skip 'return void'
-      const Value* retval = r.getReturnValue();
+      const Value* retval = r->getReturnValue();
       if (retval) {
         if (isa<Constant>(retval)) {
-          taintSet.add(r);
+          taintSet.add(*r);
           DEBUG(logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
         } else {
           taintSet.add(*retval);
           DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
         }
 
-        setHelper.returnStatements.insert(make_pair(&r, taintSet));
-        DEBUG(DOT.addOutNode(r));
-        DEBUG(logger.debug() << "Found ret-stmt: " << r << "\n");
+        setHelper.returnStatements.insert(make_pair(r, taintSet));
+        DEBUG(DOT.addOutNode(*r));
+        DEBUG(logger.debug() << "Found ret-stmt: " << *r << "\n");
       }
     }
   }

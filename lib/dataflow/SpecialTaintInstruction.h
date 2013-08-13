@@ -12,16 +12,19 @@ struct SpecialTaint {
     TaintType type;
     ValueSet affectedValues;
 
+    static const SpecialTaint& Null;
+
     SpecialTaint(const Value* v, TaintType t) : value(v), type(t) { }
 
     void registerAffectedValue(const Value& v) {
       affectedValues.insert(&v);
     }
 
-    static SpecialTaint createNullTaint() {
-      return SpecialTaint(NULL, NoTaint);
+    static const SpecialTaint& createNullTaint() {
+      return Null;
     }
 };
+
 
 class SpecialTaintInstruction {
   private:
@@ -44,16 +47,16 @@ class SpecialTaintInstruction {
       return stream.str();
     }
 
-    const Value* createValueWithName(string name, CallInst& call) {
+    const Value* createValueWithName(string name, const CallInst& call) {
         return BasicBlock::Create(_llvmContext, "+" + name + createUniqueNameForInstruction(call));
     }
 
   protected:
-    SpecialTaint createSpecialTaint(string name, CallInst& call) {
-      return SpecialTaint(createValueWithName(name, call), getTaintType());
+    SpecialTaint& createSpecialTaint(string name, const CallInst& call) {
+      return *(new SpecialTaint(createValueWithName(name, call), getTaintType()));
     }
 
-    void addAffectedValue(TaintSet& taints, SpecialTaint st, const Value& val) {
+    void addAffectedValue(TaintSet& taints, SpecialTaint& st, const Value& val) {
       taints.add(val);
       st.registerAffectedValue(val);
     }
@@ -74,7 +77,7 @@ class SpecialTaintInstruction {
       return _taintType;
     }
 
-    virtual const SpecialTaint handleInstruction(CallInst& call, TaintSet& taints) = 0;
+    virtual const SpecialTaint handleInstruction(const CallInst& call, TaintSet& taints) = 0;
 };
 
 #endif // SPECIALTAINTINSTRUCTION_H

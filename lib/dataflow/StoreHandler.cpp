@@ -12,7 +12,7 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
     DEBUG(CTX.DOT.addRelation(source, target, "store"));
     DEBUG(CTX.logger.debug() << " + Added STORE taint: " << source << " --> " << target << "\n");
 
-    AliasHelper::handleAliasing(CTX, target, taintSet);
+    AliasHelper::handleAliasing(CTX, &target, taintSet);
   } else if (taintSet.contains(target)) {
     // Only do removal if value is really in set
     DEBUG(CTX.logger.debug() << "Set size before: " << taintSet.size() << "\n");

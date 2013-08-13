@@ -3,58 +3,63 @@
 
 #include "Core.h"
 #include "SpecialTaintInstruction.h"
-#include "llvm/CodeGen/PseudoSourceValue.h"
+#include "GraphExporter.h"
 #include <map>
 
 class SpecialTaintHelper {
+  typedef map<const Value*, const SpecialTaint> SpecialTaintMap;
+  typedef map<string, SpecialTaintInstruction*> RegistryMap;
+
   private:
-    map<string, SpecialTaintInstruction*> registry;
+    RegistryMap registry;
     LLVMContext& _llvmContext;
-    map<const Value*, SpecialTaint> cache;
+    SpecialTaintMap cache;
+    Logger& _logger;
 
   public:
-    SpecialTaintHelper(LLVMContext& context) : _llvmContext(context) { }
+    SpecialTaintHelper(LLVMContext& context, Logger& logger)
+      : _llvmContext(context), _logger(logger) { }
 
-    const SpecialTaint getExternalTaints(CallInst& call, TaintSet& taints) {
+    const SpecialTaint& getExternalTaints(const CallInst& call, TaintSet& taints) {
       // Calling to a function pointer
       if (!call.getCalledFunction())
         return SpecialTaint::createNullTaint();
 
-      if (cache.count(&call))
-        return cache.find(&call)->second;
+      SpecialTaintMap::iterator cacheEntry = cache.find(&call);
+      if (cacheEntry != cache.end())
+        return cacheEntry->second;
       
       const Function& func = *call.getCalledFunction();
 
       string fName = func.getName();
-      if (registry.count(fName)) {
-        SpecialTaintInstruction& inst = *registry[fName];
+
+      RegistryMap::iterator registryEntry = registry.find(fName);
+      if (registryEntry != registry.end()) {
+        SpecialTaintInstruction& inst = *registryEntry->second;
         SpecialTaint taint = inst.handleInstruction(call, taints);
 
-        cache.insert(make_pair(&call, taint));
-        return taint;
+        return cache.insert(make_pair(&call, taint)).first->second;
       }
 
       return SpecialTaint::createNullTaint();
     }
 
-    void propagateTaintsFromCall(const CallInst& call, TaintSet& taintSet) {
-      map<const Value*, SpecialTaint>::iterator result = cache.find(&call);
+    void propagateTaintsFromCall(const Value& v, TaintSet& taintSet, GraphExporter& DOT) {
+      DEBUG(_logger.debug() << "testing call-arg for special taint: " << v << "\n");
+      for (SpecialTaintMap::iterator c_i = cache.begin(), c_e = cache.end(); c_i != c_e; ++c_i) {
+        const SpecialTaint& st = c_i->second;
 
-      WE SHOULD HAVE A LOOKUP TABLE FROM AFFECTED VALUES 
-        TO SPECIAL TAINTS. WE COME HERE FOR EACH CALL AND CHECK
-        IF ONE OF THE ARGS HAS A LINK TO A SPECIAL TAINT.
+        DEBUG(_logger.debug() << "special taint affected values:\n");
+        for (ValueSet::iterator v_i = st.affectedValues.begin(), v_e = st.affectedValues.end(); v_i != v_e; ++v_i)
+          DEBUG(_logger.debug() << "aff val: " << *v_i << "\n");
 
-      if (result == cache.end())
-        return;
-
-      SpecialTaint st = result->second;
-
-      const size_t callInstArgCount = call.getNumArgOperands();
-      for (size_t i = 0; i < callInstArgCount; i++) {
-        const Value& v = *call.getArgOperand(i);
+        DEBUG(_logger.debug() << "testing special taint: " << *st.value << "\n");
 
         if (st.affectedValues.count(&v)) {
+          DEBUG(_logger.debug() << "value `" << v << "` is affected!\n");
           taintSet.add(*st.value);
+          DOT.addRelation(v, *st.value);
+          continue;
         }
       }
     }
