@@ -450,8 +450,10 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
 
   
   // Handle special taints for current call
-  const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
-  taintSet.addAll(st.affectedValues);
+  if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument)) {
+    const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
+    taintSet.addAll(st.affectedValues);
+  }
 
   IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
