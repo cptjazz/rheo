@@ -22,13 +22,14 @@ task :analyse, [:file] do |t, args|
 end
 
 def analyse(args)
+  puts " * Compiling RHEO"
   `make ENABLE_OPTIMIZED=1`
 
   file = args.file || "/tmp/taint-flow.bc"
   file = File.absolute_path(file)
 
   FileUtils.rm_rf("output")
-  sleep 0.5
+  sleep 0.1
   FileUtils.mkdir("output")
 
   if Dir.exist?("taintlib")
