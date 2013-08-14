@@ -237,11 +237,10 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 void FunctionProcessor::findArguments() {
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     if (const CallInst* call = dyn_cast<CallInst>(&*i)) {
-      TaintSet taints;
-      const SpecialTaint newTaint = STH.getExternalTaints(*call, taints);
+      const SpecialTaint newTaint = STH.getExternalTaints(*call);
 
       if (newTaint.type != NoTaint)
-        handleFoundArgument(newTaint.type, *(newTaint.value), taints);
+        handleFoundArgument(newTaint.type, *(newTaint.value), newTaint.affectedValues);
     }
   }
 

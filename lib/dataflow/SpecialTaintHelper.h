@@ -20,7 +20,7 @@ class SpecialTaintHelper {
     SpecialTaintHelper(LLVMContext& context, Logger& logger)
       : _llvmContext(context), _logger(logger) { }
 
-    const SpecialTaint& getExternalTaints(const CallInst& call, TaintSet& taints) {
+    const SpecialTaint& getExternalTaints(const CallInst& call) {
       // Calling to a function pointer
       if (!call.getCalledFunction())
         return SpecialTaint::createNullTaint();
@@ -36,7 +36,7 @@ class SpecialTaintHelper {
       RegistryMap::iterator registryEntry = registry.find(fName);
       if (registryEntry != registry.end()) {
         SpecialTaintInstruction& inst = *registryEntry->second;
-        SpecialTaint taint = inst.handleInstruction(call, taints);
+        SpecialTaint taint = inst.handleInstruction(call);
 
         return cache.insert(make_pair(&call, taint)).first->second;
       }
@@ -55,7 +55,7 @@ class SpecialTaintHelper {
 
         DEBUG(_logger.debug() << "testing special taint: " << *st.value << "\n");
 
-        if (st.affectedValues.count(&v)) {
+        if (st.affectedValues.contains(v)) {
           DEBUG(_logger.debug() << "value `" << v << "` is affected!\n");
           taintSet.add(*st.value);
           DOT.addRelation(v, *st.value);

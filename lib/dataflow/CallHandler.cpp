@@ -448,6 +448,11 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   }
   IF_PROFILING(CTX.logger.profile() << "PFCR 2 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
+  
+  // Handle special taints for current call
+  const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
+  taintSet.addAll(st.affectedValues);
+
   IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
@@ -498,9 +503,6 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       }
 
       AliasHelper::handleAliasing(CTX, &out, taintSet);
-  
-      // Handle special taints for current call
-      DEBUG(CTX.logger.debug() << "Special treatment call to " << callee.getName() << "\n");
       CTX.STH.propagateTaintsFromCall(out, taintSet, CTX.DOT);
     }
   }

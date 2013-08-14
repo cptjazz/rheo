@@ -10,14 +10,14 @@ struct SpecialTaint {
   public:
     const Value* value;
     TaintType type;
-    ValueSet affectedValues;
+    TaintSet affectedValues;
 
     static const SpecialTaint& Null;
 
     SpecialTaint(const Value* v, TaintType t) : value(v), type(t) { }
 
     void registerAffectedValue(const Value& v) {
-      affectedValues.insert(&v);
+      affectedValues.add(v);
     }
 
     static const SpecialTaint& createNullTaint() {
@@ -56,8 +56,7 @@ class SpecialTaintInstruction {
       return *(new SpecialTaint(createValueWithName(name, call), getTaintType()));
     }
 
-    void addAffectedValue(TaintSet& taints, SpecialTaint& st, const Value& val) {
-      taints.add(val);
+    void addAffectedValue(SpecialTaint& st, const Value& val) {
       st.registerAffectedValue(val);
     }
 
@@ -77,7 +76,7 @@ class SpecialTaintInstruction {
       return _taintType;
     }
 
-    virtual const SpecialTaint handleInstruction(const CallInst& call, TaintSet& taints) = 0;
+    virtual const SpecialTaint handleInstruction(const CallInst& call) = 0;
 };
 
 #endif // SPECIALTAINTINSTRUCTION_H
