@@ -1,5 +1,4 @@
 #include "CallHandler.h"
-#include <cstring>
 #include <sstream>
 #include "TaintFile.h"
 #include "IntrinsicHelper.h"
@@ -143,7 +142,7 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
         const Value* outVal = *d_i;
 
         DEBUG(CTX.logger.debug() << "added mapping: " << *inVal << " => " << *outVal << "\n");
-        taintResults.insert(make_pair(inVal, outVal));
+        taintResults.insert(std::make_pair(inVal, outVal));
       }
     }
   }
@@ -156,7 +155,7 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
  * 2) Every parameter taints all out pointers
  */
 void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet& taintResults) const {
-  vector<const Value*> arguments;
+  std::vector<const Value*> arguments;
   const size_t argCount = callInst.getNumArgOperands();
 
   bool isExternal = callInst.getCalledFunction() != NULL;
@@ -187,7 +186,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     int sourcePos = isa<GlobalVariable>(source) ? -3 : i;
 
     // Every argument taints the return value
-    taintResults.insert(make_pair(&source, &callInst));
+    taintResults.insert(std::make_pair(&source, &callInst));
     DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => -1\n");
 
     // Every argument taints other pointer arguments (out-arguments)
@@ -205,12 +204,12 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
           continue;
 
         DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => " << sinkPos << "\n");
-        taintResults.insert(make_pair(&source, &sink));
+        taintResults.insert(std::make_pair(&source, &sink));
       }
     }
   }
 
-  CTX.mappingCache.insert(make_pair(&callInst, taintResults));
+  CTX.mappingCache.insert(std::make_pair(&callInst, taintResults));
 }
 
 
@@ -342,7 +341,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     } else if (paramPos == -3) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sourceName << "\n");
-      string globName = i->sourceName.substr(1, i->sourceName.length() - 1);
+      StringRef globName = i->sourceName.substr(1, i->sourceName.length() - 1);
 
       Value* glob = CTX.M.getNamedAlias(globName);
 
@@ -376,7 +375,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     } else if (retvalPos == -3) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sinkName << "\n");
-      string globName = i->sinkName.substr(1, i->sinkName.length() - 1);
+      StringRef globName = i->sinkName.substr(1, i->sinkName.length() - 1);
       
       const Value* glob = CTX.M.getNamedGlobal(globName);
       sinks.insert(glob);
@@ -404,7 +403,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
       for (ValueSet::iterator si_i = sinks.begin(), si_e = sinks.end(); si_i != si_e; ++si_i) {
         const Value* sink = *si_i;
 
-        taintResults.insert(make_pair(source, sink));
+        taintResults.insert(std::make_pair(source, sink));
       }
     }
   }
@@ -475,7 +474,8 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       // orphaned in the graph.
       IF_GRAPH(CTX.DOT.addCallNode(callee));
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
-      stringstream reas("");
+      std::string s;
+      raw_string_ostream reas(s);
 
       if (isa<GlobalVariable>(in))
         DEBUG(reas << "in, via " << Helper::getValueName(in));
@@ -494,7 +494,8 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       if (&out == &callInst) {
         IF_GRAPH(CTX.DOT.addRelation(callee, callInst, "ret"));
       } else {
-        stringstream outReas("");
+        std::string s;
+        raw_string_ostream outReas(s);
 
         if (isa<GlobalVariable>(out))
           DEBUG(outReas << "out, via " << Helper::getValueName(out));
@@ -560,5 +561,5 @@ void CallHandler::buildMappingFromTaintFile(const CallInst& callInst, const Func
   }
 
   createResultSetFromFunctionMapping(callInst, callee, *mapping, taintResults);
-  CTX.mappingCache.insert(make_pair(&callInst, taintResults));
+  CTX.mappingCache.insert(std::make_pair(&callInst, taintResults));
 }

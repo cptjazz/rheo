@@ -3,8 +3,6 @@
 
 #include "Core.h"
 #include "MetadataHelper.h"
-#include <string>
-#include <sstream>
 
 struct SpecialTaint {
   public:
@@ -29,11 +27,12 @@ struct SpecialTaint {
 class SpecialTaintInstruction {
   private:
     LLVMContext& _llvmContext;
-    const string _functionName;
+    const StringRef _functionName;
     TaintType _taintType;
 
-    string createUniqueNameForInstruction(const CallInst& call) {
-      stringstream stream;
+    std::string createUniqueNameForInstruction(const CallInst& call) {
+      std::string s;
+      raw_string_ostream stream(s);
 
       if (MetadataHelper::hasMetadata(call)) {
         stream << "@" << MetadataHelper::getFileAndLineNumber(call);
@@ -47,12 +46,12 @@ class SpecialTaintInstruction {
       return stream.str();
     }
 
-    const Value* createValueWithName(string name, const CallInst& call) {
+    const Value* createValueWithName(std::string name, const CallInst& call) {
         return BasicBlock::Create(_llvmContext, "+" + name + createUniqueNameForInstruction(call));
     }
 
   protected:
-    SpecialTaint& createSpecialTaint(string name, const CallInst& call) {
+    SpecialTaint& createSpecialTaint(std::string name, const CallInst& call) {
       return *(new SpecialTaint(createValueWithName(name, call), getTaintType()));
     }
 
@@ -61,14 +60,14 @@ class SpecialTaintInstruction {
     }
 
   public:
-    SpecialTaintInstruction(LLVMContext& context, const string fname, TaintType type) 
+    SpecialTaintInstruction(LLVMContext& context, const StringRef fname, TaintType type) 
       : _llvmContext(context), _functionName(fname), _taintType(type) { }
 
     bool canHandle(const Function& func) const {
       return (func.getName().equals(_functionName));
     }
 
-    string getFunctionName() const {
+    StringRef getFunctionName() const {
       return _functionName;
     }
 

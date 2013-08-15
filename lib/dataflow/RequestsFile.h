@@ -7,7 +7,7 @@
 
 class RequestsFile {
   private:
-    set<string> functions;
+    std::set<std::string> functions;
     bool hasFile;
 
     RequestsFile() { 
@@ -34,13 +34,13 @@ class RequestsFile {
     static RequestsFile& read() {
       RequestsFile* req = new RequestsFile();
 
-      ifstream file("requests.list", ios::in);
+      std::ifstream file("requests.list", std::ios::in);
       if (!file.is_open())
         return *req;
 
       req->hasFile = true;
 
-      string line;
+      std::string line;
       while (file.good()) {
         getline(file, line);
         req->functions.insert(line);

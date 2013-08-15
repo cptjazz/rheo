@@ -11,19 +11,16 @@
 #include "llvm/Support/Casting.h"
 #include <queue>
 #include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <fstream>
-#include <stdio.h>
+#include <string>
 
 
 char TaintFlowPass::ID = 0;
 static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", false, false);
 
 
-void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper) {
+void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, std::set<const Function*>& circleHelper) {
   Function* f = node->getFunction();
-  set<const CallGraphNode*> deferred;
+  std::set<const CallGraphNode*> deferred;
   
   // Skip already processed functions
   if (circleHelper.count(f)) {
@@ -53,7 +50,7 @@ void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, se
     enqueueFunctionsInCorrectOrder(kid, circleHelper);
   }
 
-  for (set<const CallGraphNode*>::iterator d_i = deferred.begin(), d_e = deferred.end(); d_i != d_e; ++d_i) {
+  for (std::set<const CallGraphNode*>::iterator d_i = deferred.begin(), d_e = deferred.end(); d_i != d_e; ++d_i) {
     const CallGraphNode* kid = *d_i;
     const Function* kf = kid->getFunction();
 
@@ -114,7 +111,7 @@ inline void TaintFlowPass::buildCircularReferenceInfo(CallGraph& CG) {
     const CallGraphNode* n = i->second;
 
     NodeVector refList;
-    _circularReferences.insert(make_pair(n->getFunction(), refList));
+    _circularReferences.insert(std::make_pair(n->getFunction(), refList));
     buildCircularReferenceInfoRecursion(n, n, _circularReferences[n->getFunction()]);
   }
 }
@@ -155,7 +152,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
   _avoidInfiniteLoopHelper.clear();
   for (Module::iterator i = module.begin(), e = module.end(); i != e; ++i) {
     Function* f = &*i;
-    _occurrenceCount.insert(make_pair(f, 1));
+    _occurrenceCount.insert(std::make_pair(f, 1));
   }
 
   buildCircularReferenceInfo(CG);
@@ -163,7 +160,7 @@ bool TaintFlowPass::runOnModule(Module &module) {
 
   _queuedFunctionHelper.clear();
   _avoidInfiniteLoopHelper.clear();
-  set<const Function*> circleHelper;
+  std::set<const Function*> circleHelper;
 
   RequestsFile& requests = RequestsFile::read();
 
@@ -205,8 +202,8 @@ void TaintFlowPass::processFunctionQueue(const Module& module, ExcludeFile& excl
 
     // Enqueue deferred functions that depend on the currently processed function
     // at the front of the function queue.
-    multimap<const Function*, const Function*>::const_iterator d_i = _deferredFunctions.lower_bound(f);
-    multimap<const Function*, const Function*>::const_iterator d_e = _deferredFunctions.upper_bound(f);
+    std::multimap<const Function*, const Function*>::const_iterator d_i = _deferredFunctions.lower_bound(f);
+    std::multimap<const Function*, const Function*>::const_iterator d_e = _deferredFunctions.upper_bound(f);
     for (; d_i != d_e; d_i++) {
       DEBUG(errs() << "pushing deferred to front:" << d_i->second->getName() << "\n");
       _occurrenceCount[d_i->second]--;
@@ -259,7 +256,7 @@ ProcessingState TaintFlowPass::processFunction(const Function& func, const Modul
 
         errs() << "\n";
 
-        _deferredFunctions.insert(make_pair(missing, &func));
+        _deferredFunctions.insert(std::make_pair(missing, &func));
       } else {
         // print error!?
         errs() << "__error:Could not evaluate dependency.\n";

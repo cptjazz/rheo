@@ -3,7 +3,6 @@
 
 #include "Core.h"
 #include "llvm/DebugInfo.h"
-#include <sstream>
 
 
 class MetadataHelper {
@@ -12,8 +11,9 @@ class MetadataHelper {
       return inst.getMetadata("dbg") != NULL;
     }
 
-    static string getFileAndLineNumber(const Instruction& inst) {
-      stringstream stream;
+    static StringRef getFileAndLineNumber(const Instruction& inst) {
+      std::string s;
+      raw_string_ostream stream(s);
 
       if (MDNode *n = inst.getMetadata("dbg")) {
         DILocation loc(n);

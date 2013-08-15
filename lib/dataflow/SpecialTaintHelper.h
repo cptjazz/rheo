@@ -7,8 +7,8 @@
 #include <map>
 
 class SpecialTaintHelper {
-  typedef map<const Value*, const SpecialTaint> SpecialTaintMap;
-  typedef map<string, SpecialTaintInstruction*> RegistryMap;
+  typedef std::map<const Value*, const SpecialTaint> SpecialTaintMap;
+  typedef std::map<StringRef, SpecialTaintInstruction*> RegistryMap;
 
   private:
     RegistryMap registry;
@@ -31,14 +31,14 @@ class SpecialTaintHelper {
       
       const Function& func = *call.getCalledFunction();
 
-      string fName = func.getName();
+      StringRef fName = func.getName();
 
       RegistryMap::iterator registryEntry = registry.find(fName);
       if (registryEntry != registry.end()) {
         SpecialTaintInstruction& inst = *registryEntry->second;
         SpecialTaint taint = inst.handleInstruction(call);
 
-        return cache.insert(make_pair(&call, taint)).first->second;
+        return cache.insert(std::make_pair(&call, taint)).first->second;
       }
 
       return SpecialTaint::createNullTaint();
@@ -67,8 +67,8 @@ class SpecialTaintHelper {
     template<class T>
     void registerFunction() {
       SpecialTaintInstruction* handler = new T(_llvmContext);
-      string name = handler->getFunctionName();
-      registry.insert(make_pair(name, handler));
+      StringRef name = handler->getFunctionName();
+      registry.insert(std::make_pair(name, handler));
     }
 
     bool hasSpecialTreatment(const Function& func) const {

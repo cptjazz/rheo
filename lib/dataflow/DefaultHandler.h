@@ -37,7 +37,7 @@ class DefaultHandler : public InstructionHandler {
           IF_PROFILING(CTX.logger.profile() << "add to taint set took " << Helper::getTimestampDelta(t) << "µs\n");
 
           IF_PROFILING(t = Helper::getTimestamp());
-          IF_GRAPH(CTX.DOT.addRelation(operand, inst, string(Instruction::getOpcodeName(inst.getOpcode()))));
+          IF_GRAPH(CTX.DOT.addRelation(operand, inst, std::string(Instruction::getOpcodeName(inst.getOpcode()))));
           IF_PROFILING(CTX.logger.profile() << "DOT took " << Helper::getTimestampDelta(t) << "µs\n");
 
           IF_PROFILING(t = Helper::getTimestamp());

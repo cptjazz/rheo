@@ -8,10 +8,8 @@
 #include "Logger.h"
 #include "SpecialTaintHelper.h"
 
-using namespace std;
-using namespace llvm;
 
-typedef map<const Function*, FunctionTaintMap> TaintFileCache;
+typedef std::map<const Function*, FunctionTaintMap> TaintFileCache;
 
 class TaintFile {
 public:
@@ -25,8 +23,8 @@ private:
   static TaintFileCache _mappingCache;
 
   static bool read(const Function& func, const Logger& logger, FunctionTaintMap& mapping);
-  static string getFilename(const Function& f);
-  static int getValuePosition(const Function& func, const Logger& logger, const string valName);
+  static std::string getFilename(const Function& f);
+  static int getValuePosition(const Function& func, const Logger& logger, const std::string valName);
 };
 
 #endif // TAINTFILE_H

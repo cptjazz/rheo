@@ -1,4 +1,5 @@
 #include "Core.h"
+#include "llvm/Support/CommandLine.h"
 
 bool GraphFlag;
 

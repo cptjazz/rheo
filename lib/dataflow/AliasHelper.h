@@ -13,7 +13,7 @@ class AliasHelper {
       return;
 
     if (!CTX.isSupportedInstruction(*target)) {
-      CTX.analysisState.stopWithError(string("Unsupported instruction while resolving aliases: ") 
+      CTX.analysisState.stopWithError(std::string("Unsupported instruction while resolving aliases: ")
           + Instruction::getOpcodeName(cast<Instruction>(target)->getOpcode()));
       return;
     }

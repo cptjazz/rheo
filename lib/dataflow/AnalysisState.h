@@ -1,7 +1,6 @@
 #ifndef ANALYSIS_STATE_H
 #define ANALYSIS_STATE_H
 
-#include <string>
 #include "Logger.h"
 
 /**
@@ -38,11 +37,11 @@ class AnalysisState {
 
     const Function* getMissingDefinition() { return _missingDefinition; }
 
-    void stopWithError(string msg, ProcessingState state = Error) {
+    void stopWithError(Twine msg, ProcessingState state = Error) {
       setCanceled();
       setProcessingState(state);
 
-      if (msg.length())
+      if (!msg.isTriviallyEmpty())
         logger.error() << msg << "\n";
     }
 

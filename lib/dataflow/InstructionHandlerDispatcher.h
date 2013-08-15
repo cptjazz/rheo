@@ -10,7 +10,7 @@
 
 class InstructionHandlerDispatcher {
   private:
-    map<unsigned int, InstructionHandler*> mapping;
+    std::map<unsigned int, InstructionHandler*> mapping;
     InstructionHandler* _defaultHandler;
     InstructionHandlerContext& _context;
     SupportedInstructionFunctor unsupportedFunctor;
@@ -37,7 +37,7 @@ class InstructionHandlerDispatcher {
     template<class T>
     T* registerHandler() {
       T* handler = new T(_context);
-      mapping.insert(make_pair(handler->getOpcode(), handler));
+      mapping.insert(std::make_pair(handler->getOpcode(), handler));
       return handler;
     }
 

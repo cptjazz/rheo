@@ -1,11 +1,9 @@
 #include "TaintFile.h"
-#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <stdio.h>
 #include "llvm/IR/Instructions.h"
 
-map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
+TaintFileCache TaintFile::_mappingCache;
 
 /**
  * Taint mappings are read from file and cached for further use.
@@ -19,7 +17,7 @@ map<const Function*, FunctionTaintMap> TaintFile::_mappingCache;
 const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger& logger) {
   IF_PROFILING(long t = Helper::getTimestamp());
   FunctionTaintMap temp;
-  pair<TaintFileCache::iterator, bool> result = _mappingCache.insert(make_pair(&func, temp));
+  std::pair<TaintFileCache::iterator, bool> result = _mappingCache.insert(std::make_pair(&func, temp));
   FunctionTaintMap& mapping = result.first->second;
 
   if (result.second) {
@@ -49,14 +47,14 @@ const FunctionTaintMap* TaintFile::getMapping(const Function& func, const Logger
  * The created mapping can be retreived via getMapping()
  */
 bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMap& mapping) {
-  string filename = getFilename(func);
-  ifstream file(filename.c_str(), ios::in);
+  std::string filename = getFilename(func);
+  std::ifstream file(filename.c_str(), std::ios::in);
 
   if (!file.is_open()) {
-    file.open(("taintlib/" + filename).c_str(), ios::in);
+    file.open(("taintlib/" + filename).c_str(), std::ios::in);
 
     if (!file.is_open()) {
-      file.open((filename + ".temp").c_str(), ios::in);
+      file.open((filename + ".temp").c_str(), std::ios::in);
 
       if (!file.is_open()) {
         logger.debug() << " -- Cannot get information about `" << func.getName() << "` -- cancel.\n";
@@ -66,13 +64,13 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
   }
 
 
-  string line;
+  std::string line;
   while (file.good()) {
     getline(file, line);
     
-    string sourceName;
-    string sinkName;
-    istringstream iss(line);
+    std::string sourceName;
+    std::string sinkName;
+    std::istringstream iss(line);
 
     iss >> sourceName;
     // consume => :
@@ -103,14 +101,14 @@ bool TaintFile::read(const Function& func, const Logger& logger, FunctionTaintMa
  * false otherwise
  */
 bool TaintFile::exists(const Function& f) {
-  string filename = getFilename(f);
-  ifstream file(filename.c_str(), ios::in);
+  std::string filename = getFilename(f);
+  std::ifstream file(filename.c_str(), std::ios::in);
 
   if (!file.is_open()) {
-    file.open(("taintlib/" + filename).c_str(), ios::in);
+    file.open(("taintlib/" + filename).c_str(), std::ios::in);
 
     if (!file.is_open()) {
-      file.open((filename + ".temp").c_str(), ios::in);
+      file.open((filename + ".temp").c_str(), std::ios::in);
 
       if (!file.is_open())
         return false;
@@ -120,11 +118,11 @@ bool TaintFile::exists(const Function& f) {
   return file.good();
 }
 
-int TaintFile::getValuePosition(const Function& func, const Logger& logger, const string valName) {
+int TaintFile::getValuePosition(const Function& func, const Logger& logger, const std::string valName) {
     int i = 0;
     int position;
 
-    stringstream convert(valName);
+    std::stringstream convert(valName);
 
     if(convert >> position) {
       DEBUG(logger.debug() << "Using value position from file: `" << valName << "` is at #" << position << "\n");
@@ -176,7 +174,7 @@ void TaintFile::remove(const Function& f) {
 /**
  * Extract the taint file name from the given Function
  */
-string TaintFile::getFilename(const Function& f) {
+std::string TaintFile::getFilename(const Function& f) {
   return f.getName().str() + ".taints";
 }
 
@@ -185,22 +183,22 @@ string TaintFile::getFilename(const Function& f) {
  * for the provided Function
  */
 void TaintFile::writeTempResult(SpecialTaintHelper& sth, const Function& f, const ResultSet result) {
-  ofstream file;
+  std::ofstream file;
 
-  file.open((getFilename(f) + ".temp").c_str(), ios::out);
+  file.open((getFilename(f) + ".temp").c_str(), std::ios::out);
 
   for (ResultSet::const_iterator i = result.begin(), e = result.end(); i != e; ++i) {
     const Value* arg = i->first;
     const Value* retval = i->second;
 
-    string source = Helper::getValueName(*arg);
-    string sink = Helper::getValueName(*retval);
+    std::string source = Helper::getValueName(*arg);
+    std::string sink = Helper::getValueName(*retval);
 
     // Specify the taint in numeric form, eg 0 => -1 
     // (except for globals, they keep their name)
 
     if (const Argument* a = dyn_cast<Argument>(arg)) {
-      ostringstream convert;
+      std::ostringstream convert;
       convert << a->getArgNo(); 
       source = convert.str();
     } else if (!isa<GlobalValue>(arg) && !sth.isSpecialTaintValue(*arg)) {
@@ -211,7 +209,7 @@ void TaintFile::writeTempResult(SpecialTaintHelper& sth, const Function& f, cons
     if (isa<ReturnInst>(retval)) {
       sink = "-1";
     } else if (const Argument* a = dyn_cast<Argument>(retval)) {
-      ostringstream convert;
+      std::ostringstream convert;
       convert << a->getArgNo();
       sink = convert.str();
     } else if (!isa<GlobalValue>(retval) && !sth.isSpecialTaintValue(*retval)) {

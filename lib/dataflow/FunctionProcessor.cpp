@@ -22,9 +22,6 @@
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
 
-using namespace llvm;
-using namespace std;
-
 
 const SpecialTaint& SpecialTaint::Null = SpecialTaint(NULL, NoTaint);
 
@@ -42,13 +39,13 @@ void FunctionProcessor::processFunction() {
   if (!_suppressPrintTaints)
     logger.info() << "arg_count:" << argCount << "\n";
 
-  map<const Value*, TaintSet> initialTaintMap;
+  std::map<const Value*, TaintSet> initialTaintMap;
 
   TaintMap::iterator arg_i = setHelper.arguments.begin();
   TaintMap::iterator arg_e = setHelper.arguments.end();
 
   for(; arg_i != arg_e; ++arg_i) {
-    initialTaintMap.insert(make_pair(arg_i->first, arg_i->second));
+    initialTaintMap.insert(std::make_pair(arg_i->first, arg_i->second));
   }
 
   do {
@@ -98,7 +95,7 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, T
   for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     const BasicBlock& block = cast<BasicBlock>(*b_i);
     TaintSet blockTaintSet;
-    _blockList.insert(make_pair(&block, blockTaintSet));
+    _blockList.insert(std::make_pair(&block, blockTaintSet));
     _workList.push_back(&block);
   }
 
@@ -318,7 +315,7 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
     TaintSet returnSet;
     returnSet.add(arg);
 
-    setHelper.returnStatements.insert(make_pair(&arg, returnSet));
+    setHelper.returnStatements.insert(std::make_pair(&arg, returnSet));
 
     IF_GRAPH(DOT.addInOutNode(arg));
     DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to out-list\n");
@@ -335,7 +332,7 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
     taintSet.add(v);
   }
 
-  setHelper.arguments.insert(make_pair(&arg, taintSet));
+  setHelper.arguments.insert(std::make_pair(&arg, taintSet));
   DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to arg-list\n");
 }
 
@@ -360,7 +357,7 @@ void FunctionProcessor::findReturnStatements() {
         DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
       }
 
-      setHelper.returnStatements.insert(make_pair(r, taintSet));
+      setHelper.returnStatements.insert(std::make_pair(r, taintSet));
       IF_GRAPH(DOT.addOutNode(*r));
       DEBUG(logger.debug() << "Found ret-stmt: " << *r << "\n");
     }

@@ -52,7 +52,7 @@ void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
  * @param taintee The sink of the taint (usually a return or out-pointer)
  */
 void SetHelper::addTaint(const Value& tainter, const Value& taintee) {
-  if (resultSet.insert(make_pair(&tainter, &taintee)).second) {
+  if (resultSet.insert(std::make_pair(&tainter, &taintee)).second) {
     resultSetChanged = true;
     DEBUG(logger.debug() << "Added taint. Result set changed.\n");
   }

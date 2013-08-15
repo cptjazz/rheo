@@ -13,19 +13,18 @@
 #include "llvm/Analysis/CallGraph.h"
 #include <queue>
 
-using namespace llvm;
-using namespace std;
 
 
 class TaintFlowPass : public ModulePass {
+  private:
 
-    multimap<const Function*, const Function*> _deferredFunctions;
-    deque<const Function*> _functionQueue;
-    map<const Function*, int> _occurrenceCount;
+    std::multimap<const Function*, const Function*> _deferredFunctions;
+    std::deque<const Function*> _functionQueue;
+    std::map<const Function*, int> _occurrenceCount;
 
     CircleMap _circularReferences;
-    set<Function*> _queuedFunctionHelper;
-    set<Function*> _avoidInfiniteLoopHelper;
+    std::set<Function*> _queuedFunctionHelper;
+    std::set<Function*> _avoidInfiniteLoopHelper;
     Logger logger;
     GraphExporter* DOT;
 
@@ -37,7 +36,7 @@ class TaintFlowPass : public ModulePass {
     }
 
     bool runOnModule(Module &module); 
-    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper); 
+    void enqueueFunctionsInCorrectOrder(const CallGraphNode* node, std::set<const Function*>& circleHelper); 
     void buildCircularReferenceInfo(CallGraph& CG);
     bool buildCircularReferenceInfoRecursion(const CallGraphNode* node, const CallGraphNode* startNode, NodeVector& circularReferences);
     void addFunctionForProcessing(Function* f); 

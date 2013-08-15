@@ -4,7 +4,7 @@
 #include "Core.h"
 
 struct SupportedInstructionFunctor {
-  set<unsigned int> unsupportedInstructions;
+  std::set<unsigned int> unsupportedInstructions;
 
   inline bool operator()(const Value& v) {
     if (const Instruction* inst = dyn_cast<Instruction>(&v))

@@ -13,9 +13,9 @@
 #include <deque>
 
 struct EnqueueToWorklistFunctor {
-    deque<const BasicBlock*>& _worklist;
+  std::deque<const BasicBlock*>& _worklist;
 
-    EnqueueToWorklistFunctor(deque<const BasicBlock*>& worklist)
+    EnqueueToWorklistFunctor(std::deque<const BasicBlock*>& worklist)
       : _worklist(worklist) { }
 
     void operator()(const BasicBlock* block) {
@@ -28,7 +28,7 @@ struct EnqueueToWorklistFunctor {
 class InstructionHandlerContext {
   public:
     InstructionHandlerContext(GraphExporter& dot, DominatorTree& dt, PostDominatorTree& pdt, const Logger& logger,
-                              deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
+                              std::deque<const BasicBlock*>& worklist, AnalysisState& analysisState, const Function& f,
                               CircleMap& circRef, SetHelper& setHelper, TaintFlowPass& pass, const Module& module,
                               ExcludeFile& exclusions, SpecialTaintHelper& sth)
         : DT(dt), PDT(pdt), DOT(dot), logger(logger), enqueueBlockToWorklist(worklist), analysisState(analysisState),
@@ -48,7 +48,7 @@ class InstructionHandlerContext {
     SetHelper& setHelper;
     TaintFlowPass& PASS;
     const Module& M;
-    map<const CallInst*, ResultSet> mappingCache;
+    std::map<const CallInst*, ResultSet> mappingCache;
     ExcludeFile& EXCL;
     const Value* currentArgument;
     SupportedInstructionFunctor* supportedInstructionCallback;

@@ -27,7 +27,7 @@ class InstructionHandler {
 
     virtual void handleInstruction(const Instruction& inst, TaintSet& taintSet) const = 0; 
 
-    inline unsigned int getOpcode() { return _opcode; }
+    unsigned int getOpcode() { return _opcode; }
 };
 
 
@@ -38,7 +38,7 @@ class InstructionHandlerTrait : public InstructionHandler {
     InstructionHandlerTrait(unsigned int opcode, InstructionHandlerContext& ctx)
       : InstructionHandler(opcode, ctx) { }
 
-    inline void handleInstruction(const Instruction& inst, TaintSet& taintSet) const {
+    void handleInstruction(const Instruction& inst, TaintSet& taintSet) const {
       IF_PROFILING(long t = Helper::getTimestamp());
       handleInstructionInternal(cast<T>(inst), taintSet);
       IF_PROFILING(CTX.logger.profile() << "handleInstructionInternal took: " << Helper::getTimestampDelta(t) << "µs\n");
@@ -50,13 +50,13 @@ class InstructionHandlerTrait : public InstructionHandler {
 
 
 class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<Instruction> {
-    string _msg;
+  std::string _msg;
 
   public:
-    UnsupportedInstructionHandlerTrait(unsigned int opcode, string msg, InstructionHandlerContext& ctx)
+    UnsupportedInstructionHandlerTrait(unsigned int opcode, std::string msg, InstructionHandlerContext& ctx)
         : InstructionHandlerTrait<Instruction>(opcode, ctx), _msg(msg) { }
 
-    inline void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
+    void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
       CTX.analysisState.stopWithError(_msg);
     }
 };

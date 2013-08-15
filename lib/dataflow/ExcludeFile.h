@@ -7,7 +7,7 @@
 
 class ExcludeFile {
   private:
-    set<string> functions;
+    std::set<std::string> functions;
     bool hasFile;
 
     ExcludeFile() { 
@@ -31,13 +31,13 @@ class ExcludeFile {
     static ExcludeFile& read() {
       ExcludeFile* req = new ExcludeFile();
 
-      ifstream file("exclude.list", ios::in);
+      std::ifstream file("exclude.list", std::ios::in);
       if (!file.is_open())
         return *req;
 
       req->hasFile = true;
 
-      string line;
+      std::string line;
       while (file.good()) {
         getline(file, line);
         req->functions.insert(line);

@@ -30,11 +30,6 @@
 #include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <deque>
-#include <cstring>
-#include <stdio.h>
-
-using namespace llvm;
-using namespace std;
 
 
 class FunctionProcessor {
@@ -53,8 +48,8 @@ class FunctionProcessor {
   BlockHelper BH;
   AnalysisState _analysisState;
 
-  map<const BasicBlock*, TaintSet> _blockList;
-  deque<const BasicBlock*> _workList;
+  std::map<const BasicBlock*, TaintSet> _blockList;
+  std::deque<const BasicBlock*> _workList;
 
   bool _suppressPrintTaints;
 

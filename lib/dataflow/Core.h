@@ -10,7 +10,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
 #include <map>
 #include <set>
 #include <string>
@@ -29,11 +28,10 @@ extern bool GraphFlag;
 #endif
 
 
-using namespace std;
 using namespace llvm;
 
 struct FunctionTaint {
-  FunctionTaint(string sourceName, int sourcePos, string sinkName, int sinkPos) {
+  FunctionTaint(std::string sourceName, int sourcePos, std::string sinkName, int sinkPos) {
     this->sourceName = sourceName;
     sourcePosition = sourcePos;
     this->sinkName = sinkName;
@@ -58,9 +56,9 @@ struct FunctionTaint {
     return false;
   }
 
-  string sourceName;
+  std::string sourceName;
   int sourcePosition;
-  string sinkName;
+  std::string sinkName;
   int sinkPosition;
 };
 
@@ -79,11 +77,11 @@ inline bool operator&(TaintType a, TaintType b) {
 }
 
 typedef SmallPtrSet<const Value*, 16> ValueSet;
-typedef map<const Value*, TaintSet> TaintMap;
-typedef pair<const Value*, const Value*> TaintPair;
-typedef set<TaintPair> ResultSet;
-typedef vector<const CallGraphNode*> NodeVector;
-typedef map<const Function*, NodeVector> CircleMap;
-typedef set<FunctionTaint> FunctionTaintMap;
+typedef std::map<const Value*, TaintSet> TaintMap;
+typedef std::pair<const Value*, const Value*> TaintPair;
+typedef std::set<TaintPair> ResultSet;
+typedef std::vector<const CallGraphNode*> NodeVector;
+typedef std::map<const Function*, NodeVector> CircleMap;
+typedef std::set<FunctionTaint> FunctionTaintMap;
 
 #endif // CORE_H

@@ -16,9 +16,11 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
 
     if (taintSet.contains(idx)) {
       taintSet.add(inst);
-      stringstream reason("");
-      DEBUG(reason << "index #" << i);
-      IF_GRAPH(CTX.DOT.addRelation(idx, inst, reason.str()));
+      IF_GRAPH(
+        std::stringstream reason("");
+        reason << "index #" << i;
+        CTX.DOT.addRelation(idx, inst, reason.str());
+        );
       DEBUG(CTX.logger.debug() << " ++ Added GEP INDEX: `" << idx << "`\n");
     }
   }

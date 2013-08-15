@@ -4,7 +4,7 @@
 
 
 void GraphExporter::init() {
-  _file.open((_functionName + ".dot").c_str(), ios::out);
+  _file.open((_functionName + ".dot").c_str(), std::ios::out);
 
   _file << "digraph \"" << _functionName << "\" { \n";
   _file << "  graph [\n";
@@ -71,7 +71,7 @@ void GraphExporter::addCallNode(const Value& f) {
   _nodes.insert(&f);
 }
 
-void GraphExporter::addRelation(const Value& from, const Value& to, string reason) {
+void GraphExporter::addRelation(const Value& from, const Value& to, std::string reason) {
   if (_nodes.find(&from) == _nodes.end()) {
     _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\", " << getShape(from) << "];\n";
     _nodes.insert(&from);
@@ -82,57 +82,57 @@ void GraphExporter::addRelation(const Value& from, const Value& to, string reaso
     _nodes.insert(&to);
   }
 
-  if (_pairs.find(make_pair(&from, &to)) == _pairs.end()) {
+  if (_pairs.find(std::make_pair(&from, &to)) == _pairs.end()) {
     _file << getNodeName(from) << " -> " << getNodeName(to) 
           << " [label=\"" << getLabel(reason) << "\", "
           << "style=\"" << getLineStyle(reason) << "\""
           <<  "];\n";
 
-    _pairs.insert(make_pair(&from, &to));
+    _pairs.insert(std::make_pair(&from, &to));
   }
 }
 
-string GraphExporter::getLabel(string reason) const {
+std::string GraphExporter::getLabel(std::string reason) const {
   return reason == "block-taint" ? "" : reason;
 }
 
-string GraphExporter::getLineStyle(string reason) const {
+std::string GraphExporter::getLineStyle(std::string reason) const {
   return reason == "block-taint" ? "dotted" :
          reason == "function indirection" ? "dashed" : "solid";
 }
 
-string GraphExporter::getShape(const Value& v) const {
+std::string GraphExporter::getShape(const Value& v) const {
   return "shape=record";
 }
 
-string GraphExporter::getInOutNodeShape(const Value& v) const {
+std::string GraphExporter::getInOutNodeShape(const Value& v) const {
   return "shape=record, style=filled, color=yellow";
 }
 
-string GraphExporter::getInNodeShape(const Value& v) const {
+std::string GraphExporter::getInNodeShape(const Value& v) const {
   return isa<BasicBlock>(v) 
       ? "shape=record, style=filled, color=burlywood" 
       : "shape=record, style=filled, color=lightblue";
 }
 
-string GraphExporter::getOutNodeShape(const Value& v) const {
+std::string GraphExporter::getOutNodeShape(const Value& v) const {
   return "shape=record, style=filled, color=pink";
 }
 
-string GraphExporter::getNodeName(const Value& i) const {
-  stringstream ss;
+std::string GraphExporter::getNodeName(const Value& i) const {
+  std::stringstream ss;
   ss << "_" << (long)(&i);
   return ss.str();
 }
 
-string GraphExporter::getNodeCaption(const Value& v) const {
+std::string GraphExporter::getNodeCaption(const Value& v) const {
    if (!v.hasName()) {
     if (isa<SwitchInst>(v))
       return "switch " + getNodeName(v);
     else if (isa<BranchInst>(v))
       return "br " + getNodeName(v);
     else {
-      string s;
+      std::string s;
       raw_string_ostream rstr(s);
       rstr << v;
       s = rstr.str();
@@ -143,7 +143,7 @@ string GraphExporter::getNodeCaption(const Value& v) const {
     }
   }
 
-  stringstream ss;
+  std::stringstream ss;
   ss << v.getName().str();
   return ss.str();
 }
