@@ -3,7 +3,7 @@ require 'rainbow'
 require 'rake/clean'
 require 'pty'
 
-@opt_args = "-globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -dataflow"
+@opt_args = "-strip-debug-declare -globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -dataflow"
 
 desc "Run all tests, but only show failed ones"
 namespace :test do
