@@ -1,17 +1,17 @@
 #ifndef TAINTFLOWPASS_H
 #define TAINTFLOWPASS_H
 
-#include <queue>
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
-#include "llvm/Analysis/CallGraph.h"
 #include "Core.h"
 #include "AnalysisState.h"
 #include "Logger.h"
 #include "GraphExporter.h"
 #include "ExcludeFile.h"
+#include "llvm/Pass.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/CallGraph.h"
+#include <queue>
 
 using namespace llvm;
 using namespace std;

@@ -8,7 +8,7 @@
 
 class AliasHelper {
   public:
-  static void handleAliasing(InstructionHandlerContext& CTX, const Value* target, TaintSet& taintSet) {
+  inline static void handleAliasing(InstructionHandlerContext& CTX, const Value* target, TaintSet& taintSet) {
     if (!target->getType()->isPointerTy())
       return;
 
@@ -21,7 +21,7 @@ class AliasHelper {
     if (const GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(target)) {
       const Value* ptrOp = gep->getPointerOperand();
       DEBUG(CTX.logger.debug() << " ++ Added GEP SOURCE:" << *ptrOp << "\n");
-      DEBUG(CTX.DOT.addRelation(*gep, *ptrOp, "gep-alias"));
+      IF_GRAPH(CTX.DOT.addRelation(*gep, *ptrOp, "gep-alias"));
       taintSet.add(*ptrOp);
 
       if (const Instruction* inst = dyn_cast<Instruction>(ptrOp))
@@ -30,7 +30,7 @@ class AliasHelper {
     } else if (const LoadInst* load = dyn_cast<LoadInst>(target)) {
       const Value* ptrOp = load->getOperand(0);
       DEBUG(CTX.logger.debug() << " ++ Added LOAD SOURCE:" << *ptrOp << "\n");
-      DEBUG(CTX.DOT.addRelation(*load, *ptrOp, "load-alias"));
+      IF_GRAPH(CTX.DOT.addRelation(*load, *ptrOp, "load-alias"));
       taintSet.add(*ptrOp);
 
       if (const Instruction* inst = dyn_cast<Instruction>(ptrOp))
@@ -43,14 +43,14 @@ class AliasHelper {
         const Value& val = *phi->getIncomingValue(j);
 
         DEBUG(CTX.logger.debug() << " ++ Added PHI SOURCE:" << val << "\n");
-        DEBUG(CTX.DOT.addRelation(*phi, val, "phi-alias"));
+        IF_GRAPH(CTX.DOT.addRelation(*phi, val, "phi-alias"));
         taintSet.add(val);
       }
     } else if(const CastInst* inst = dyn_cast<CastInst>(target)) {
       const Value& val = *inst->getOperand(0);
 
       DEBUG(CTX.logger.debug() << " ++ Added CAST SOURCE:" << val << "\n");
-      DEBUG(CTX.DOT.addRelation(*target, val, "cast-alias"));
+      IF_GRAPH(CTX.DOT.addRelation(*target, val, "cast-alias"));
       taintSet.add(val);
     }
   }

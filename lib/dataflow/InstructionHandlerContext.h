@@ -1,7 +1,6 @@
 #ifndef INSTRUCTION_HANDLER_CONTEXT_H
 #define INSTRUCTION_HANDLER_CONTEXT_H
 
-#include <deque>
 #include "Core.h"
 #include "AnalysisState.h"
 #include "SetHelper.h"
@@ -11,6 +10,7 @@
 #include "ExcludeFile.h"
 #include "SupportedInstructionFunctor.h"
 #include "SpecialTaintHelper.h"
+#include <deque>
 
 struct EnqueueToWorklistFunctor {
     deque<const BasicBlock*>& _worklist;

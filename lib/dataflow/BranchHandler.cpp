@@ -17,7 +17,7 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   if (!isConditionTainted) 
     return;
 
-  DEBUG(CTX.DOT.addRelation(cmp, inst, "condition"));
+  IF_GRAPH(CTX.DOT.addRelation(cmp, inst, "condition"));
 
   const BasicBlock& br1 = *inst.getSuccessor(0);
   const BasicBlock& br2 = *inst.getSuccessor(1);
@@ -32,8 +32,8 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   // is not the same as jump target after true branch
   if (&join != &br1) {
     taintSet.add(br1);
-    DEBUG(CTX.DOT.addBlockNode(br1));
-    DEBUG(CTX.DOT.addRelation(inst, br1, "br"));
+    IF_GRAPH(CTX.DOT.addBlockNode(br1));
+    IF_GRAPH(CTX.DOT.addRelation(inst, br1, "br"));
     DEBUG(CTX.logger.debug() << " + Added branch to taint set: " << br1.getName() << "\n");
 
     CTX.BH.followTransientBranchPaths(br1, join, taintSet);
@@ -43,8 +43,8 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   // is not the same as jump target after true branch
   if (&join != &br2) {
     taintSet.add(br2);
-    DEBUG(CTX.DOT.addBlockNode(br2));
-    DEBUG(CTX.DOT.addRelation(inst, br2, "br"));
+    IF_GRAPH(CTX.DOT.addBlockNode(br2));
+    IF_GRAPH(CTX.DOT.addRelation(inst, br2, "br"));
     DEBUG(CTX.logger.debug() << " + Added FALSE branch to taint set: " << br2.getName() << "\n");
 
     CTX.BH.followTransientBranchPaths(br2, join, taintSet);

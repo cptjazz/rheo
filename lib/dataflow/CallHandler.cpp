@@ -40,7 +40,7 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     // tainted.
     if (taintSet.contains(*calleeValue)) {
       taintSet.add(callInst);
-      DEBUG(CTX.DOT.addRelation(*calleeValue, callInst));
+      IF_GRAPH(CTX.DOT.addRelation(*calleeValue, callInst));
     }
   }
 }
@@ -473,7 +473,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
-      DEBUG(CTX.DOT.addCallNode(callee));
+      IF_GRAPH(CTX.DOT.addCallNode(callee));
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
       stringstream reas("");
 
@@ -482,17 +482,17 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       else
         DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in));
 
-      DEBUG(CTX.DOT.addRelation(in, callee, reas.str()));
+      IF_GRAPH(CTX.DOT.addRelation(in, callee, reas.str()));
 
       if (taintSet.contains(callee) && out.getType()->isPointerTy()) {
-        DEBUG(CTX.DOT.addRelation(callee, out, "function-indirection"));
+        IF_GRAPH(CTX.DOT.addRelation(callee, out, "function-indirection"));
         taintSet.add(out);
       }
 
       DEBUG(CTX.logger.debug() << " + Added " << out << "\n");
       taintSet.add(out);
       if (&out == &callInst) {
-        DEBUG(CTX.DOT.addRelation(callee, callInst, "ret"));
+        IF_GRAPH(CTX.DOT.addRelation(callee, callInst, "ret"));
       } else {
         stringstream outReas("");
 
@@ -501,7 +501,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
         else
           DEBUG(outReas << "out, arg# " << getArgumentPosition(callInst, out));
 
-        DEBUG(CTX.DOT.addRelation(callee, out, outReas.str()));
+        IF_GRAPH(CTX.DOT.addRelation(callee, out, outReas.str()));
       }
 
       AliasHelper::handleAliasing(CTX, &out, taintSet);

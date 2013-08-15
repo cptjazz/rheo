@@ -6,7 +6,7 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
 
   if (taintSet.contains(op)) {
     taintSet.add(inst);
-    DEBUG(CTX.DOT.addRelation(op, inst, "indexer"));
+    IF_GRAPH(CTX.DOT.addRelation(op, inst, "indexer"));
     DEBUG(CTX.logger.debug() << " + Added GEP taint: `" << inst << "`\n");
   }
 
@@ -18,7 +18,7 @@ void GetElementPtrHandler::handleInstructionInternal(const GetElementPtrInst& in
       taintSet.add(inst);
       stringstream reason("");
       DEBUG(reason << "index #" << i);
-      DEBUG(CTX.DOT.addRelation(idx, inst, reason.str()));
+      IF_GRAPH(CTX.DOT.addRelation(idx, inst, reason.str()));
       DEBUG(CTX.logger.debug() << " ++ Added GEP INDEX: `" << idx << "`\n");
     }
   }

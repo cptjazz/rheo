@@ -2,6 +2,8 @@
 #define TAINTSET_H
 
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Value.h"
 
 using namespace llvm;
 

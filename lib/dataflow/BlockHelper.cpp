@@ -6,19 +6,20 @@ bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, Tai
   for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     const Value* v = *s_i;
 
-    if (const BasicBlock* taintedBlock = dyn_cast_or_null<BasicBlock>(v)) {
+    const BasicBlock* taintedBlock = dyn_cast_or_null<BasicBlock>(v);
+    if (!taintedBlock)
+      continue;
 
-      if (DT.dominates(taintedBlock, &currentBlock)) {
-        DEBUG(logger.debug() << " ! Dirty block `" << taintedBlock->getName() << "` dominates `" << currentBlock.getName() << "`\n");
+    if (DT.dominates(taintedBlock, &currentBlock)) {
+      DEBUG(logger.debug() << " ! Dirty block `" << taintedBlock->getName() << "` dominates `" << currentBlock.getName() << "`\n");
 
-        if (taintedBlock != &currentBlock) {
-          taintSet.add(currentBlock);
-          DEBUG(DOT.addBlockNode(currentBlock));
-          DEBUG(DOT.addRelation(*taintedBlock, currentBlock, "block-taint"));
-        }
-
-        result = true;
+      if (taintedBlock != &currentBlock) {
+        taintSet.add(currentBlock);
+        IF_GRAPH(DOT.addBlockNode(currentBlock));
+        IF_GRAPH(DOT.addRelation(*taintedBlock, currentBlock, "block-taint"));
       }
+
+      result = true;
     }
   }
 
@@ -35,8 +36,8 @@ void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBl
 
   if (PDT.dominates(&join, brSuccessor) && brSuccessor != &join) {
 
-    DEBUG(DOT.addBlockNode(*brSuccessor));
-    DEBUG(DOT.addRelation(brTerminator, *brSuccessor, "block-taint"));
+    IF_GRAPH(DOT.addBlockNode(*brSuccessor));
+    IF_GRAPH(DOT.addRelation(brTerminator, *brSuccessor, "block-taint"));
     DEBUG(logger.debug() << " ++ Added TRANSIENT block: " << brSuccessor->getName() << "\n");
 
     taintSet.add(*brSuccessor);

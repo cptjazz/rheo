@@ -1,15 +1,6 @@
 #ifndef FUNCTION_PROCESSOR_H
 #define FUNCTION_PROCESSOR_H
 
-#include "llvm/Pass.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/Casting.h"
-#include <algorithm>
-#include <deque>
-#include <cstring>
-#include <stdio.h>
 #include "Logger.h"
 #include "GraphExporter.h"
 #include "Helper.h"
@@ -32,6 +23,15 @@
 #include "ExcludeFile.h"
 #include "SpecialTaintHelper.h"
 #include "FopenSpecialTaintInstruction.h"
+#include "llvm/Pass.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/Support/Casting.h"
+#include <algorithm>
+#include <deque>
+#include <cstring>
+#include <stdio.h>
 
 using namespace llvm;
 using namespace std;
@@ -67,7 +67,7 @@ public:
    {
     _suppressPrintTaints = false;
 
-    DEBUG(DOT.init());
+    IF_GRAPH(DOT.init());
     registerHandlers();
   }
 

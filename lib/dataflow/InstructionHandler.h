@@ -1,16 +1,16 @@
 #ifndef INSTRUCTION_HANDLER_H
 #define INSTRUCTION_HANDLER_H
 
-#include <string>
+#include "InstructionHandlerContext.h"
 #include "Core.h"
+#include "GraphExporter.h"
+#include "BlockHelper.h"
+#include "Helper.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
-#include "GraphExporter.h"
-#include "BlockHelper.h"
-#include "Helper.h"
-#include "InstructionHandlerContext.h"
+#include <string>
 
 class InstructionHandler {
   private:

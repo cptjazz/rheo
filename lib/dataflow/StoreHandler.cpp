@@ -9,7 +9,7 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
   if (taintSet.contains(source) || taintSet.contains(storeInst)) {
     taintSet.add(target);
 
-    DEBUG(CTX.DOT.addRelation(source, target, "store"));
+    IF_GRAPH(CTX.DOT.addRelation(source, target, "store"));
     DEBUG(CTX.logger.debug() << " + Added STORE taint: " << source << " --> " << target << "\n");
 
     AliasHelper::handleAliasing(CTX, &target, taintSet);
@@ -20,7 +20,7 @@ void StoreHandler::handleInstructionInternal(const StoreInst& storeInst, TaintSe
     DEBUG(CTX.logger.debug() << "Set size after: " << taintSet.size() << "\n");
 
     DEBUG(CTX.logger.debug() << " - Removed STORE taint due to non-tainted overwrite: " << source << " --> " << target << "\n");
-    DEBUG(CTX.DOT.addRelation(source, target, "non-taint overwrite"));
+    IF_GRAPH(CTX.DOT.addRelation(source, target, "non-taint overwrite"));
   }
 }
 

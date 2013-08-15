@@ -58,7 +58,7 @@ class SpecialTaintHelper {
         if (st.affectedValues.contains(v)) {
           DEBUG(_logger.debug() << "value `" << v << "` is affected!\n");
           taintSet.add(*st.value);
-          DOT.addRelation(v, *st.value);
+          IF_GRAPH(DOT.addRelation(v, *st.value));
           continue;
         }
       }

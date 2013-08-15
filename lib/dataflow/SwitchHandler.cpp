@@ -6,7 +6,7 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
   if (!taintSet.contains(*condition))
     return;
 
-  DEBUG(CTX.DOT.addRelation(*condition, inst, "switch"));
+  IF_GRAPH(CTX.DOT.addRelation(*condition, inst, "switch"));
 
   if (!inst.getNumCases()) {
     DEBUG(CTX.logger.debug() << "Skipping switch because it consisted solely of a default branch.\n");
@@ -30,8 +30,8 @@ void SwitchHandler::handleInstructionInternal(const SwitchInst& inst, TaintSet& 
   for (size_t i = startBlock; i < succCount; ++i) {
     // Mark all case-blocks as tainted.
     const BasicBlock& caseBlock = *inst.getSuccessor(i);
-    DEBUG(CTX.DOT.addBlockNode(caseBlock));
-    DEBUG(CTX.DOT.addRelation(inst, caseBlock, "case"));
+    IF_GRAPH(CTX.DOT.addBlockNode(caseBlock));
+    IF_GRAPH(CTX.DOT.addRelation(inst, caseBlock, "case"));
     DEBUG(CTX.logger.debug() << " + Added Block due to tainted SWITCH condition: " << caseBlock << "\n");
 
     taintSet.add(caseBlock);

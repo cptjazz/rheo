@@ -1,20 +1,27 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include <set>
-#include <map>
-#include <string>
+#define DEBUG_TYPE "dataflow"
+
+#include "TaintSet.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/raw_ostream.h"
-#include "TaintSet.h"
+#include "llvm/Support/CommandLine.h"
+#include <map>
+#include <set>
+#include <string>
+
+
+// Inspired by LLVM's DEBUG macro in llvm/Support/Debug.h
+extern bool GraphFlag;
+#define IF_GRAPH(x) do { if (GraphFlag) { x; } } while(0)
+
 
 //#define PROFILING
-
 #ifdef PROFILING
   #define IF_PROFILING(x) x
 #else

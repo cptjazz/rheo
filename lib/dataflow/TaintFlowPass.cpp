@@ -1,3 +1,8 @@
+#include "TaintFlowPass.h"
+#include "TaintFile.h"
+#include "RequestsFile.h"
+#include "FunctionProcessor.h"
+#include "SpecialTaintHelper.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -10,16 +15,11 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
-#include "TaintFlowPass.h"
-#include "TaintFile.h"
-#include "RequestsFile.h"
-#include "FunctionProcessor.h"
-#include "SpecialTaintHelper.h"
 
 
 char TaintFlowPass::ID = 0;
-
 static RegisterPass<TaintFlowPass> X("dataflow", "Taint-flow analysis", false, false);
+
 
 void TaintFlowPass::enqueueFunctionsInCorrectOrder(const CallGraphNode* node, set<const Function*>& circleHelper) {
   Function* f = node->getFunction();

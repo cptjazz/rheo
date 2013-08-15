@@ -1,3 +1,6 @@
+#include "FunctionProcessor.h"
+#include "TaintSet.h"
+#include "SpecialTaintHelper.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -15,9 +18,6 @@
 #include <set>
 #include <algorithm>
 #include <stdio.h>
-#include "FunctionProcessor.h"
-#include "TaintSet.h"
-#include "SpecialTaintHelper.h"
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
@@ -31,6 +31,7 @@ const SpecialTaint& SpecialTaint::Null = SpecialTaint(NULL, NoTaint);
 void FunctionProcessor::processFunction() {
   DEBUG(printInstructions());
 
+  IF_GRAPH(logger.error() << "ADSFASDF GRAPH!\n");
   logger.debug() << "Spawning analysis for: " << F.getName() << "\n";
   findReturnStatements();
   findArguments();
@@ -229,19 +230,23 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
   if (isa<StoreInst>(inst))
-    DEBUG(DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
+    IF_GRAPH(DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
   else
-    DEBUG(DOT.addRelation(currentBlock, inst, "block-taint"));
+    IF_GRAPH(DOT.addRelation(currentBlock, inst, "block-taint"));
 }
 
 void FunctionProcessor::findArguments() {
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    if (const CallInst* call = dyn_cast<CallInst>(&*i)) {
-      const SpecialTaint newTaint = STH.getExternalTaints(*call);
+    const Value& v = *i;
+    const CallInst* call = dyn_cast<CallInst>(&v);
 
-      if (newTaint.type != NoTaint)
-        handleFoundArgument(newTaint.type, *(newTaint.value), newTaint.affectedValues);
-    }
+    if (!call)
+      continue;
+
+    const SpecialTaint newTaint = STH.getExternalTaints(*call);
+
+    if (newTaint.type != NoTaint)
+      handleFoundArgument(newTaint.type, *(newTaint.value), newTaint.affectedValues);
   }
 
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
@@ -264,6 +269,9 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(Source | Sink, g);
   }
 
+  if (!F.isVarArg())
+    return;
+
   // In a perfect world, compilers would use the LLVM va_arg instruction
   // to copy over the current vararg-element. But neither Clang nor gcc-llvm
   // use this instruction, instead they immediately lower the code to use
@@ -271,32 +279,33 @@ void FunctionProcessor::findArguments() {
   // Here, we search for this struct and rename it to "..." to have convenient
   // output. We simply search for the first @va_start intrinsic and follow its
   // argument until we reach the struct.
-  if (F.isVarArg()) {
-    for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-      if (const CallInst* call = dyn_cast<CallInst>(&*I)) {
+  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    const Value& v = *I;
+    const CallInst* call = dyn_cast<CallInst>(&v);
 
-        if (!call->getCalledFunction())
-          continue;
+    if (!call)
+      continue;
 
-        const Function& calledFunction = *call->getCalledFunction();
-        if (calledFunction.isIntrinsic() && calledFunction.getIntrinsicID() == Intrinsic::vastart) {
-          // Found Value of var-arg list.
-          Value* alloca;
+    if (!call->getCalledFunction())
+      continue;
 
-          const BitCastInst* bitcast = cast<BitCastInst>(call->getOperand(0));
+    const Function& calledFunction = *call->getCalledFunction();
+    if (calledFunction.isIntrinsic() && calledFunction.getIntrinsicID() == Intrinsic::vastart) {
+      // Found Value of var-arg list.
+      Value* alloca;
 
-          // Depending on -instcombine, there may (or may not) be a GEP 
-          // between the bitcast and the alloca.
-          if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(bitcast->getOperand(0)))
-            alloca = gep->getOperand(0);
-          else 
-            alloca = bitcast->getOperand(0);
+      const BitCastInst* bitcast = cast<BitCastInst>(call->getOperand(0));
 
-          alloca->setName("...");
-          handleFoundArgument(Source | Sink, *alloca);
-          break;
-        }
-      }
+      // Depending on -instcombine, there may (or may not) be a GEP 
+      // between the bitcast and the alloca.
+      if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(bitcast->getOperand(0)))
+        alloca = gep->getOperand(0);
+      else 
+        alloca = bitcast->getOperand(0);
+
+      alloca->setName("...");
+      handleFoundArgument(Source | Sink, *alloca);
+      break;
     }
   }
 }
@@ -311,10 +320,10 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
 
     setHelper.returnStatements.insert(make_pair(&arg, returnSet));
 
-    DEBUG(DOT.addInOutNode(arg));
+    IF_GRAPH(DOT.addInOutNode(arg));
     DEBUG(logger.debug() << "added arg `" << Helper::getValueName(arg) << "` to out-list\n");
   } else {
-    DEBUG(DOT.addInNode(arg));
+    IF_GRAPH(DOT.addInNode(arg));
   }
 
   TaintSet taintSet;
@@ -322,7 +331,7 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
 
   for (TaintSet::const_iterator i_i = initialValues.begin(), i_e = initialValues.end(); i_i != i_e; ++i_i) {
     const Value& v = **i_i;
-    DEBUG(DOT.addRelation(arg, v, "created"));
+    IF_GRAPH(DOT.addRelation(arg, v, "created"));
     taintSet.add(v);
   }
 
@@ -332,24 +341,28 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
 
 void FunctionProcessor::findReturnStatements() {
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    if (const ReturnInst* r = dyn_cast<ReturnInst>(&*i)) {
-      TaintSet taintSet;
-      
-      // skip 'return void'
-      const Value* retval = r->getReturnValue();
-      if (retval) {
-        if (isa<Constant>(retval)) {
-          taintSet.add(*r);
-          DEBUG(logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
-        } else {
-          taintSet.add(*retval);
-          DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
-        }
+    const Value& v = *i;
+    const ReturnInst* r = dyn_cast<ReturnInst>(&v);
 
-        setHelper.returnStatements.insert(make_pair(r, taintSet));
-        DEBUG(DOT.addOutNode(*r));
-        DEBUG(logger.debug() << "Found ret-stmt: " << *r << "\n");
+    if (!r) 
+      continue;
+
+    TaintSet taintSet;
+
+    // skip 'return void'
+    const Value* retval = r->getReturnValue();
+    if (retval) {
+      if (isa<Constant>(retval)) {
+        taintSet.add(*r);
+        DEBUG(logger.debug() << " + Added instruction CONSTANT RETURN VALUE `" << *retval << "`\n");
+      } else {
+        taintSet.add(*retval);
+        DEBUG(logger.debug() << " + Added NON-CONST RETURN VALUE `" << retval << "`\n");
       }
+
+      setHelper.returnStatements.insert(make_pair(r, taintSet));
+      IF_GRAPH(DOT.addOutNode(*r));
+      DEBUG(logger.debug() << "Found ret-stmt: " << *r << "\n");
     }
   }
 }

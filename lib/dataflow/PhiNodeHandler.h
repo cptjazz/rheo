@@ -27,11 +27,11 @@ class PhiNodeHandler : public InstructionHandlerTrait<PHINode> {
         if (taintSet.contains(incomingBlock)) {
           taintSet.add(inst);
           DEBUG(CTX.logger.debug() << " + Added PHI from block" << incomingBlock << "\n");
-          DEBUG(CTX.DOT.addRelation(incomingBlock, inst, "block-taint"));
+          IF_GRAPH(CTX.DOT.addRelation(incomingBlock, inst, "block-taint"));
         } else if (taintSet.contains(incomingValue)) {
           taintSet.add(inst);
           DEBUG(CTX.logger.debug() << " + Added PHI from value" << incomingValue << "\n");
-          DEBUG(CTX.DOT.addRelation(incomingValue, inst, "phi-value"));
+          IF_GRAPH(CTX.DOT.addRelation(incomingValue, inst, "phi-value"));
         }
       }
     }
