@@ -3,7 +3,7 @@
 
 // __expected:something(x => $_retval, +fopen_FILE@files.c:6 => $_retval, +fopen_FILE@files.c:6 => +fopen_FILE@files.c:6)
 int something(int x) {
-  FILE* f = fopen("secure.txt", "r");
+  FILE* f = fopen("/dev/random", "r");
   int result;
   fread((void*)&result, sizeof(char), 1, f);
   fclose(f);
@@ -35,5 +35,12 @@ int write_file(const char* filename, const char* some_text) {
 int main() {
   int x = something(5);
   printf("Secure info: %d\n", x);
+
+  int res = read_file("/dev/random");
+  printf("readfile result: %d\n", res);
+  char buf[1];
+  buf[0] = (char)res;
+
+  return write_file("/dev/null", buf);
 }
 
