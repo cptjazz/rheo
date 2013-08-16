@@ -39,25 +39,3 @@ const SpecialTaint& SpecialTaintHelper::getExternalTaints(const CallInst& call) 
 
   return SpecialTaint::createNullTaint();
 }
-
-/*
-void SpecialTaintHelper::propagateTaintsFromCall(const Value& v, TaintSet& taintSet, GraphExporter& DOT) {
-  DEBUG(_logger.debug() << "testing call-arg for special taint: " << v << "\n");
-  for (SpecialTaintCache::iterator c_i = cache.begin(), c_e = cache.end(); c_i != c_e; ++c_i) {
-    const SpecialTaint& st = c_i->second;
-
-    DEBUG(_logger.debug() << "special taint affected values:\n");
-    for (ValueSet::iterator v_i = st.affectedValues.begin(), v_e = st.affectedValues.end(); v_i != v_e; ++v_i)
-      DEBUG(_logger.debug() << "aff val: " << *v_i << "\n");
-
-    DEBUG(_logger.debug() << "testing special taint: " << *st.value << "\n");
-
-    if (st.affectedValues.contains(v)) {
-      DEBUG(_logger.debug() << "value `" << v << "` is affected!\n");
-      taintSet.add(*st.value);
-      IF_GRAPH(DOT.addRelation(v, *st.value));
-      continue;
-    }
-  }
-}
-*/

@@ -29,7 +29,6 @@ class SpecialTaintHelper {
       : _llvmContext(context), _logger(logger) { }
 
     const SpecialTaint& getExternalTaints(const CallInst& call);
-    void propagateTaintsFromCall(const Value& v, TaintSet& taintSet, GraphExporter& DOT);
 
 
     template<class T>

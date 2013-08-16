@@ -480,13 +480,6 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
   IF_PROFILING(CTX.logger.profile() << "PFCR 2 took " << Helper::getTimestampDelta(t1) << " µs\n");
 
   
-  // Handle special taints for current call
-  //if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument)) {
-    //const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
-    //taintSet.addAll(st.sources);
-    //taintSet.addAll(st.sinks);
-  //}
-
   IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
     const Value& in = *i->first;
@@ -496,8 +489,8 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
     // is null. This happens when using 
     // taint-files with globals not available
     // in the currently inspected assembly.
-    if (!i->first || !i->second)
-      continue;
+    //if (!i->first || !i->second)
+      //continue;
 
     DEBUG(CTX.logger.debug() << "Processing mapping: " << in.getName() << " => " << out.getName() << "\n");
 
@@ -505,17 +498,20 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       // Add graph arrows and function-node only if taints
       // were found. Otherwise the function-node would be
       // orphaned in the graph.
-      IF_GRAPH(CTX.DOT.addCallNode(callee));
       DEBUG(CTX.logger.debug() << "in is: " << in << "\n");
-      std::string s;
-      raw_string_ostream reas(s);
 
-      if (isa<GlobalVariable>(in))
-        DEBUG(reas << "in, via " << Helper::getValueName(in));
-      else
-        DEBUG(reas << "in, arg# " << getArgumentPosition(callInst, in));
+      IF_GRAPH(
+        CTX.DOT.addCallNode(callee, callInst);
+        std::string s;
+        raw_string_ostream reas(s);
 
-      IF_GRAPH(CTX.DOT.addRelation(in, callee, reas.str()));
+        if (isa<GlobalVariable>(in))
+          reas << "in, via " << Helper::getValueName(in);
+        else
+          reas << "in, arg# " << getArgumentPosition(callInst, in);
+
+        CTX.DOT.addRelationToCall(in, callee, callInst, reas.str())
+      );
 
       if (taintSet.contains(callee) && out.getType()->isPointerTy()) {
         IF_GRAPH(CTX.DOT.addRelation(callee, out, "function-indirection"));
@@ -524,22 +520,24 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
 
       DEBUG(CTX.logger.debug() << " + Added " << out << "\n");
       taintSet.add(out);
-      if (&out == &callInst) {
-        IF_GRAPH(CTX.DOT.addRelation(callee, callInst, "ret"));
-      } else {
-        std::string s;
-        raw_string_ostream outReas(s);
 
-        if (isa<GlobalVariable>(out))
-          DEBUG(outReas << "out, via " << Helper::getValueName(out));
-        else
-          DEBUG(outReas << "out, arg# " << getArgumentPosition(callInst, out));
+      IF_GRAPH(
+        if (&out == &callInst) {
+          CTX.DOT.addRelationFromCall(callee, callInst, callInst, "ret");
+        } else {
+          std::string s;
+          raw_string_ostream outReas(s);
 
-        IF_GRAPH(CTX.DOT.addRelation(callee, out, outReas.str()));
-      }
+          if (isa<GlobalVariable>(out))
+            outReas << "out, via " << Helper::getValueName(out);
+          else
+            outReas << "out, arg# " << getArgumentPosition(callInst, out);
+
+          CTX.DOT.addRelationFromCall(callee, out, callInst, outReas.str());
+        }
+      );
 
       AliasHelper::handleAliasing(CTX, &out, taintSet);
-      //CTX.STH.propagateTaintsFromCall(out, taintSet, CTX.DOT);
     }
   }
 
