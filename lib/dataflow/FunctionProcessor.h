@@ -113,6 +113,7 @@ private:
     IHD.registerHandlerForUnsupportedInstruction<IntToPtrHandler>();
 
     STH.registerFunction<FopenSpecialTaintInstruction>();
+    STH.registerFunction<PrintfSpecialTaintInstruction>();
   }
 
 };

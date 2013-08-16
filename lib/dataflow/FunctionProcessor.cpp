@@ -175,6 +175,7 @@ void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& tai
     DEBUG(CTX.logger.debug() << "`` Taint Set before dispatch:\n");
     DEBUG(taintSet.printTo(CTX.logger.debug()));
 
+    DEBUG(CTX.logger.debug() << "::Inst:: " << inst << "\n");
     IHD.dispatch(inst, taintSet);
 
     DEBUG(CTX.logger.debug() << "`` Taint Set after dispatch:\n");
@@ -233,6 +234,8 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
 }
 
 void FunctionProcessor::findArguments() {
+  // Special taint sources/sinks
+  //
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
     const Value& v = *i;
     const CallInst* call = dyn_cast<CallInst>(&v);
@@ -243,9 +246,17 @@ void FunctionProcessor::findArguments() {
     const SpecialTaint newTaint = STH.getExternalTaints(*call);
 
     if (newTaint.type != NoTaint)
-      handleFoundArgument(newTaint.type, *(newTaint.value), newTaint.affectedValues);
+      handleFoundArgument(newTaint.type, *(newTaint.specialTaintValue));
+
+    std::set<SpecialTaint>& set = STH.getCalledFunctionSpecialTaints(call->getCalledFunction());
+    for (std::set<SpecialTaint>::iterator s_i = set.begin(), s_e = set.end(); s_i != s_e; ++s_i) {
+      const SpecialTaint taint = *s_i;
+      handleFoundArgument(taint.type, *(taint.specialTaintValue));
+    }
   }
 
+  // Ordinary function arguments
+  //
   for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
     const Argument& arg = *a_i;
 
@@ -256,6 +267,8 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(taintType, arg);
   }
 
+  // Global variables
+  //
   for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
     const GlobalVariable& g = *g_i;
 
@@ -266,6 +279,8 @@ void FunctionProcessor::findArguments() {
     handleFoundArgument(Source | Sink, g);
   }
 
+  // Varargs handling
+  //
   if (!F.isVarArg())
     return;
 

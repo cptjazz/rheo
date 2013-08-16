@@ -84,4 +84,12 @@ typedef std::vector<const CallGraphNode*> NodeVector;
 typedef std::map<const Function*, NodeVector> CircleMap;
 typedef std::set<FunctionTaint> FunctionTaintMap;
 
+#define RETURN_POSITION -1
+#define VARARG_POSITION -2
+#define GLOBAL_POSITION -3
+
+#define RETURN_POSITION_STR "-1"
+#define VARARG_POSITION_STR "-2"
+#define GLOBAL_POSITION_STR "-3"
+
 #endif // CORE_H

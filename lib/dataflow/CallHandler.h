@@ -24,6 +24,7 @@ private:
     void writeMapForRecursive(const CallInst& callInst, const Function& func, const ResultSet& results, ResultSet& taintResults) const;
     int getArgumentPosition(const CallInst& c, const Value& v) const;
     int getArgumentPosition(const Function& f, const Value& v) const;
+    const Value* findGlobalVariableOrSpecialTaint(StringRef globName) const;
 };
 
 #endif // CALL_HANDLER_H

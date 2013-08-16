@@ -105,7 +105,7 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
     } else {
       int inPos = getArgumentPosition(func, *i->first);
 
-      if (inPos == -3) {
+      if (inPos == GLOBAL_POSITION) {
         // Not a global and not found in argument list,
         // must be a varargs array.
         for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
@@ -123,7 +123,7 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
     } else {
       int outPos = getArgumentPosition(func, *i->second);
 
-      if (outPos == -3) {
+      if (outPos == GLOBAL_POSITION) {
         // must be a varargs array.
         for (size_t c = func.getArgumentList().size(); c < callInstArgCount; ++c) {
           const Value* out = callInst.getArgOperand(c);
@@ -183,7 +183,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
 
   for (size_t i = 0; i < argumentsCount; i++) {
     const Value& source = *arguments.at(i);
-    int sourcePos = isa<GlobalVariable>(source) ? -3 : i;
+    int sourcePos = isa<GlobalVariable>(source) ? GLOBAL_POSITION : i;
 
     // Every argument taints the return value
     taintResults.insert(std::make_pair(&source, &callInst));
@@ -192,7 +192,7 @@ void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet&
     // Every argument taints other pointer arguments (out-arguments)
     for (size_t j = 0; j < argumentsCount; j++) {
       const Value& sink = *arguments.at(j);
-      int sinkPos = isa<GlobalVariable>(sink) ? -3 : j;
+      int sinkPos = isa<GlobalVariable>(sink) ? GLOBAL_POSITION : j;
 
       if (sink.getType()->isPointerTy() || isa<GlobalVariable>(sink)) {
         DEBUG(CTX.logger.debug() << "Heuristic: type" << *sink.getType() << "\n");
@@ -233,6 +233,14 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     IF_PROFILING(CTX.logger.profile() << " processFCRS :: read 2 from cache took " << Helper::getTimestampDelta(t) << " µs\n");
     return;
   } 
+
+  // Add sources and sinks from special taint values
+  const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
+  for (TaintSet::const_iterator src_i = st.sources.begin(), src_e = st.sources.end(); src_i != src_e; ++src_i) {
+    for (TaintSet::const_iterator snk_i = st.sinks.begin(), snk_e = st.sinks.end(); snk_i != snk_e; ++snk_i) {
+      taintResults.insert(std::make_pair(*src_i, *snk_i));
+    }
+  }
 
   if (TaintFile::exists(callee) && !Helper::circleListContains(CTX.circularReferences[&CTX.F], callee)) {
     //
@@ -333,25 +341,24 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
 
     IF_PROFILING(long t2 = Helper::getTimestamp());
     sources.clear();
-    if (paramPos == -2) {
+    if (paramPos == VARARG_POSITION) {
       // VarArgs
       for (size_t i = calleeArgCount; i < callArgCount; ++i) {
         sources.insert(callInst.getArgOperand(i));
       }
-    } else if (paramPos == -3) {
+    } else if (paramPos == GLOBAL_POSITION) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sourceName << "\n");
       StringRef globName = i->sourceName.substr(1, i->sourceName.length() - 1);
 
-      Value* glob = CTX.M.getNamedAlias(globName);
 
-      if (glob == NULL)
-        glob = CTX.M.getNamedValue(globName);
+      const Value* glob = findGlobalVariableOrSpecialTaint(globName);
+      if (glob == NULL) {
+        CTX.analysisState.stopWithError("Could not find global variable `" + globName + "'. Did you forget to link a library?");
+        return;
+      }
 
-      if (glob == NULL)
-        glob = CTX.M.getNamedGlobal(globName);
-
-      assert("Global" && glob != NULL);
+      assert("LHS Global not found" && glob != NULL);
 
       sources.insert(glob);
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
@@ -369,18 +376,25 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     
     IF_PROFILING(t2 = Helper::getTimestamp());
     sinks.clear();
-    if (retvalPos == -1) {
+    if (retvalPos == RETURN_POSITION) {
       // Return value
       sinks.insert(&callInst);
-    } else if (retvalPos == -3) {
+    } else if (retvalPos == GLOBAL_POSITION) {
       // Seems to be a global
       DEBUG(CTX.logger.debug() << " no position mapping. searching global: " << i->sinkName << "\n");
       StringRef globName = i->sinkName.substr(1, i->sinkName.length() - 1);
       
-      const Value* glob = CTX.M.getNamedGlobal(globName);
+      const Value* glob = findGlobalVariableOrSpecialTaint(globName);
+      if (glob == NULL) {
+        CTX.analysisState.stopWithError("Could not find global variable `" + globName + "'. Did you forget to link a library?");
+        return;
+      }
+
+      assert("RHS Global not found" && glob != NULL);
+
       sinks.insert(glob);
       DEBUG(CTX.logger.debug() << " using global: " << *glob << "\n");
-    } else if (retvalPos == -2) {
+    } else if (retvalPos == VARARG_POSITION) {
       // Varargs
       // These can also be taint sinks, namely if pointers
       // are put as varargs -- because we cannot detect this in
@@ -411,6 +425,22 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
   IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping() took " << Helper::getTimestampDelta(t) << " µs\n");
 }
 
+const Value* CallHandler::findGlobalVariableOrSpecialTaint(StringRef globName) const {
+  const Value* glob = CTX.M.getNamedAlias(globName);
+
+  if (glob == NULL)
+    glob = CTX.M.getNamedValue(globName);
+
+  if (glob == NULL)
+    glob = CTX.M.getNamedGlobal(globName);
+
+  // Seem the value is not a global but a 
+  // special taint.
+  if (glob == NULL)
+    glob = CTX.STH.getSpecialTaintValueByName("+" + globName);
+
+  return glob;
+}
 
 void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const Value& callee, ResultSet& taintResults, TaintSet& taintSet) const {
   DEBUG(CTX.logger.debug() << "Mapping to CallInst arguments. Got " << taintResults.size() << " mappings.\n");
@@ -427,9 +457,11 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
     const Value& in = *i->first;
     assert("LHS must not be NULL" && i->first != NULL);
 
-    if (!inTaintSet.contains(in) && taintSet.contains(in)) {
+    if (!inTaintSet.contains(in) && (taintSet.contains(in) || CTX.STH.isSpecialTaintValue(in))) {
       inTaintSet.add(in);
-      taintSet.remove(in);
+
+      if (in.getType()->isPointerTy())
+        taintSet.remove(in);
     }
   }
   IF_PROFILING(CTX.logger.profile() << "PFCR 1 took " << Helper::getTimestampDelta(t1) << " µs\n");
@@ -449,10 +481,11 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
 
   
   // Handle special taints for current call
-  if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument)) {
-    const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
-    taintSet.addAll(st.affectedValues);
-  }
+  //if (CTX.STH.isSpecialTaintValue(*CTX.currentArgument)) {
+    //const SpecialTaint& st = CTX.STH.getExternalTaints(callInst);
+    //taintSet.addAll(st.sources);
+    //taintSet.addAll(st.sinks);
+  //}
 
   IF_PROFILING(t1 = Helper::getTimestamp());
   for (ResultSet::const_iterator i = taintResults.begin(), e = taintResults.end(); i != e; ++i) {
@@ -506,7 +539,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
       }
 
       AliasHelper::handleAliasing(CTX, &out, taintSet);
-      CTX.STH.propagateTaintsFromCall(out, taintSet, CTX.DOT);
+      //CTX.STH.propagateTaintsFromCall(out, taintSet, CTX.DOT);
     }
   }
 
@@ -518,7 +551,7 @@ void CallHandler::processFunctionCallResultSet(const CallInst& callInst, const V
  * Search the argument position for the given Value in
  * the given CallInst.
  *
- * @return the position of the argument in this call, -3 if not found
+ * @return the position of the argument in this call, GLOBAL_POSITION if not found
  */
 inline int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) const {
   const size_t argCount = c.getNumArgOperands();
@@ -528,7 +561,7 @@ inline int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) c
       return i;
   }
 
-  return -3;
+  return GLOBAL_POSITION;
 }
 
 
@@ -536,16 +569,16 @@ inline int CallHandler::getArgumentPosition(const CallInst& c, const Value& v) c
  * Search the parameter position for the given Value in
  * the given Function.
  *
- * @return the position of the parameter in the corresponding Function, -3 if not found
+ * @return the position of the parameter in the corresponding Function, GLOBAL_POSITION if not found
  */
 inline int CallHandler::getArgumentPosition(const Function& f, const Value& v) const {
   if (isa<ReturnInst>(v))
-    return -1;
+    return RETURN_POSITION;
 
   if (const Argument* arg = dyn_cast<Argument>(&v))
     return arg->getArgNo();
 
-  return -3;
+  return GLOBAL_POSITION;
 }
 
 

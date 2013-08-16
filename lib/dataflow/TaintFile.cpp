@@ -119,7 +119,6 @@ bool TaintFile::exists(const Function& f) {
 }
 
 int TaintFile::getValuePosition(const Function& func, const Logger& logger, const std::string valName) {
-    int i = 0;
     int position;
 
     std::stringstream convert(valName);
@@ -138,25 +137,24 @@ int TaintFile::getValuePosition(const Function& func, const Logger& logger, cons
     // Check for known special names first before scanning
     // the argument list
     if (valName.compare("...") == 0) {
-      position = -2;
+      position = VARARG_POSITION;
       DEBUG(logger.debug() << " Interpreting as varargs\n");
     } else if (valName.compare("$_retval") == 0) {
-      position = -1;
+      position = RETURN_POSITION;
       DEBUG(logger.debug() << " Interpreting as return value\n");
     } else if (valName.compare(0, 1, "@") == 0) {
-      position = -3;
+      position = GLOBAL_POSITION;
       DEBUG(logger.debug() << " Interpreting as global value\n");
     } else {
-      position = -3;
+      position = GLOBAL_POSITION;
+      int i = 0;
 
-      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i) {
+      for (Function::const_arg_iterator a_i = func.arg_begin(), a_e = func.arg_end(); a_i != a_e; ++a_i, ++i) {
         if (valName.compare(a_i->getName().str()) == 0) {
           position = i;
           DEBUG(logger.debug() << " Found at #" << i << "\n");
           break;
         }
-
-        i++;
       }
     }
 
@@ -203,18 +201,18 @@ void TaintFile::writeTempResult(SpecialTaintHelper& sth, const Function& f, cons
       source = convert.str();
     } else if (!isa<GlobalValue>(arg) && !sth.isSpecialTaintValue(*arg)) {
       // Varargs
-      source = "-2";
+      source = VARARG_POSITION_STR;
     }
 
     if (isa<ReturnInst>(retval)) {
-      sink = "-1";
+      sink = RETURN_POSITION_STR;
     } else if (const Argument* a = dyn_cast<Argument>(retval)) {
       std::ostringstream convert;
       convert << a->getArgNo();
       sink = convert.str();
     } else if (!isa<GlobalValue>(retval) && !sth.isSpecialTaintValue(*retval)) {
       // Varargs
-      sink = "-2";
+      sink = VARARG_POSITION_STR;
     }
 
     file << source << " => " << sink << "\n"; 

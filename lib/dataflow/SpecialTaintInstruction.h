@@ -5,22 +5,43 @@
 #include "MetadataHelper.h"
 
 struct SpecialTaint {
-  public:
-    const Value* value;
-    TaintType type;
-    TaintSet affectedValues;
+  const Value* specialTaintValue;
+  TaintSet sources;
+  TaintSet sinks;
+  TaintSet aliases;
+  TaintType type;
 
-    static const SpecialTaint& Null;
+  static const SpecialTaint& Null;
 
-    SpecialTaint(const Value* v, TaintType t) : value(v), type(t) { }
+  SpecialTaint(const Value* v, TaintType t) : specialTaintValue(v), type(t) { }
 
-    void registerAffectedValue(const Value& v) {
-      affectedValues.add(v);
-    }
+  void registerAlias(const Value& v) {
+    aliases.add(v);
+  }
 
-    static const SpecialTaint& createNullTaint() {
-      return Null;
-    }
+  void registerSource(const Value& v) {
+    sources.add(v);
+  }
+
+  void registerSelfAsSource() {
+    registerSource(*specialTaintValue);
+  }
+
+  void registerSink(const Value& v) {
+    sinks.add(v);
+  }
+
+  void registerSelfAsSink() {
+    registerSink(*specialTaintValue);
+  }
+
+  static const SpecialTaint& createNullTaint() {
+    return Null;
+  }
+
+  bool operator<(const SpecialTaint& r) const {
+    return this < &r;
+  }
 };
 
 
@@ -53,10 +74,6 @@ class SpecialTaintInstruction {
   protected:
     SpecialTaint& createSpecialTaint(std::string name, const CallInst& call) {
       return *(new SpecialTaint(createValueWithName(name, call), getTaintType()));
-    }
-
-    void addAffectedValue(SpecialTaint& st, const Value& val) {
-      st.registerAffectedValue(val);
     }
 
   public:
