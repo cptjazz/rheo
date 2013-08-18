@@ -3,6 +3,7 @@
 
 #define DEBUG_TYPE "dataflow"
 
+#include "Configuration.h"
 #include "TaintSet.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
@@ -16,8 +17,7 @@
 
 
 // Inspired by LLVM's DEBUG macro in llvm/Support/Debug.h
-extern bool GraphFlag;
-#define IF_GRAPH(x) do { if (GraphFlag) { x; } } while(0)
+#define IF_GRAPH(x) do { if (Configuration::CreateGraph) { x; } } while(0)
 
 
 //#define PROFILING

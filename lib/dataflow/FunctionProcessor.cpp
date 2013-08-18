@@ -28,7 +28,6 @@ const SpecialTaint& SpecialTaint::Null = SpecialTaint(NULL, NoTaint);
 void FunctionProcessor::processFunction() {
   DEBUG(printInstructions());
 
-  IF_GRAPH(logger.error() << "ADSFASDF GRAPH!\n");
   logger.debug() << "Spawning analysis for: " << F.getName() << "\n";
   findReturnStatements();
   findArguments();

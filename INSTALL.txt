@@ -3,8 +3,9 @@ Prerequisites
 =============
 
 * Ruby >= 1.9.2
-* Ruby gem `rake` (sudo gem install rake)
-* Ruby gem `rainbow` (sudo gem install rainbow)
+* Ruby gem `bundler' (sudo gem install bundler)
+* Install required gem files (bundle install)
+
 * LLVM 3.3 (install from source, see below)
 * Clang >= 3.2
 * Graphviz to render flow diagrams

@@ -31,7 +31,7 @@ class ExcludeFile {
     static ExcludeFile& read() {
       ExcludeFile* req = new ExcludeFile();
 
-      std::ifstream file("exclude.list", std::ios::in);
+      std::ifstream file(Configuration::ExcludeFilePath.c_str(), std::ios::in);
       if (!file.is_open())
         return *req;
 

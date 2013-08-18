@@ -34,7 +34,7 @@ class RequestsFile {
     static RequestsFile& read() {
       RequestsFile* req = new RequestsFile();
 
-      std::ifstream file("requests.list", std::ios::in);
+      std::ifstream file(Configuration::RequestFilePath.c_str(), std::ios::in);
       if (!file.is_open())
         return *req;
 
