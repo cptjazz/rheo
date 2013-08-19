@@ -9,11 +9,11 @@ require 'fileutils'
 
 def init
   opts = Trollop::options do
-    opt :graph, "Create flow graphs"
-    opt "use-taintlib", "Use previous analysis results stored in a taint library directory"
-    opt :file, "The BC file to be analysed", type: String
-    opt :exclude, "A file with exclusion information", type: String
-    opt :request, "A file with slicing information", type: String
+    opt :graph, "Creates flow graphs per function. Graphviz's DOT must be available."
+    opt "use-taintlib", "Use previous analysis results stored in a taint library directory named `taintlib/`. Warning: this may lead to missing global variables if the library code is not linked to your BC file (see llvm-link)."
+    opt :file, "The BC file to be analysed. For Clang use `-emit-llvm` and `-c` to avoid the linking phase. If you provide debug information via `-g`, Rheo can use file names and line numbers of single instructions in its output.", type: String
+    opt :exclude, "A file with exclusion information. One function name per line for all functions that should be approximated by the heuristic even if the function is non-external (= code is available). Use this to work around functions with not supported instructions.", type: String
+    opt :request, "A file with slicing information. One function name per line for all functions you are interested in. Dependencies are resolved automatically.", type: String
   end
 
   args = p opts
@@ -27,15 +27,8 @@ def init
   @file = args[:file]
   @file = File.absolute_path(@file)
 
-  if args[:request]
-    `cp "#{args[:request]}" #{@output_dir}/`
-    @opt_args << " --request=#{args[:request]}" 
-  end
-
-  if args[:exclude]
-    `cp "#{args[:exclude]}" #{@output_dir}/`
-    @opt_args << " --exclude=#{args[:exclude]}" if args[:exclude]
-  end
+  @opt_args << " --request='#{File.absolute_path(args[:request])}'" if args[:request]
+  @opt_args << " --exclude='#{File.absolute_path(args[:exclude])}'" if args[:exclude]
 
   use_taintlib = args.has_key?("use-taintlib")
 
