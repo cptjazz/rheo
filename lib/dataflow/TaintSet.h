@@ -1,13 +1,19 @@
 #ifndef TAINTSET_H
 #define TAINTSET_H
 
+#include "HashMap.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Value.h"
 
 using namespace llvm;
 
-typedef SmallPtrSet<const Value*, 32> InternalTaintSet;
+typedef HashMap<const Value> InternalTaintSet;
+
+STATISTIC(NumTaintSetAdd, "calls to TaintSet.add()");
+STATISTIC(NumTaintSetRemove, "calls to TaintSet.remove()");
+STATISTIC(NumTaintSetContains, "calls to TaintSet.contains()");
 
 class TaintSet {
 
@@ -31,10 +37,12 @@ class TaintSet {
      * switch _taintSetChanged flag if the taint is new
      */
     inline void add(const Value& v) {
+      ++NumTaintSetAdd;
       _taintSetChanged |= _taintSet.insert(&v);
     }
 
     inline bool contains(const Value& val) const {
+      ++NumTaintSetContains;
       return _taintSet.count(&val);
     }
 
@@ -43,20 +51,17 @@ class TaintSet {
      * @param intersect Result of set intersection
      */
     inline void intersect(const TaintSet& set, TaintSet& intersect) const {
-      for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        if (set._taintSet.count(*i))
-          intersect._taintSet.insert(*i);
-      }
+      _taintSet.intersect(set._taintSet, intersect._taintSet);
     }
 
     inline void remove(const Value& val) {
+      ++NumTaintSetRemove;
       _taintSet.erase(&val);
     }
 
     inline void addAll(const TaintSet& set) {
-      for (InternalTaintSet::const_iterator t_i = set._taintSet.begin(), t_e = set._taintSet.end(); t_i != t_e; ++t_i) {
-        add(**t_i);
-      }
+      _taintSet.insertAll(set._taintSet);
+      _taintSetChanged = true;
     }
     
     inline int size() const {
