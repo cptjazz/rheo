@@ -5,7 +5,7 @@ require 'pty'
 require 'trollop'
 require 'fileutils'
 
-@opt_args = "-strip-debug-declare -globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -instnamer -dataflow"
+@opt_args = "-stats -strip-debug-declare -globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -instnamer -dataflow"
 
 def init
   opts = Trollop::options do
@@ -16,21 +16,19 @@ def init
     opt :request, "A file with slicing information. One function name per line for all functions you are interested in. Dependencies are resolved automatically.", type: String
   end
 
-  args = p opts
-
   @output_dir = "output"
   create_output_dir()
 
-  @build_graphs = (args[:graph])
+  @build_graphs = (opts[:graph])
   @opt_args << " --graph" if @build_graphs
 
-  @file = args[:file]
+  @file = opts[:file]
   @file = File.absolute_path(@file)
 
-  @opt_args << " --request='#{File.absolute_path(args[:request])}'" if args[:request]
-  @opt_args << " --exclude='#{File.absolute_path(args[:exclude])}'" if args[:exclude]
+  @opt_args << " --request='#{File.absolute_path(opts[:request])}'" if opts[:request]
+  @opt_args << " --exclude='#{File.absolute_path(opts[:exclude])}'" if opts[:exclude]
 
-  use_taintlib = args.has_key?("use-taintlib")
+  use_taintlib = opts.has_key?("use-taintlib")
 
   if use_taintlib and Dir.exist?("taintlib")
     `cp -R taintlib #{@output_dir}/` 

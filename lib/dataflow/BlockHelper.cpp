@@ -1,8 +1,6 @@
 #include "BlockHelper.h" 
 
 bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) const {
-  bool result = false;
-
   for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
     const Value* v = *s_i;
 
@@ -13,17 +11,11 @@ bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, Tai
     if (DT.dominates(taintedBlock, &currentBlock)) {
       DEBUG(logger.debug() << " ! Dirty block `" << taintedBlock->getName() << "` dominates `" << currentBlock.getName() << "`\n");
 
-      if (taintedBlock != &currentBlock) {
-        taintSet.add(currentBlock);
-        IF_GRAPH(DOT.addBlockNode(currentBlock));
-        IF_GRAPH(DOT.addRelation(*taintedBlock, currentBlock, "block-taint"));
-      }
-
-      result = true;
+      return true;
     }
   }
 
-  return result;
+  return false;
 }
 
 void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBlock& join, TaintSet& taintSet) const {
