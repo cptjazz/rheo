@@ -57,8 +57,16 @@ class UnsupportedInstructionHandlerTrait : public InstructionHandlerTrait<Instru
         : InstructionHandlerTrait<Instruction>(opcode, ctx), _msg(msg) { }
 
     void handleInstructionInternal(const Instruction& inst, TaintSet& taintSet) const {
-      CTX.analysisState.stopWithError(_msg);
+      std::string m = _msg;
+
+      if (MetadataHelper::hasMetadata(inst)) {
+        m.append("@")
+            .append(MetadataHelper::getFileAndLineNumber(inst));
+      }
+
+      CTX.analysisState.stopWithError(m);
     }
 };
+
 
 #endif // INSTRUCTION_HANDLER_H

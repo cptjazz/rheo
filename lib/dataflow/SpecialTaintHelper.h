@@ -38,15 +38,15 @@ class SpecialTaintHelper {
       registry.insert(std::make_pair(name, handler));
     }
 
-    bool hasSpecialTreatment(const Function& func) const {
+    inline bool hasSpecialTreatment(const Function& func) const {
       return registry.find(func.getName()) != registry.end();
     }
 
-    bool isSpecialTaintValue(const Value& v) const {
+    inline bool isSpecialTaintValue(const Value& v) const {
       return v.getName().startswith("+");
     }
 
-    const Value* getSpecialTaintValueByName(const Twine t) {
+    inline const Value* getSpecialTaintValueByName(const Twine t) {
       std::string str = t.str();
       DEBUG(_logger.debug() << "searching for: " << str << "\n");
 
@@ -60,16 +60,20 @@ class SpecialTaintHelper {
         : NULL;
     }
 
-    std::set<SpecialTaint>& getCalledFunctionSpecialTaints(const Function* f) const {
+    inline std::set<SpecialTaint>& getCalledFunctionSpecialTaints(const Function* f) const {
       return callRegistry[f];
     }
 
-    bool hasAlias(const Value* v) {
+    inline void reRegisterNestedFunctionSpecialTaints(const Function& f, std::set<SpecialTaint>& set) {
+      callRegistry[&f].insert(set.begin(), set.end());
+    }
+
+    inline bool hasAlias(const Value* v) {
       DEBUG(_logger.debug() << "alias list size: " << aliases.size() << "\n");
       return (aliases.find(v) != aliases.end());
     }
 
-    const ValueSet& getAliases(const Value* v) {
+    inline const ValueSet& getAliases(const Value* v) {
       return aliases[v];
     }
 };

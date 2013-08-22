@@ -6,18 +6,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
 #include <map>
 #include <set>
 #include <algorithm>
-#include <stdio.h>
 
 
 #define STOP_ON_CANCEL if (_analysisState.isCanceled()) return
@@ -93,8 +88,6 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, T
 
   for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
     const BasicBlock& block = cast<BasicBlock>(*b_i);
-    TaintSet blockTaintSet;
-    _blockList.insert(std::make_pair(&block, blockTaintSet));
     _workList.push_back(&block);
   }
 
@@ -105,30 +98,23 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, T
   // taints of the currently inspected argument.
   _blockList[firstBlock].addAll(initialTaints);
 
+  taintSet.clear();
+  STOP_ON_CANCEL;
 
-  do {
+  while (!_workList.empty()) {
+    const BasicBlock& block = *_workList.front();
+    _workList.pop_front();
+
+    DEBUG(logger.debug() << " ----- PROCESS BLOCK " << block.getName() << " -----\n");
+    applyMeet(block);
+
+    processBasicBlock(block, _blockList[&block]);
     STOP_ON_CANCEL;
-
-    taintSet.resetChangedFlag();
-
-    while (!_workList.empty()) {
-      const BasicBlock& block = *_workList.front();
-      _workList.pop_front();
-
-      DEBUG(logger.debug() << " ----- PROCESS BLOCK " << block.getName() << " -----\n");
-      applyMeet(block);
-
-      processBasicBlock(block, _blockList[&block]);
-      STOP_ON_CANCEL;
-    }
-
-  } while(taintSet.hasChanged());
-
+  }
 
   // The last block represents the result.
-  // Every taint flows were propagated to this
+  // All taint flows were propagated to this
   // block due to the meet-operation
-  taintSet.clear();
   taintSet.addAll(_blockList[lastBlock]);
 
   DEBUG(logger.debug() << "Taint set for arg `" << arg.getName() << " (" << &arg << ")`:\n");
@@ -226,10 +212,7 @@ void FunctionProcessor::handleBlockTainting(const Instruction& inst, const Basic
   taintSet.add(inst);
   DEBUG(logger.debug() << " + Instruction tainted by dirty block: " << inst << "\n");
 
-  if (isa<StoreInst>(inst))
-    IF_GRAPH(DOT.addRelation(currentBlock, *inst.getOperand(0), "block-taint"));
-  else
-    IF_GRAPH(DOT.addRelation(currentBlock, inst, "block-taint"));
+  IF_GRAPH(DOT.addRelation(currentBlock, isa<StoreInst>(inst) ? *inst.getOperand(0) : cast<Value>(inst), "block-taint"));
 }
 
 void FunctionProcessor::findArguments() {
@@ -244,12 +227,18 @@ void FunctionProcessor::findArguments() {
 
     const SpecialTaint newTaint = STH.getExternalTaints(*call);
 
+    // For special functions, introduce a new taint object
     if (newTaint.type != NoTaint)
       handleFoundArgument(newTaint.type, *(newTaint.specialTaintValue));
 
+    // For nested calls, transfer special taints to this
+    // "argument list"
     std::set<SpecialTaint>& set = STH.getCalledFunctionSpecialTaints(call->getCalledFunction());
+    STH.reRegisterNestedFunctionSpecialTaints(F, set);
+
     for (std::set<SpecialTaint>::iterator s_i = set.begin(), s_e = set.end(); s_i != s_e; ++s_i) {
       const SpecialTaint taint = *s_i;
+      DEBUG(logger.debug() << " Adding special taint from nested function\n");
       handleFoundArgument(taint.type, *(taint.specialTaintValue));
     }
   }
@@ -382,11 +371,8 @@ void FunctionProcessor::printInstructions() {
   logger.debug() << "Instructions: \n";
 
   for (const_inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-    if (MDNode *n = i->getMetadata("dbg")) {  // Here I is an LLVM instruction
-      DILocation loc(n);                      // DILocation is in DebugInfo.h
-      unsigned int line = loc.getLineNumber();
-      StringRef file = loc.getFilename();
-      logger.debug() << file << ":" << line << " | ";
+    if (MetadataHelper::hasMetadata(*i)) {
+      logger.debug() << MetadataHelper::getFileAndLineNumber(*i) << " | ";
     }
 
     logger.debug() << i->getParent() << " | " << &*i << " | " << (*i) << "\n";

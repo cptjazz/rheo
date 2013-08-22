@@ -14,8 +14,7 @@
 #include "BranchHandler.h"
 #include "SwitchHandler.h"
 #include "StoreHandler.h"
-#include "IndirectBranchHandler.h"
-#include "IntToPtrHandler.h"
+#include "UnsupportedInstructions.h"
 #include "CallHandler.h"
 #include "DefaultHandler.h"
 #include "Logger.h"
@@ -111,6 +110,9 @@ private:
 
     IHD.registerHandlerForUnsupportedInstruction<IndirectBranchHandler>();
     IHD.registerHandlerForUnsupportedInstruction<IntToPtrHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<InvokeHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<ResumeHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<LandingPadHandler>();
 
     STH.registerFunction<FopenSpecialTaintInstruction>();
     STH.registerFunction<PrintfSpecialTaintInstruction>();

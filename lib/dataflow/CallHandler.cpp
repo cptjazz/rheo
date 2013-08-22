@@ -12,9 +12,9 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
   const Value* calleeValue = callInst.getCalledValue();
   DEBUG(CTX.logger.debug() << " Callee:" << *calleeValue << "\n");
 
-  // Skip inline ASM for now
+  // No inline ASM for now
   if (callInst.isInlineAsm()) {
-    DEBUG(CTX.logger.debug() << " Ignoring inline ASM. \n");
+    CTX.analysisState.stopWithError("Inline ASM is not supported.", Error);
     return;
   }
 
