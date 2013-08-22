@@ -2,8 +2,7 @@ require 'fileutils'
 require 'rainbow'
 require 'rake/clean'
 require 'pty'
-
-@opt_args = "-strip-debug-declare -globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -dataflow"
+require './opt_args.rb'
 
 desc "Run all tests, but only show failed ones"
 namespace :test do
@@ -19,6 +18,8 @@ end
 
 def run_tests(show_only, args)
   `make ENABLE_OPTIMIZED=1`
+
+  @opt_args << " -dataflow"
 
   FileUtils.cd("test") do
     overall_result = true

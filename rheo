@@ -4,8 +4,9 @@ require 'rainbow'
 require 'pty'
 require 'trollop'
 require 'fileutils'
+require './opt_args.rb'
 
-@opt_args = "-stats -strip-debug-declare -globalopt -globaldce -instcombine -tailcallelim -licm -sink -adce -dse -mem2reg -scalarrepl -instnamer -dataflow"
+@opt_args << " -dataflow -stats"
 
 def init
   opts = Trollop::options do
