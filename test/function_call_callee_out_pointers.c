@@ -17,71 +17,72 @@ void callee_one_taint(int c, int d, int* out) {
 
 // __expected:caller1(a => $_retval, b => $_retval)
 int caller1(int a, int b) {
-  int* result;
-  callee_two_taints(a, b, result);
-  return *result;
+  int result;
+  callee_two_taints(a, b, &result);
+  return result;
 }
 
 // __expected:caller2(b => $_retval)
 int caller2(int a, int b) {
-  int* x;
-  callee_two_taints(a, 5, x);
+  int x;
+  callee_two_taints(a, 5, &x);
 
   return b;
 }
 
 // __expected:caller3()
 int caller3(int a, int b) {
-  int* x;
-  callee_two_taints(1, 5, x);
-  return *x;
+  int x;
+  callee_two_taints(1, 5, &x);
+  return x;
 }
 
 // __expected:caller4(a => $_retval)
 int caller4(int a, int b) {
-  int* x;
-  callee_two_taints(a, 5, x);
-  return *x;
+  int x;
+  callee_two_taints(a, 5, &x);
+  return x;
 }
 
 // __expected:caller5(a => $_retval)
 int caller5(int a, int b) {
-  int* x;
-  callee_one_taint(a, b, x);
-  return *x;
+  int x;
+  callee_one_taint(a, b, &x);
+  return x;
 }
 
 // __expected:caller6(a => $_retval)
 int caller6(int a, int b) {
-  int* x;
-  callee_one_taint(a, 5, x);
-  return *x;
+  int x;
+  callee_one_taint(a, 5, &x);
+  return x;
 }
 
 // __expected:caller7()
 int caller7(int a, int b) {
-  int* x;
-  callee_one_taint(5, b, x);
-  return *x;
+  int x;
+  callee_one_taint(5, b, &x);
+  return x;
 }
 
 // __expected:caller8()
 int caller8(int a, int b) {
-  int* x;
-  callee_one_taint(1, 5, x);
-  return *x;
+  int x;
+  callee_one_taint(1, 5, &x);
+  return x;
 }
 
 // __expected:caller9(a => $_retval)
 int caller9(int a, int b) {
-  int* x;
-  callee_one_taint(a, 5, x);
-  return *x;
+  int x;
+  callee_one_taint(a, 5, &x);
+  return x;
 }
 
 // __expected:caller10_with_pointer_val_overwrite()
 int caller10_with_pointer_val_overwrite(int a, int b) {
-  int* x;
+  int y;
+  int* x = &y;
   callee_two_taints(a, b, x);
   *x = 2;
   return *x;
@@ -89,35 +90,35 @@ int caller10_with_pointer_val_overwrite(int a, int b) {
 
 // __expected:caller11()
 int caller11(int a, int b) {
-  int* x;
-  callee_no_taint(a, b, x);
-  return *x;
+  int x;
+  callee_no_taint(a, b, &x);
+  return x;
 }
 
 // __expected:caller12(b => $_retval)
 int caller12(int a, int b) {
-  int* x;
-  callee_no_taint(a, 5, x);
+  int x;
+  callee_no_taint(a, 5, &x);
   return b;
 }
 
 // __expected:caller13()
 int caller13(int a, int b) {
-  int* x;
-  callee_no_taint(5, b, x);
-  return *x;
+  int x;
+  callee_no_taint(5, b, &x);
+  return x;
 }
 
 // __expected:caller14()
 int caller14(int a, int b) {
-  int* x;
-  callee_no_taint(1, 5, x);
-  return *x;
+  int x;
+  callee_no_taint(1, 5, &x);
+  return x;
 }
 
 // __expected:caller15()
 int caller15(int a, int b) {
-  int* x;
-  callee_no_taint(a, 5, x);
-  return *x;
+  int x;
+  callee_no_taint(a, 5, &x);
+  return x;
 }

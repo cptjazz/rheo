@@ -1,8 +1,8 @@
 // __expected:foo()
 int foo(int x, int y) {
   int a;
-  int b;
-  double* c;
+  double b;
+  double* c = &b;
   double d;
 
   *c = x;
