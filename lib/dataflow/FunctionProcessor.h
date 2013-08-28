@@ -113,11 +113,15 @@ private:
     IHD.registerHandlerForUnsupportedInstruction<InvokeHandler>();
     IHD.registerHandlerForUnsupportedInstruction<ResumeHandler>();
     IHD.registerHandlerForUnsupportedInstruction<LandingPadHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<InsertElementHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<InsertValueHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<ShuffleVectorHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<CmpXchgHandler>();
+    IHD.registerHandlerForUnsupportedInstruction<AtomicRmwHandler>();
 
     STH.registerFunction<FopenSpecialTaintInstruction>();
     STH.registerFunction<PrintfSpecialTaintInstruction>();
   }
-
 };
 
 #endif // FUNCTION_PROCESSOR_H
