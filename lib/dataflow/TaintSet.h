@@ -42,9 +42,11 @@ class TaintSet {
      * Add the provided Value to the provided TaintSet and
      * switch _taintSetChanged flag if the taint is new
      */
-    inline void add(const Value& v) {
+    inline bool add(const Value& v) {
       ++NumTaintSetAdd;
-      _taintSetChanged |= _taintSet.insert(&v);
+      bool isNew = _taintSet.insert(&v);
+      _taintSetChanged |= isNew;
+      return isNew;
     }
 
     inline bool contains(const Value& val) const {

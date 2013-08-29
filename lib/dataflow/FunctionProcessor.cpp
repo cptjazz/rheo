@@ -147,6 +147,8 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
   bool blockTainted = taintSet.contains(block) || BH.isBlockTaintedByOtherBlock(block, taintSet);
 
+  taintSet.resetChangedFlag();
+
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;
 

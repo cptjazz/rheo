@@ -32,7 +32,8 @@ void BlockHelper::followTransientBranchPaths(const BasicBlock& br, const BasicBl
     IF_GRAPH(DOT.addRelation(brTerminator, *brSuccessor, "block-taint"));
     DEBUG(logger.debug() << " ++ Added TRANSIENT block: " << brSuccessor->getName() << "\n");
 
-    taintSet.add(*brSuccessor);
-    followTransientBranchPaths(*brSuccessor, join, taintSet);
+    // Only follow path if branch is new
+    if (taintSet.add(*brSuccessor))
+      followTransientBranchPaths(*brSuccessor, join, taintSet);
   }
 }
