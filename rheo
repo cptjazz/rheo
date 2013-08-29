@@ -1,10 +1,10 @@
 #!/usr/bin/ruby
 
+require './opt_args.rb'
 require 'rainbow'
 require 'pty'
 require 'trollop'
 require 'fileutils'
-require './opt_args.rb'
 
 @opt_args << " -dataflow -stats"
 
@@ -12,11 +12,17 @@ def init
   opts = Trollop::options do
     opt :graph, "Creates flow graphs per function. Graphviz's DOT must be available."
     opt "use-taintlib", "Use previous analysis results stored in a taint library directory named `taintlib/`. Warning: this may lead to missing global variables if the library code is not linked to your BC file (see llvm-link)."
-    opt :file, "The BC file to be analysed. For Clang use `-emit-llvm` and `-c` to avoid the linking phase. If you provide debug information via `-g`, Rheo can use file names and line numbers of single instructions in its output.", type: String
+    opt :file, "The BC file to be analysed. For Clang use `-emit-llvm` and `-c` to avoid the linking phase. If you provide debug information via `-g`, Rheo can use file names and line numbers of single instructions in its output.", type: String, required: true
     opt :exclude, "A file with exclusion information. One function name per line for all functions that should be approximated by the heuristic even if the function is non-external (= code is available). Use this to work around functions with not supported instructions.", type: String
     opt :request, "A file with slicing information. One function name per line for all functions you are interested in. Dependencies are resolved automatically.", type: String
+    opt :pass, "Specify additional pass to execute with `opt` before starting the analysis", multi: true, type: String
+    opt :link, "Link specified BC file with llvm-link before analysis", multi: true, type: String
   end
 
+  puts opts
+
+  analysis_path = File.absolute_path("Release+Asserts/lib/dataflow.so")
+  @opt_cmd = "opt -load #{analysis_path}"
   @output_dir = "output"
   create_output_dir()
 
@@ -28,6 +34,16 @@ def init
 
   @opt_args << " --request='#{File.absolute_path(opts[:request])}'" if opts[:request]
   @opt_args << " --exclude='#{File.absolute_path(opts[:exclude])}'" if opts[:exclude]
+
+  @opt_args << " #{opts["llvm-passes"]}" if opts["llvm-passes"]
+
+  links = opts[:link].map { |x| File.absolute_path(x) }
+  links << @file
+
+  @opt_cmd = "llvm-link #{links.join(" ")} | " << @opt_cmd 
+
+  passes = opts[:pass].map { |x| "-#{x}" }
+  @opt_args << " #{passes.join(" ")}"
 
   use_taintlib = opts.has_key?("use-taintlib")
 
@@ -50,7 +66,7 @@ def analyse
     log_file = File.open("analysis.log", "w")
     puts " * Preprocessing BC file"
 
-    opt_cmd = "opt -load ../Release+Asserts/lib/dataflow.so #{@opt_args} < #{@file} -o /dev/null 2>&1"
+    opt_cmd = "#{@opt_cmd} #{@opt_args} -o /dev/null 2>&1"
     begin
       PTY.spawn(opt_cmd) do |r, w, pid|
         begin
