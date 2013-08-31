@@ -22,6 +22,7 @@ public:
   void addCallNode(const Value& f, const CallInst& callInst);
   void addRelationToCall(const Value& from, const Value& to, const CallInst& callInst, std::string reason);
   void addRelationFromCall(const Value& from, const Value& to, const CallInst& callInst, std::string reason);
+  void addCallAlias(const Value& alias, const CallInst& callInst);
   void addRelation(const Value& from, const Value& to, std::string reason = "");
 
   void addCGFunction(const Function& f);

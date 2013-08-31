@@ -98,6 +98,20 @@ void GraphExporter::addRelationFromCall(const Value& from, const Value& to, cons
   }
 }
 
+void GraphExporter::addCallAlias(const Value& alias, const CallInst& callInst) {
+  addCallNode(alias, callInst);
+  const Value& callee = *callInst.getCalledValue();
+
+  if (_pairs.find(std::make_pair(getNodeName(alias, callInst), getNodeName(callee))) == _pairs.end()) {
+    _file << getNodeName(alias, callInst) << " -> " << getNodeName(callee) 
+          << " [label=\"function pointer\", "
+          << "style=\"dashed\""
+          <<  "];\n";
+
+    _pairs.insert(std::make_pair(getNodeName(alias, callInst), getNodeName(callee)));
+  }
+}
+
 void GraphExporter::addRelationToCall(const Value& from, const Value& to, const CallInst& callInst, std::string reason) {
   if (_nodes.find(getNodeName(from)) == _nodes.end()) {
     _file << getNodeName(from) << " [label=\"" << getNodeCaption(from) << "\", " << getShape(from) << "];\n";
