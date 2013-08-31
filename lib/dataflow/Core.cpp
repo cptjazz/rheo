@@ -3,6 +3,8 @@
 
 cl::opt<bool> Configuration::CreateGraph("graph", cl::desc("Create graphical representation of information flow"));
 
+cl::opt<bool> Configuration::ResolveFunctionPointers("resolvefp", cl::desc("Assume code is closed and resolve function pointers"));
+
 cl::opt<std::string> Configuration::RequestFilePath(
     "request", 
     cl::desc("A file which contains information about which slice of the BC file is to be analysed."),

@@ -3,6 +3,7 @@
 
 struct Configuration {
   static llvm::cl::opt<bool> CreateGraph;
+  static llvm::cl::opt<bool> ResolveFunctionPointers;
   static llvm::cl::opt<std::string> ExcludeFilePath;
   static llvm::cl::opt<std::string> RequestFilePath;
 

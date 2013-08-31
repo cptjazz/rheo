@@ -1,9 +1,11 @@
-#include "CallHandler.h"
-#include <sstream>
-#include "TaintFile.h"
-#include "IntrinsicHelper.h"
-#include "FunctionProcessor.h"
 #include "AliasHelper.h"
+#include "CallHandler.h"
+#include "FunctionPointerHelper.h"
+#include "FunctionProcessor.h"
+#include "HeuristicHelper.h"
+#include "IntrinsicHelper.h"
+#include "TaintFile.h"
+#include <sstream>
 
 
 void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& taintSet) const {
@@ -18,20 +20,38 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
     return;
   }
 
+  ResultSet taintResults;
+
   if (callee != NULL) {
     // We are calling to a 'normal' function
     DEBUG(CTX.logger.debug() << " Handle normal function. \n");
-    handleFunctionCall(callInst, *callee, taintSet);
+    handleFunctionCall(callInst, *callee, taintResults);
   } else {
     // We are calling to a function pointer.
-    // Since we cannot determine all relisations of the pointer
-    // (eg. if the function is a API function to be use from extern)
-    // we need to use the same heuristic we use for external functions.
     DEBUG(CTX.logger.debug() << " Handle function pointer. \n");
 
-    ResultSet taintResults;
-    buildMappingWithHeuristic(callInst, taintResults);
-    processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
+    if (Configuration::ResolveFunctionPointers) {
+      // User provides a CLI flag to indicate the source is closed
+      // and we can try to resolve function pointer realisations.
+      FunctionPointerHelper::FunctionSet possibleCallees;
+      FunctionPointerHelper::buildMappingWithResolve(callInst, CTX, possibleCallees);
+
+      if (possibleCallees.size()) {
+        // Produce a Union for all possible callees
+        for (FunctionPointerHelper::FunctionSet::iterator x_i = possibleCallees.begin(), x_e = possibleCallees.end(); x_i != x_e; ++x_i) {
+          DEBUG(CTX.logger.debug() << " Generating result set for function pointer realisation `" << **x_i << "`. \n");
+          handleFunctionCall(callInst, **x_i, taintResults, true);
+        } 
+      } else {
+        // No realisations found, fall back to heuristic
+        FunctionPointerHelper::buildMappingWithHeuristic(callInst, taintResults, CTX);
+      }
+    } else {
+      // Since we cannot determine all relisations of the pointer
+      // (eg. if the function is a API function to be use from extern)
+      // we need to use the same heuristic we use for external functions.
+      FunctionPointerHelper::buildMappingWithHeuristic(callInst, taintResults, CTX);
+    }
 
     // If the function to be called is tained
     // (eg. because the function is selected inside
@@ -42,6 +62,8 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
       IF_GRAPH(CTX.DOT.addRelation(*calleeValue, callInst));
     }
   }
+
+  processFunctionCallResultSet(callInst, *callInst.getCalledValue(), taintResults, taintSet);
 }
 
 
@@ -149,74 +171,8 @@ void CallHandler::writeMapForRecursive(const CallInst& callInst, const Function&
 }
 
 
-/**
- * For calls to function pointers or exterals we use conservative heuristic:
- * 1) Every parameter taints the return value
- * 2) Every parameter taints all out pointers
- */
-void CallHandler::buildMappingWithHeuristic(const CallInst& callInst, ResultSet& taintResults) const {
-  std::vector<const Value*> arguments;
-  const size_t argCount = callInst.getNumArgOperands();
-
-  bool isExternal = callInst.getCalledFunction() != NULL;
-
-  arguments.reserve(argCount + 30);
-  for (size_t j = 0; j < argCount; j++) {
-    arguments.push_back(callInst.getArgOperand(j));
-  }
-
-  for (Module::const_global_iterator g_i = CTX.M.global_begin(), g_e = CTX.M.global_end(); g_i != g_e; ++g_i) {
-    const GlobalVariable& g = *g_i;
-
-    // Skip constants (eg. string literals)
-    if (g.isConstant())
-      continue;
-
-    if (isExternal && !CTX.EXCL.includesFunction(&CTX.F) && (g.hasInternalLinkage() || g.hasPrivateLinkage())) {
-      continue;
-    }
-
-    arguments.push_back(&g);
-  }
-
-  const size_t argumentsCount = arguments.size();
-
-  for (size_t i = 0; i < argumentsCount; i++) {
-    const Value& source = *arguments.at(i);
-    int sourcePos = isa<GlobalVariable>(source) ? GLOBAL_POSITION : i;
-
-    // Every argument taints the return value
-    taintResults.insert(std::make_pair(&source, &callInst));
-    DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => -1\n");
-
-    // Every argument taints other pointer arguments (out-arguments)
-    for (size_t j = 0; j < argumentsCount; j++) {
-      const Value& sink = *arguments.at(j);
-      int sinkPos = isa<GlobalVariable>(sink) ? GLOBAL_POSITION : j;
-
-      if (sink.getType()->isPointerTy() || isa<GlobalVariable>(sink)) {
-        DEBUG(CTX.logger.debug() << "Heuristic: type" << *sink.getType() << "\n");
-        // GlobalVariable is a subclass of `Constant`, so we have to check if
-        // the Constant is not a GlobalVariable to really be a constant.
-        // Constant (now used as adjective, not the class name) globals are 
-        // already filtered above, so this should work.
-        if (isa<Constant>(sink) && !isa<GlobalVariable>(sink))
-          continue;
-
-        DEBUG(CTX.logger.debug() << "Heuristic: inserting mapping " << sourcePos << " => " << sinkPos << "\n");
-        taintResults.insert(std::make_pair(&source, &sink));
-      }
-    }
-  }
-
-  CTX.mappingCache.insert(std::make_pair(&callInst, taintResults));
-}
-
-
-void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& callee, TaintSet& taintSet) const {
+void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& callee, ResultSet& taintResults, bool avoidMapping) const {
   DEBUG(CTX.logger.debug() << " * Calling function `" << callee.getName() << "`\n");
-
-  ResultSet taintResults;
 
   // Caching call instruction arguments-to-value mappings
   // per-function. This is a benefit if blocks are inspected
@@ -225,11 +181,15 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
   // Caching must be done per call (not per function!) as
   // the arguments are different for each call.
   IF_PROFILING(long t = Helper::getTimestamp());
-  if (CTX.mappingCache.count(&callInst)) {
+  // avoidMapping is used when resolveing function pointers.
+  // Here, we must not use the mapping, as the CallInst is the
+  // same for each realisation that needs to be unioned.
+  if (!avoidMapping && CTX.mappingCache.count(&callInst)) {
     DEBUG(CTX.logger.debug() << "Use mapping from cache\n");
 
-    ResultSet& res = CTX.mappingCache[&callInst];
-    processFunctionCallResultSet(callInst, callee, res, taintSet);
+    ResultSet& r = CTX.mappingCache[&callInst];
+    taintResults.insert(r.begin(), r.end());
+
     IF_PROFILING(CTX.logger.profile() << " processFCRS :: read 2 from cache took " << Helper::getTimestampDelta(t) << " µs\n");
     return;
   } 
@@ -271,7 +231,7 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     // A call to EXTERNal function
     //
     DEBUG(CTX.logger.debug() << "calling to undefined external. using heuristic.\n");
-    buildMappingWithHeuristic(callInst, taintResults);
+    HeuristicHelper::buildMapping(callInst, taintResults, CTX);
   } else if (&callee == &CTX.F) {
     //
     // A self-recursive call
@@ -308,17 +268,13 @@ void CallHandler::handleFunctionCall(const CallInst& callInst, const Function& c
     CTX.analysisState.stopWithError("", Deferred);
     CTX.analysisState.setMissingDefinition(&callee);
   }
-
-  processFunctionCallResultSet(callInst, callee, taintResults, taintSet);
 }
 
 
 /**
- * Transforms a raw mapping in the form of
- * 0 => 1, 1 => -1, ...
- * to a mapping where actual Values of the call are used
- *
- * -1 on the right hand side of => denotes the return value
+ * Transforms a raw mapping where the parameters of
+ * the function definition are used to a mapping 
+ * where actual Values of the *call* are used
  */
 void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, const Function& callee, const FunctionTaintMap& mapping, ResultSet& taintResults) const {
   IF_PROFILING(long t = Helper::getTimestamp());
@@ -369,7 +325,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     }
 
     DEBUG(CTX.logger.debug() << "processed source-mappings\n");
-    //IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sources took " << Helper::getTimestampDelta(t2) << " µs\n");
+    IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sources took " << Helper::getTimestampDelta(t2) << " µs\n");
 
     // Build set for sinks
     // 
@@ -410,7 +366,7 @@ void CallHandler::createResultSetFromFunctionMapping(const CallInst& callInst, c
     }
 
     DEBUG(CTX.logger.debug() << "processed sink-mappings\n");
-    //IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sinks took " << Helper::getTimestampDelta(t2) << " µs\n");
+    IF_PROFILING(CTX.logger.profile() << "createResultSetFromFunctionMapping :: create sinks took " << Helper::getTimestampDelta(t2) << " µs\n");
 
     for (ValueSet::iterator so_i = sources.begin(), so_e = sources.end(); so_i != so_e; ++so_i) {
       const Value* source = *so_i;
