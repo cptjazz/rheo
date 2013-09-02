@@ -105,6 +105,8 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, T
     const BasicBlock& block = *_workList.front();
     _workList.pop_front();
 
+    taintSet.resetChangedFlag();
+
     DEBUG(logger.debug() << " ----- PROCESS BLOCK " << block.getName() << " -----\n");
     applyMeet(block);
 
@@ -146,8 +148,6 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
   bool blockTainted = taintSet.contains(block) || BH.isBlockTaintedByOtherBlock(block, taintSet);
-
-  taintSet.resetChangedFlag();
 
   for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
     STOP_ON_CANCEL;

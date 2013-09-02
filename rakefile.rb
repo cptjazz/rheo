@@ -17,7 +17,7 @@ task :test, [:pattern] do |t, args|
 end
 
 def run_tests(show_only, args)
-  `make ENABLE_OPTIMIZED=1`
+  `make -j5 ENABLE_OPTIMIZED=1`
 
   @opt_args << " -dataflow"
 
