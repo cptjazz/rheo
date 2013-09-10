@@ -40,12 +40,13 @@ void CallHandler::handleInstructionInternal(const CallInst& callInst, TaintSet& 
         // Produce a Union for all possible callees
         for (FunctionPointerHelper::FunctionSet::iterator x_i = possibleCallees.begin(), x_e = possibleCallees.end(); x_i != x_e; ++x_i) {
           const Function& delegate = **x_i;
-          DEBUG(CTX.logger.debug() << " Generating result set for function pointer realisation `" << **x_i << "`. \n");
+          DEBUG(CTX.logger.debug() << " Generating result set for function pointer realisation `" << delegate << "`. \n");
           handleFunctionCall(callInst, delegate, taintResults, true);
           IF_GRAPH(CTX.DOT.addCallAlias(delegate, callInst));
         } 
       } else {
         // No realisations found, fall back to heuristic
+        DEBUG(CTX.logger.debug() << " Could not resolve function pointer. Falling back to heuristic.\n");
         FunctionPointerHelper::buildMappingWithHeuristic(callInst, taintResults, CTX);
       }
     } else {

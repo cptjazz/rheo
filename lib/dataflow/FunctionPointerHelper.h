@@ -15,7 +15,7 @@ class FunctionPointerHelper {
     static void buildMappingWithResolve(const CallInst& callInst, InstructionHandlerContext& CTX, FunctionSet& possibleCallees);
 
   private:
-    static void addValueIfFunction(InstructionHandlerContext& CTX, FunctionSet& possibleCallees, const Value* v);
+    static bool addValueIfFunction(InstructionHandlerContext& CTX, FunctionSet& possibleCallees, const Value* v);
 };
 
 #endif // FUNCTIONPOINTERHELPER_H
