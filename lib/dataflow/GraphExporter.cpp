@@ -11,6 +11,7 @@ void GraphExporter::init() {
   _file << "  graph [\n";
   _file << "    splines=\"true\",\n";
   _file << "    label=\"" << _functionName << "\"\n";
+  _file << "    bgcolor=\"white\"\n";
   _file << "  ];\n";
 
   _file << "  edge [ fontsize=8, arrowsize=0.7 ];\n";
@@ -62,7 +63,7 @@ void GraphExporter::addBlockNode(const Value& b) {
     return;
 
   _file << "    " << getNodeName(b) << " [label=\"" << getNodeCaption(b) << "\"" 
-        << ", weight=3];\n";
+        << ", weight=3, fillcolor=white];\n";
 
   _nodes.insert(getNodeName(b));
 }
@@ -164,21 +165,21 @@ std::string GraphExporter::getLineStyle(std::string reason) const {
 }
 
 std::string GraphExporter::getShape(const Value& v) const {
-  return "shape=record";
+  return "shape=record, fillcolor=white";
 }
 
 std::string GraphExporter::getInOutNodeShape(const Value& v) const {
-  return "shape=record, style=filled, color=yellow";
+  return "shape=record, style=filled, fillcolor=yellow";
 }
 
 std::string GraphExporter::getInNodeShape(const Value& v) const {
   return isa<BasicBlock>(v) 
-      ? "shape=record, style=filled, color=burlywood" 
-      : "shape=record, style=filled, color=lightblue";
+      ? "shape=record, style=filled, fillcolor=burlywood" 
+      : "shape=record, style=filled, fillcolor=lightblue";
 }
 
 std::string GraphExporter::getOutNodeShape(const Value& v) const {
-  return "shape=record, style=filled, color=pink";
+  return "shape=record, style=filled, fillcolor=pink";
 }
 
 std::string GraphExporter::getNodeName(const Value& i) const {
