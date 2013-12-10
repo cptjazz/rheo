@@ -209,11 +209,7 @@ std::string GraphExporter::getNodeCaption(const Value& v) const {
     } else if (isa<BranchInst>(v)) {
       ss << "br " << getNodeName(v);
     } else {
-      std::string s = v.getName().str();
-      replace( s.begin(), s.end(), '[', '(');
-      replace( s.begin(), s.end(), ']', ')');
-      replace( s.begin(), s.end(), '\n', ' ');
-      ss << s << " " << getNodeName(v);
+      ss << "tmp" << getNodeName(v);
     }
   } else {
     ss << v.getName().str();
