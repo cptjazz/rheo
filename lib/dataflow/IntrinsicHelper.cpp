@@ -107,6 +107,8 @@ bool IntrinsicHelper::shouldIgnoreCall(const Function& f) {
     case Intrinsic::invariant_end:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_declare:
+    case Intrinsic::stacksave:
+    case Intrinsic::stackrestore:
       return true;
   }
 
