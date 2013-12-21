@@ -46,12 +46,6 @@ class ShuffleVectorHandler : public UnsupportedInstructionHandlerTrait {
       : UnsupportedInstructionHandlerTrait(Instruction::ShuffleVector, "ShuffleVector is not supported.", ctx) { }
 };
 
-class InsertValueHandler : public UnsupportedInstructionHandlerTrait {
-  public:
-    InsertValueHandler(InstructionHandlerContext& ctx)
-      : UnsupportedInstructionHandlerTrait(Instruction::InsertValue, "InsertValue is not supported.", ctx) { }
-};
-
 class CmpXchgHandler : public UnsupportedInstructionHandlerTrait {
   public:
     CmpXchgHandler(InstructionHandlerContext& ctx)

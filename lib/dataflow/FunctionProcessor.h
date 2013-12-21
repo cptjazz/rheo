@@ -14,6 +14,7 @@
 #include "BranchHandler.h"
 #include "SwitchHandler.h"
 #include "StoreHandler.h"
+#include "InsertValueHandler.h"
 #include "UnsupportedInstructions.h"
 #include "CallHandler.h"
 #include "DefaultHandler.h"
@@ -107,6 +108,7 @@ private:
     IHD.registerHandler<SwitchHandler>();
     IHD.registerHandler<StoreHandler>();
     IHD.registerHandler<CallHandler>();
+    IHD.registerHandler<InsertValueHandler>();
 
     IHD.registerHandlerForUnsupportedInstruction<IndirectBranchHandler>();
     IHD.registerHandlerForUnsupportedInstruction<IntToPtrHandler>();
@@ -114,7 +116,6 @@ private:
     IHD.registerHandlerForUnsupportedInstruction<ResumeHandler>();
     IHD.registerHandlerForUnsupportedInstruction<LandingPadHandler>();
     IHD.registerHandlerForUnsupportedInstruction<InsertElementHandler>();
-    IHD.registerHandlerForUnsupportedInstruction<InsertValueHandler>();
     IHD.registerHandlerForUnsupportedInstruction<ShuffleVectorHandler>();
     IHD.registerHandlerForUnsupportedInstruction<CmpXchgHandler>();
     IHD.registerHandlerForUnsupportedInstruction<AtomicRmwHandler>();
