@@ -22,11 +22,8 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
   const BasicBlock& br1 = *inst.getSuccessor(0);
   const BasicBlock& br2 = *inst.getSuccessor(1);
 
-  const BasicBlock& join1 = *const_cast<const BasicBlock*>(
-      CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&br2), const_cast<BasicBlock*>(&br1)));
-
-  const BasicBlock& join2 = *const_cast<const BasicBlock*>(
-      CTX.PDT.findNearestCommonDominator(const_cast<BasicBlock*>(&br1), const_cast<BasicBlock*>(&br2)));
+  const BasicBlock& join1 = *CTX.PDT.findNearestCommonDominator(&br2, &br1);
+  const BasicBlock& join2 = *CTX.PDT.findNearestCommonDominator(&br1, &br2);
 
   // We need to check this twice. There are special constructs (a block terminated by BR and no 
   // join-block for the branches. This can happen if both branches loop infinitely and all
@@ -59,9 +56,10 @@ void BranchHandler::handleConditionalBranch(const BranchInst& inst, TaintSet& ta
 }
 
 void BranchHandler::handleUnconditionalBranch(const BranchInst& inst, TaintSet& taintSet) const {
-  if (taintSet.hasChanged()) {
-    const BasicBlock* target = inst.getSuccessor(0);
-    CTX.enqueueBlockToWorklist(target);
-    DEBUG(CTX.logger.debug() << "Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP\n");
-  }
+  if (!taintSet.hasChanged())
+    return;
+ 
+  const BasicBlock* target = inst.getSuccessor(0);
+  CTX.enqueueBlockToWorklist(target);
+  DEBUG(CTX.logger.debug() << "Added block " << target->getName() << " for reinspection due to UNCONDITIONAL JUMP\n");
 }

@@ -71,6 +71,7 @@ class TaintSet {
 
     inline void addAll(const TaintSet& set) {
       ++NumTaintSetAddAll;
+
       bool setChanged = _taintSet.insertAll(set._taintSet);
       _taintSetChanged |= setChanged;
     }
@@ -84,9 +85,8 @@ class TaintSet {
     }
 
     inline void printTo(raw_ostream& stream) const {
-      for (InternalTaintSet::const_iterator i = _taintSet.begin(), e = _taintSet.end(); i != e; ++i) {
-        stream << **i << " | ";
-      }
+      for (auto i : _taintSet)
+        stream << *i << " | ";
 
       stream << "\n";
     } 

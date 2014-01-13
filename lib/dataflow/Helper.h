@@ -34,8 +34,8 @@ class Helper {
      * @return true if the function is in the provided circular reference set.
      */
     static bool circleListContains(NodeVector& v, const Function& f) {
-      for (NodeVector::const_iterator i = v.begin(), e = v.end(); i != e; i++)
-        if ((*i)->getFunction() == &f)
+      for (auto i : v)
+        if (i->getFunction() == &f)
           return true;
 
       return false;

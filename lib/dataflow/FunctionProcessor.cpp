@@ -35,28 +35,22 @@ void FunctionProcessor::processFunction() {
 
   std::map<const Value*, TaintSet> initialTaintMap;
 
-  TaintMap::iterator arg_i = setHelper.arguments.begin();
-  TaintMap::iterator arg_e = setHelper.arguments.end();
-
-  for(; arg_i != arg_e; ++arg_i) {
-    initialTaintMap.insert(std::make_pair(arg_i->first, arg_i->second));
+  for (auto& arg_i : setHelper.arguments) {
+    initialTaintMap.insert(std::make_pair(arg_i.first, arg_i.second));
   }
 
   do {
     setHelper.resetResultSetChanged();
 
     DEBUG(logger.debug() << "Starting arg iteration " << resultIteration << " for " << F.getName() << "\n");
-
-    TaintMap::iterator arg_i = setHelper.arguments.begin();
-    TaintMap::iterator arg_e = setHelper.arguments.end();
       
     size_t argIdx = 0;
 
-    for(; arg_i != arg_e; ++arg_i) {
+    for (auto& arg_i : setHelper.arguments) {
       argIdx++;
 
-      const Value& arg = *arg_i->first;
-      TaintSet& taintSet = arg_i->second;
+      const Value& arg = *arg_i.first;
+      TaintSet& taintSet = arg_i.second;
 
       CTX.currentArgument = &arg;
       taintSet.resetChangedFlag();
@@ -86,10 +80,8 @@ void FunctionProcessor::buildTaintSetFor(const Value& arg, TaintSet& taintSet, T
   _blockList.clear();
   _workList.clear();
 
-  for (Function::const_iterator b_i = F.begin(), b_e = F.end(); b_i != b_e; ++b_i) {
-    const BasicBlock& block = cast<BasicBlock>(*b_i);
+  for (const BasicBlock& block : F)
     _workList.push_back(&block);
-  }
 
   const BasicBlock* firstBlock = _workList.front();
   const BasicBlock* lastBlock = _workList.back();
@@ -149,12 +141,10 @@ void FunctionProcessor::applyMeet(const BasicBlock& block) {
 void FunctionProcessor::processBasicBlock(const BasicBlock& block, TaintSet& taintSet) {
   bool blockTainted = taintSet.contains(block) || BH.isBlockTaintedByOtherBlock(block, taintSet);
 
-  for (BasicBlock::const_iterator inst_i = block.begin(), inst_e = block.end(); inst_i != inst_e; ++inst_i) {
+  for (const Instruction& inst : block) {
     STOP_ON_CANCEL;
 
     IF_PROFILING(long t = Helper::getTimestamp());
-
-    const Instruction& inst = cast<Instruction>(*inst_i);
 
     if (blockTainted)
       handleBlockTainting(inst, block, taintSet);
@@ -179,9 +169,9 @@ void FunctionProcessor::printTaints() {
   logger.output() << F.getName() << "(";
   bool isFirstTime = true;
 
-  for (ResultSet::const_iterator i = setHelper.resultSet.begin(), e = setHelper.resultSet.end(); i != e; ++i) {
-    const Value& arg = cast<Value>(*i->first);
-    const Value& retval = cast<Value>(*i->second);
+  for (auto i : setHelper.resultSet) {
+    const Value& arg = cast<Value>(*i.first);
+    const Value& retval = cast<Value>(*i.second);
 
     logger.output() << (isFirstTime ? "" : ", ") << Helper::getValueName(arg) << " => " << Helper::getValueName(retval);
     isFirstTime = false;
@@ -238,8 +228,7 @@ void FunctionProcessor::findArguments() {
     std::set<SpecialTaint>& set = STH.getCalledFunctionSpecialTaints(call->getCalledFunction());
     STH.reRegisterNestedFunctionSpecialTaints(F, set);
 
-    for (std::set<SpecialTaint>::iterator s_i = set.begin(), s_e = set.end(); s_i != s_e; ++s_i) {
-      const SpecialTaint taint = *s_i;
+    for (const auto& taint : set) {
       DEBUG(logger.debug() << " Adding special taint from nested function\n");
       handleFoundArgument(taint.type, *(taint.specialTaintValue));
     }
@@ -247,9 +236,7 @@ void FunctionProcessor::findArguments() {
 
   // Ordinary function arguments
   //
-  for (Function::const_arg_iterator a_i = F.arg_begin(), a_e = F.arg_end(); a_i != a_e; ++a_i) {
-    const Argument& arg = *a_i;
-
+  for (const Argument& arg : F.getArgumentList()) {
     TaintType taintType = (arg.getType()->isPointerTy())
       ? Source | Sink
       : Source;
@@ -259,8 +246,7 @@ void FunctionProcessor::findArguments() {
 
   // Global variables
   //
-  for (Module::const_global_iterator g_i = M.global_begin(), g_e = M.global_end(); g_i != g_e; ++g_i) {
-    const GlobalVariable& g = *g_i;
+  for (const GlobalVariable& g : M.getGlobalList()) {
 
     // Skip constants (eg. string literals)
     if (g.isConstant())
@@ -331,10 +317,9 @@ void FunctionProcessor::handleFoundArgument(TaintType taintType, const Value& ar
   TaintSet taintSet;
   taintSet.add(arg);
 
-  for (TaintSet::const_iterator i_i = initialValues.begin(), i_e = initialValues.end(); i_i != i_e; ++i_i) {
-    const Value& v = **i_i;
-    IF_GRAPH(DOT.addRelation(arg, v, "created"));
-    taintSet.add(v);
+  for (const Value* v : initialValues) {
+    IF_GRAPH(DOT.addRelation(arg, *v, "created"));
+    taintSet.add(*v);
   }
 
   setHelper.arguments.insert(std::make_pair(&arg, taintSet));

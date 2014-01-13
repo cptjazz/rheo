@@ -1,8 +1,7 @@
 #include "BlockHelper.h" 
 
 bool BlockHelper::isBlockTaintedByOtherBlock(const BasicBlock& currentBlock, TaintSet& taintSet) const {
-  for (TaintSet::const_iterator s_i = taintSet.begin(), s_e = taintSet.end(); s_i != s_e; ++s_i) {
-    const Value* v = *s_i;
+  for (const Value* v : taintSet) {
 
     const BasicBlock* taintedBlock = dyn_cast_or_null<BasicBlock>(v);
     if (!taintedBlock)

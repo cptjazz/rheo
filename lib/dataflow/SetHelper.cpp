@@ -4,12 +4,9 @@
 
 void SetHelper::buildResultSet() {
 
-  TaintMap::const_iterator arg_i = arguments.begin();
-  TaintMap::const_iterator arg_e = arguments.end();
-
-  for(; arg_i != arg_e; ++arg_i) {
-    const Value& arg = *arg_i->first;
-    const TaintSet& taintSet = arg_i->second;
+  for (auto arg_i : arguments) {
+    const Value& arg = *arg_i.first;
+    const TaintSet& taintSet = arg_i.second;
 
     intersectSets(arg, taintSet);
   }
@@ -17,13 +14,10 @@ void SetHelper::buildResultSet() {
 
 
 void SetHelper::intersectSets(const Value& arg, const TaintSet argTaintSet) {
-  TaintMap::const_iterator ret_i = returnStatements.begin();
-  TaintMap::const_iterator ret_e = returnStatements.end();
 
-  for (; ret_i != ret_e; ++ret_i) {
-    const Value& retval = *ret_i->first;
-    const TaintSet retTaintSet = ret_i->second;
-
+  for (auto ret_i : returnStatements) {
+    const Value& retval = *ret_i.first;
+    const TaintSet retTaintSet = ret_i.second;
 
     DEBUG(logger.debug() << "Ret-set for `" << retval << "`:\n");
     DEBUG(retTaintSet.printTo(logger.debug()));
