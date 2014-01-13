@@ -6,7 +6,7 @@ Prerequisites
 * Ruby gem `bundler' (sudo gem install bundler)
 * Install required gem files (bundle install)
 
-* LLVM 3.3 (install from source, see below)
+* LLVM 3.4 (install from source, see below)
 * Clang >= 3.2
 * Graphviz to render flow diagrams
 
@@ -15,10 +15,10 @@ Install
 =======
 
 * Build and install LLVM (see below)
-* check `opt --version` -- it should be 3.3
+* check `opt --version` -- it should be 3.4
 * Adapt autoconf/configure.ac to suit you LLVM installation
 * run autoconf/AutoRegen.sh
-* run ./configure
+* run ./configure --enable-cxx11
 * run make
 * Run tests: rake test
 
@@ -27,6 +27,6 @@ Install LLVM
 ------------
 
 * Clone git mirror: https://github.com/llvm-mirror/llvm
-* git checkout release_33
-* ./configure
-* sudo make install ENABLE_OPTIMIZED=1 (builds and installs)
+* git checkout release_34
+* ./configure --enable-optimized --enable-targets=x86,x86_64 --enable-cxx11
+* sudo make install  (builds and installs)
